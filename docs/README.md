@@ -93,6 +93,8 @@
 |---|---|
 | [operations/local-production.md](./operations/local-production.md) | Docker 기반 로컬 운영 실행, 관리자 초기화, 백업·복구 |
 | [operations/external-render-supabase.md](./operations/external-render-supabase.md) | Render·Supabase 외부 호환성 검증과 재현용 설정 |
+| [operations/ci-cd-policy.md](./operations/ci-cd-policy.md) | CI/CD·테스트 환경 정책 (MSA 모노레포 전환 대비, 게이트·커버리지·CD·전환 단계) |
+| [operations/local-msa.md](./operations/local-msa.md) | 로컬 MSA 구동 (Strangler, 서비스당 DB, 자원 절감, compose 구성) |
 | [guides/user-guide.md](./guides/user-guide.md) | 일반 사용자 기능 안내 |
 | [guides/admin-guide.md](./guides/admin-guide.md) | 관리자 보안·운영 절차 |
 | [guides/development-workflow.md](./guides/development-workflow.md) | 브랜치, 검증, Pull Request 흐름 |
