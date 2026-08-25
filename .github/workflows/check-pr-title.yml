@@ -1,0 +1,66 @@
+name: Check PR Title
+
+on:
+  pull_request:
+    branches: [dev, main]
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate base branch (main ← dev only)
+        if: github.event.pull_request.base.ref == 'main'
+        env:
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if [ "$HEAD_BRANCH" != "dev" ]; then
+            echo "❌ main 브랜치에는 dev 브랜치에서만 PR을 올릴 수 있습니다."
+            echo "현재 브랜치: $HEAD_BRANCH"
+            echo ""
+            echo "  허용: dev → main"
+            echo "  거부: feature/* → main, hotfix/* → main"
+            echo ""
+            echo "hotfix도 dev를 거쳐 main에 병합해주세요."
+            exit 1
+          fi
+          echo "✅ 브랜치 규칙 통과: dev → main"
+
+      - name: Validate PR title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          PATTERN='^\[(FEAT|FIX|HOTFIX|REFACTOR|TEST|CHORE|DOCS|STYLE|PERF)\] .+'
+          if ! echo "$PR_TITLE" | grep -qP "$PATTERN"; then
+            echo "❌ PR 제목 형식 오류: $PR_TITLE"
+            echo ""
+            echo "========================================"
+            echo "  PR 제목 규칙"
+            echo "========================================"
+            echo ""
+            echo "  형식: [PREFIX] 작업 내용 요약"
+            echo ""
+            echo "  PREFIX 목록:"
+            echo "    [FEAT]      새로운 기능 추가"
+            echo "    [FIX]       버그 수정"
+            echo "    [HOTFIX]    프로덕션 긴급 버그 수정"
+            echo "    [REFACTOR]  기능 변경 없는 코드 개선"
+            echo "    [TEST]      테스트 코드 추가/수정"
+            echo "    [CHORE]     빌드 설정, 의존성, 개발 환경"
+            echo "    [DOCS]      문서 작성/수정"
+            echo "    [STYLE]     포맷 등 로직 무관 스타일"
+            echo "    [PERF]      성능 개선"
+            echo ""
+            echo "  예시:"
+            echo "    [FEAT] 월드맵 UI 구현"
+            echo "    [FEAT] 경매 입찰 API 구현"
+            echo "    [FIX] 로그인 500 에러 수정"
+            echo "    [CHORE] GitHub Actions 워크플로우 수정"
+            echo ""
+            echo "  이슈 연결은 PR 본문에 작성하세요:"
+            echo "    Closes #번호     → 머지 시 이슈 자동 Close"
+            echo "    Related to #번호 → 이슈 연결만 (Close 안 함)"
+            echo "========================================"
+            exit 1
+          fi
+          echo "✅ PR 제목 형식이 올바릅니다."

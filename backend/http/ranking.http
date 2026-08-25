@@ -1,0 +1,26 @@
+baseUrl = http://localhost:8080
+
+### 영토 등급 보유 랭킹 조회 (비로그인)
+GET {{baseUrl}}/api/v1/rankings/territory-hold?page=0&size=10
+
+### 영토 등급 보유 랭킹 조회 (로그인)
+GET {{baseUrl}}/api/v1/rankings/territory-hold?page=0&size=10
+Authorization: Bearer {{accessToken}}
+
+### 경매 AP 소비 랭킹 조회 (비로그인)
+GET {{baseUrl}}/api/v1/rankings/auction-spend?page=0&size=10
+
+### 경매 AP 소비 랭킹 조회 (로그인)
+GET {{baseUrl}}/api/v1/rankings/auction-spend?page=0&size=10
+Authorization: Bearer {{accessToken}}
+
+### 트로피 랭킹 조회 (비로그인)
+GET {{baseUrl}}/api/v1/rankings/trophy?page=0&size=10
+
+### 트로피 랭킹 조회 (로그인 — 내 순위 포함)
+GET {{baseUrl}}/api/v1/rankings/trophy?page=0&size=10
+Authorization: Bearer {{accessToken}}
+
+### 내 랭킹 조회
+GET {{baseUrl}}/api/v1/rankings/me
+Authorization: Bearer {{accessToken}}

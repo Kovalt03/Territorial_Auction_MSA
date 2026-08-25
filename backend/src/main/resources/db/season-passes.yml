@@ -1,0 +1,8 @@
+seasonPasses:
+  - name: "시즌 패스 Vol.1"
+    costAp: 1000
+    durationDays: 30
+    islandBonusPct: 50
+    extraBuilders: 1
+    taxExemptBonus: 2
+    buildTimeReductionPct: 20

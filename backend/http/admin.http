@@ -1,0 +1,23 @@
+baseUrl = http://localhost:8080
+
+### 밸런스 설정 조회 (카탈로그 + 현재값/기본값)
+GET {{baseUrl}}/api/v1/admin/settings/balance
+Authorization: Bearer {{accessToken}}
+
+### 밸런스 설정 수정 (예: 수리 GP/HP를 3으로)
+PATCH {{baseUrl}}/api/v1/admin/settings/balance
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "key": "REPAIR_GP_PER_HP", "value": 3 }
+
+### 밸런스 설정 수정 (성 주둔 수용량을 6으로)
+PATCH {{baseUrl}}/api/v1/admin/settings/balance
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "key": "GARRISON_CAP_CASTLE", "value": 6 }
+
+### 경매 전역 토글 조회
+GET {{baseUrl}}/api/v1/admin/settings/auction
+Authorization: Bearer {{accessToken}}

@@ -1,0 +1,82 @@
+# 시즌 패스 레벨 보상 설정
+# 현재 활성 시즌에 적용됩니다.
+# rewardKind: ITEM(아이템 지급) | GP(GP 지급) | BUILD_TIME_REDUCTION(건설 시간 감소)
+#   - ITEM: itemType(INVINCIBILITY/ATTACK_NORMAL/ATTACK_PRECISION) + quantity(개수)
+#   - GP  : quantity(지급할 GP 수량), itemType 생략
+#   - BUILD_TIME_REDUCTION : quantity(추가로 감소시킬 건설 시간 %), itemType 생략
+# track: FREE(패스 없이 수령) | PREMIUM(패스 구매자만)
+rewards:
+  - level: 5
+    track: FREE
+    rewardName: "일반 공격권 x1"
+    rewardKind: ITEM
+    itemType: ATTACK_NORMAL
+    quantity: 1
+  - level: 5
+    track: PREMIUM
+    rewardName: "무적권 x1"
+    rewardKind: ITEM
+    itemType: INVINCIBILITY
+    quantity: 1
+  - level: 10
+    track: FREE
+    rewardName: "GP 500"
+    rewardKind: GP
+    quantity: 500
+  - level: 10
+    track: PREMIUM
+    rewardName: "일반 공격권 x2"
+    rewardKind: ITEM
+    itemType: ATTACK_NORMAL
+    quantity: 2
+  - level: 15
+    track: FREE
+    rewardName: "정밀 공격권 x1"
+    rewardKind: ITEM
+    itemType: ATTACK_PRECISION
+    quantity: 1
+  - level: 15
+    track: PREMIUM
+    rewardName: "무적권 x1"
+    rewardKind: ITEM
+    itemType: INVINCIBILITY
+    quantity: 1
+  - level: 15
+    track: PREMIUM
+    rewardName: "건설 시간 10% 감소"
+    rewardKind: BUILD_TIME_REDUCTION
+    quantity: 10
+  - level: 20
+    track: FREE
+    rewardName: "GP 1000"
+    rewardKind: GP
+    quantity: 1000
+  - level: 20
+    track: PREMIUM
+    rewardName: "정밀 공격권 x2"
+    rewardKind: ITEM
+    itemType: ATTACK_PRECISION
+    quantity: 2
+  - level: 25
+    track: FREE
+    rewardName: "무적권 x2"
+    rewardKind: ITEM
+    itemType: INVINCIBILITY
+    quantity: 2
+  - level: 25
+    track: PREMIUM
+    rewardName: "일반 공격권 x3"
+    rewardKind: ITEM
+    itemType: ATTACK_NORMAL
+    quantity: 3
+  - level: 30
+    track: FREE
+    rewardName: "GP 2000"
+    rewardKind: GP
+    quantity: 2000
+  - level: 30
+    track: PREMIUM
+    rewardName: "무적권 x3"
+    rewardKind: ITEM
+    itemType: INVINCIBILITY
+    quantity: 3

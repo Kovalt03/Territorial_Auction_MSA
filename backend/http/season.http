@@ -1,0 +1,57 @@
+baseUrl = http://localhost:8080
+
+### 시즌 패스 보유 여부 조회
+GET {{baseUrl}}/api/v1/season-pass/me
+Authorization: Bearer {{accessToken}}
+
+### 시즌 패스 현황 조회 (레벨·보상 목록)
+GET {{baseUrl}}/api/v1/season-pass
+Authorization: Bearer {{accessToken}}
+
+### 시즌 패스 구매
+POST {{baseUrl}}/api/v1/season-pass/purchase
+Authorization: Bearer {{accessToken}}
+
+### 시즌 패스 구매 — AP 부족 (400 에러 확인)
+# available_ap < cost_ap 상태의 계정으로 요청
+POST {{baseUrl}}/api/v1/season-pass/purchase
+Authorization: Bearer {{accessToken}}
+
+### 레벨 즉시 구매 (AP 차감 후 레벨 +1)
+# 가격은 GET /season-pass 응답의 levelUpCostAp 참고
+POST {{baseUrl}}/api/v1/season-pass/level-up
+Authorization: Bearer {{accessToken}}
+
+### 레벨 즉시 구매 — AP 부족 (400 에러 확인)
+POST {{baseUrl}}/api/v1/season-pass/level-up
+Authorization: Bearer {{accessToken}}
+
+### 레벨 즉시 구매 — 최고 레벨 도달 (409 에러 확인)
+# level=30 계정으로 요청
+POST {{baseUrl}}/api/v1/season-pass/level-up
+Authorization: Bearer {{accessToken}}
+
+### 미션 목록 조회 (진행도 포함)
+GET {{baseUrl}}/api/v1/season-pass/missions
+Authorization: Bearer {{accessToken}}
+
+### 미션 보상 수령
+POST {{baseUrl}}/api/v1/season-pass/missions/1/claim
+Authorization: Bearer {{accessToken}}
+
+### 미션 보상 수령 — 미완료 미션 (400 에러 확인)
+POST {{baseUrl}}/api/v1/season-pass/missions/2/claim
+Authorization: Bearer {{accessToken}}
+
+### 미션 보상 수령 — 이미 수령 (409 에러 확인)
+POST {{baseUrl}}/api/v1/season-pass/missions/1/claim
+Authorization: Bearer {{accessToken}}
+
+### 레벨 보상 수령 (무료/프리미엄 2트랙)
+POST {{baseUrl}}/api/v1/season-pass/rewards/1/claim
+Authorization: Bearer {{accessToken}}
+
+### 레벨 보상 수령 — 프리미엄 미보유 (403 에러 확인)
+# 시즌 패스 미구매 계정으로 프리미엄 트랙 보상 요청
+POST {{baseUrl}}/api/v1/season-pass/rewards/2/claim
+Authorization: Bearer {{accessToken}}

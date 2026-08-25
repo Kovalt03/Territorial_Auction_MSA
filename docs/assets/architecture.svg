@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" role="img" aria-labelledby="title desc">
+  <title id="title">Territorial Auction layered system architecture</title>
+  <desc id="desc">A layered architecture consisting of client, presentation, application, and infrastructure layers.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="#64748b"/></marker>
+    <style>.title{fill:#111827;font:700 32px Arial,sans-serif}.subtitle{fill:#6b7280;font:400 17px Arial,sans-serif}.layer{fill:#475569;font:700 15px Arial,sans-serif;letter-spacing:1.5px}.name{fill:#0f172a;font:700 21px Arial,sans-serif}.detail{fill:#475569;font:400 15px Arial,sans-serif}.tag{fill:#334155;font:600 13px Arial,sans-serif}.edge{stroke:#64748b;stroke-width:2.5;fill:none;marker-end:url(#arrow)}.edge-label{fill:#64748b;font:600 13px Arial,sans-serif}</style>
+  </defs>
+  <rect width="1200" height="760" fill="#ffffff"/>
+  <text x="56" y="62" class="title">System Architecture</text><text x="56" y="92" class="subtitle">Territorial Auction · Layered Spring Boot Monolith</text>
+
+  <g>
+    <rect x="36" y="122" width="1128" height="112" rx="16" fill="#f8fafc" stroke="#e2e8f0" stroke-width="2"/>
+    <text x="62" y="151" class="layer">CLIENT LAYER</text>
+    <rect x="250" y="151" width="330" height="58" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+    <text x="278" y="178" class="name">Player · Administrator</text><text x="278" y="199" class="detail">Web Browser</text>
+  </g>
+
+  <g>
+    <rect x="36" y="254" width="1128" height="132" rx="16" fill="#eff6ff" stroke="#bfdbfe" stroke-width="2"/>
+    <text x="62" y="284" class="layer">PRESENTATION LAYER</text>
+    <rect x="250" y="280" width="620" height="78" rx="12" fill="#ffffff" stroke="#93c5fd" stroke-width="2"/>
+    <rect x="274" y="301" width="80" height="28" rx="14" fill="#dbeafe"/><text x="314" y="320" class="tag" text-anchor="middle">Frontend</text>
+    <text x="382" y="313" class="name">React SPA</text><text x="382" y="338" class="detail">React 18 · TypeScript · Vite · Tailwind CSS</text>
+  </g>
+
+  <g>
+    <rect x="36" y="406" width="1128" height="184" rx="16" fill="#faf5ff" stroke="#e9d5ff" stroke-width="2"/>
+    <text x="62" y="436" class="layer">APPLICATION LAYER</text>
+    <rect x="250" y="432" width="760" height="130" rx="12" fill="#ffffff" stroke="#d8b4fe" stroke-width="2"/>
+    <rect x="274" y="454" width="99" height="28" rx="14" fill="#f3e8ff"/><text x="323" y="473" class="tag" text-anchor="middle">Spring Boot</text>
+    <text x="398" y="470" class="name">API · Domain · Realtime</text><text x="398" y="496" class="detail">Spring Security · JPA · Flyway · WebSocket</text>
+    <rect x="274" y="516" width="125" height="28" rx="8" fill="#f8fafc" stroke="#ddd6fe"/><text x="336" y="535" class="tag" text-anchor="middle">Auction · Map</text>
+    <rect x="410" y="516" width="145" height="28" rx="8" fill="#f8fafc" stroke="#ddd6fe"/><text x="482" y="535" class="tag" text-anchor="middle">Building · Military</text>
+    <rect x="566" y="516" width="142" height="28" rx="8" fill="#f8fafc" stroke="#ddd6fe"/><text x="637" y="535" class="tag" text-anchor="middle">Social · Notification</text>
+    <rect x="719" y="516" width="118" height="28" rx="8" fill="#f8fafc" stroke="#ddd6fe"/><text x="778" y="535" class="tag" text-anchor="middle">Item · Season</text>
+  </g>
+
+  <g>
+    <rect x="36" y="610" width="1128" height="114" rx="16" fill="#f0fdfa" stroke="#99f6e4" stroke-width="2"/>
+    <text x="62" y="640" class="layer">INFRASTRUCTURE LAYER</text>
+    <rect x="250" y="640" width="220" height="58" rx="12" fill="#ffffff" stroke="#99f6e4" stroke-width="2"/><text x="274" y="666" class="name">PostgreSQL</text><text x="274" y="687" class="detail">Persistent data · Flyway</text>
+    <rect x="492" y="640" width="220" height="58" rx="12" fill="#ffffff" stroke="#fed7aa" stroke-width="2"/><text x="516" y="666" class="name">Redis</text><text x="516" y="687" class="detail">Cache · Token · Lock</text>
+    <rect x="734" y="640" width="220" height="58" rx="12" fill="#ffffff" stroke="#fde68a" stroke-width="2"/><text x="758" y="666" class="name">Scheduler</text><text x="758" y="687" class="detail">Auction · Siege · Season · Tax</text>
+  </g>
+
+  <path d="M415 209V263" class="edge"/><text x="432" y="244" class="edge-label">HTTPS</text>
+  <path d="M560 358V415" class="edge"/><text x="578" y="388" class="edge-label">REST API · STOMP / SockJS</text>
+  <path d="M625 562V619" class="edge"/>
+</svg>

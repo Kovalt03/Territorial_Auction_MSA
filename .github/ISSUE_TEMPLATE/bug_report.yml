@@ -1,0 +1,38 @@
+name: 결함 보고
+description: 재현 가능한 오류나 회귀를 기록합니다.
+title: "[BUG] "
+labels: [bug]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: 요약
+      description: 무엇이 기대와 다르게 동작했나요?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 재현 절차
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대 결과와 실제 결과
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 환경
+      description: 브라우저, OS, 앱 버전 또는 커밋 SHA
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 로그·스크린샷
+      description: 비밀값, 토큰, 개인정보는 제거하고 첨부합니다.

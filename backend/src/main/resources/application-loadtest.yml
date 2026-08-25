@@ -1,0 +1,49 @@
+# 부하 테스트 전용 프로파일 — 전용 DB에 대해서만 사용한다(개발 DB 금지).
+# 매 회차 DDL 초기화로 데이터 누적을 막고, 계측·느린쿼리 가시화를 켠다.
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create        # 회차마다 스키마 초기화 → 회차 간 데이터 누적 방지
+    show-sql: false           # 부하 중 콘솔 I/O 병목·노이즈 제거
+    properties:
+      hibernate:
+        format_sql: false
+        generate_statistics: true                              # N+1은 쿼리 실행횟수로 잡는다
+        session.events.log.LOG_QUERIES_SLOWER_THAN_MS: 100     # 100ms 초과 쿼리 로깅
+
+  # base 설정이 요구하는 OAuth 클라이언트 — 부하용 더미(로컬 프로파일과 동일)
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: dummy
+            client-secret: dummy
+          kakao:
+            client-id: dummy
+            client-secret: dummy
+
+logging:
+  level:
+    # 요청별 HQL·세션 통계 로그는 부하 생성량만큼 콘솔 I/O를 만들어 측정을 왜곡한다.
+    # 통계 수집과 100ms 초과 쿼리 로깅은 위 hibernate 설정으로 계속 유지한다.
+    org.hibernate.stat: WARN
+    org.hibernate.engine.internal.StatisticalLoggingSessionEventListener: WARN
+
+# 1시간 Soak 중 feeder JWT가 만료되지 않도록 부하 전용으로만 연장한다.
+jwt:
+  access-token-expiry: 7200000
+
+# Actuator — 단발성 측정은 /actuator/metrics 폴링 + /actuator/prometheus 로 충분
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, metrics, prometheus
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true   # 엔드포인트별 p95/p99 히스토그램
+
+loadtest:
+  token-output: ${LOADTEST_TOKEN_OUTPUT:src/gatling/resources/tokens.csv}

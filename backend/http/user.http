@@ -1,0 +1,70 @@
+baseUrl = http://localhost:8080
+
+### 유저 프로필 조회
+GET {{baseUrl}}/api/v1/users/1
+
+### 내 프로필 조회
+GET {{baseUrl}}/api/v1/users/me
+Authorization: Bearer {{accessToken}}
+
+### 회원 탈퇴
+DELETE {{baseUrl}}/api/v1/users/me
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "password": "password1!"
+}
+
+### 알림 설정 조회
+GET {{baseUrl}}/api/v1/users/me/settings
+Authorization: Bearer {{accessToken}}
+
+### 알림 수신 설정 변경
+PATCH {{baseUrl}}/api/v1/users/me/settings
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "isOutbidEnabled": false,
+  "isAuctionStartEnabled": true,
+  "isMarketingEnabled": false
+}
+
+### GP/AP 잔액 조회
+GET {{baseUrl}}/api/v1/users/me/wallet
+Authorization: Bearer {{accessToken}}
+
+### 나의 영토 목록 조회
+GET {{baseUrl}}/api/v1/users/me/territories?page=0&size=10
+Authorization: Bearer {{accessToken}}
+
+### 닉네임 변경
+PATCH {{baseUrl}}/api/v1/users/me/nickname
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "nickname": "새닉네임"
+}
+
+### 비밀번호 변경
+PATCH {{baseUrl}}/api/v1/users/me/password
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "currentPassword": "password1!",
+  "newPassword": "newPassword1!"
+}
+
+### AP 충전
+POST {{baseUrl}}/api/v1/users/me/ap/charge
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "amount": 1000,
+  "paymentKey": "tgen_20260408_test_key",
+  "orderId": "order_user1_1744113600"
+}

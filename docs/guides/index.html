@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>픽셀 경매 · 가이드</title>
+<style>
+  :root{
+    --bg:#0a0e1a; --card:#121829; --line:#263251; --line-soft:#1c2740;
+    --cyan:#00f5ff; --purple:#8b50ff; --gold:#ffd700; --green:#00ff88;
+    --text:#e0e8ff; --muted:#8c98bd; --dim:#6f7da0;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,monospace;
+    --sans:"Pretendard",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;display:flex;align-items:center;justify-content:center;padding:40px 20px;
+    background-image:
+      radial-gradient(1100px 560px at 80% -8%, rgba(139,80,255,.12), transparent 60%),
+      radial-gradient(900px 480px at 5% 0%, rgba(0,245,255,.10), transparent 55%);}
+  a{text-decoration:none;color:inherit}
+  .wrap{width:100%;max-width:900px}
+  .brand{display:flex;align-items:center;gap:11px;font-weight:800;letter-spacing:.5px;margin-bottom:6px}
+  .brand .hex{width:24px;height:24px;border:2px solid var(--cyan);border-radius:6px;transform:rotate(45deg);box-shadow:0 0 12px rgba(0,245,255,.5)}
+  .brand small{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:2px}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--cyan);margin-top:22px}
+  h1{font-size:clamp(32px,6vw,52px);margin:10px 0 6px;font-weight:800;letter-spacing:-1px;text-wrap:balance;
+    background:linear-gradient(120deg,#fff 10%,var(--cyan) 55%,var(--purple));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lede{color:var(--muted);max-width:60ch;margin:0 0 30px}
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:640px){.cards{grid-template-columns:1fr}}
+  .card{display:flex;flex-direction:column;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:16px;
+    padding:24px;transition:.18s;position:relative;overflow:hidden}
+  .card:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .card:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+  .card.user{--accent:var(--cyan)} .card.admin{--accent:var(--purple)}
+  .card .tag{font-family:var(--mono);font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--accent)}
+  .card h2{margin:2px 0 0;font-size:22px;font-weight:800}
+  .card p{margin:0;color:#c3cdec;font-size:14px;flex:1}
+  .card .go{font-family:var(--mono);font-size:13px;color:var(--accent);display:flex;align-items:center;gap:6px}
+  .card .bar{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);opacity:.8}
+  footer{margin-top:34px;font-family:var(--mono);font-size:12px;color:var(--dim);display:flex;gap:16px;flex-wrap:wrap}
+  footer a:hover{color:var(--cyan)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><span class="hex"></span> 픽셀경매 <small>PIXEL AUCTION</small></div>
+  <div class="eyebrow">문서 · Guides</div>
+  <h1>픽셀 경매 가이드</h1>
+  <p class="lede">50×50 그리드 위에서 영토를 경매로 점유하고 건설·공성으로 키우는 실시간 전략 게임. 사용자용과 관리자용 가이드를 제공합니다.</p>
+
+  <div class="cards">
+    <a class="card user" href="./user-guide.html">
+      <span class="bar"></span>
+      <span class="tag">Player</span>
+      <h2>사용자 가이드</h2>
+      <p>맵·경매·입찰·건설·공성·알림 등 12개 화면을 실제 캡쳐와 단계별 안내로 정리했습니다.</p>
+      <span class="go">가이드 열기 →</span>
+    </a>
+    <a class="card admin" href="./admin-guide.html">
+      <span class="bar"></span>
+      <span class="tag">Operator</span>
+      <h2>관리자 운영 가이드</h2>
+      <p>대시보드·경매·시즌·밸런스·사용자 운영과 감사 로그. 화면별 기능과 권장 운영 절차를 정리했습니다.</p>
+      <span class="go">가이드 열기 →</span>
+    </a>
+  </div>
+
+  <footer>
+    <a href="../../README.md">프로젝트 README</a>
+    <a href="../api/README.md">API 문서</a>
+    <span>SI-FI TERRITORIAL AUCTION</span>
+  </footer>
+</div>
+</body>
+</html>

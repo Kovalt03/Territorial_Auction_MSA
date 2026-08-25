@@ -1,0 +1,36 @@
+# 시즌 미션 설정 (DB 시드 초기값 — 추후 관리자 페이지로 편집)
+# period: DAILY / WEEKLY / SEASON
+# triggerType: ATTENDANCE(출석 버튼으로 직접 완료) / AUCTION_WIN / SIEGE_WIN
+missions:
+  - code: ATTEND_DAILY
+    title: "출석 체크"
+    description: "오늘 접속하고 출석하세요"
+    period: DAILY
+    triggerType: ATTENDANCE
+    goalCount: 1
+    xpReward: 50
+    sortOrder: 1
+  - code: WIN_DAILY
+    title: "오늘의 낙찰"
+    description: "오늘 경매를 1회 낙찰하세요"
+    period: DAILY
+    triggerType: AUCTION_WIN
+    goalCount: 1
+    xpReward: 30
+    sortOrder: 2
+  - code: WIN_WEEKLY
+    title: "주간 낙찰왕"
+    description: "이번 주 경매를 5회 낙찰하세요"
+    period: WEEKLY
+    triggerType: AUCTION_WIN
+    goalCount: 5
+    xpReward: 200
+    sortOrder: 3
+  - code: SIEGE_SEASON
+    title: "시즌 정복자"
+    description: "이번 시즌 공성전에서 3회 승리하세요"
+    period: SEASON
+    triggerType: SIEGE_WIN
+    goalCount: 3
+    xpReward: 300
+    sortOrder: 4

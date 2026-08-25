@@ -1,0 +1,53 @@
+territoryMap:
+  mapSize: 50
+
+  # 각 대륙이 점유하는 좌표 범위 (x, y 모두 1-based, inclusive)
+  # 순서 중요: 앞 조건이 우선 적용됨
+  continentRegions:
+    - continentName: "북부 대륙"
+      xMin: 1
+      xMax: 12
+      yMin: 1
+      yMax: 25
+
+    - continentName: "북서부"
+      xMin: 13
+      xMax: 25
+      yMin: 1
+      yMax: 25
+
+    - continentName: "북동부"
+      xMin: 26
+      xMax: 37
+      yMin: 1
+      yMax: 25
+
+    - continentName: "서부 대륙"
+      xMin: 38
+      xMax: 50
+      yMin: 1
+      yMax: 25
+
+    - continentName: "중앙 자유 구역"
+      xMin: 1
+      xMax: 12
+      yMin: 26
+      yMax: 50
+
+    - continentName: "동부 대륙"
+      xMin: 13
+      xMax: 25
+      yMin: 26
+      yMax: 50
+
+    - continentName: "남부 대륙"
+      xMin: 26
+      xMax: 37
+      yMin: 26
+      yMax: 50
+
+    - continentName: "남동부"
+      xMin: 38
+      xMax: 50
+      yMin: 26
+      yMax: 50

@@ -1,0 +1,98 @@
+@import 'tailwindcss' source(none);
+@source '../**/*.{js,ts,jsx,tsx}';
+
+/* ── 디자인 토큰 ── */
+@theme {
+  --color-surface:    #0a0e1a;   /* 최하단 배경 */
+  --color-panel:      #1a1f35;   /* 카드 배경 */
+  --color-elevated:   #2a3050;   /* 입력 / 항목 배경 */
+  --color-outline:    #354064;   /* 테두리 */
+
+  --color-primary:    #00f5ff;   /* 포인트 — 시안 */
+  --color-secondary:  #8b50ff;   /* 포인트 — 보라 */
+  --color-gold:       #ffd700;   /* 골드 / 트로피 */
+  --color-flare:      #ff8c00;   /* 주황 */
+
+  --color-foreground: #e0e8ff;   /* 밝은 텍스트 */
+  --color-foreground-soft: #c0ccdd; /* foreground와 dim 사이의 텍스트 */
+  --color-dim:        #8892b0;   /* 중간 텍스트 */
+  --color-muted:      #7788a5;   /* 흐린 텍스트 */
+
+  --color-panel-deep:   #12192c; /* panel보다 어두운 안쪽 배경 */
+  --color-outline-soft: #1a2438; /* outline보다 옅은 테두리 */
+
+  --color-danger:     #ff3333;   /* 에러 / 위험 */
+  --color-gp:         #00ff88;   /* GP (게임 화폐) */
+  --color-ap:         #ff0066;   /* AP (프리미엄 포인트) */
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: 'Inter', 'Noto Sans KR', sans-serif;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-surface);
+  color: var(--color-foreground);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-panel);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-outline);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-primary) 25%, transparent);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ── 공통 컴포넌트 클래스 ── */
+@layer components {
+  /* Layout */
+  .page-root     { @apply flex flex-col h-screen bg-surface overflow-hidden; }
+  .page-body     { @apply flex-1 overflow-y-auto p-5; }
+
+  /* Card / Panel */
+  .card          { @apply bg-panel border border-outline rounded-xl; }
+
+  /* Modal */
+  .modal-overlay         { @apply fixed inset-0 flex items-center justify-center z-50 bg-black/70; }
+  .modal-center-overlay  { @apply fixed inset-0 flex items-center justify-center z-50; }
+  .modal-sheet-overlay   { @apply fixed inset-0 flex items-end justify-center z-50; }
+  .modal-side-overlay    { @apply fixed inset-0 flex justify-end z-50; }
+  .modal-backdrop        { @apply absolute inset-0 bg-black/60; }
+  .modal-sheet-panel     { @apply relative w-full max-w-lg rounded-t-2xl overflow-hidden bg-panel border border-outline border-b-0; }
+  .modal-header          { @apply px-5 py-4 flex items-center justify-between; }
+  .modal-header-secondary { @apply px-5 py-4 flex items-center justify-between border-b-2 border-secondary; }
+
+  /* Buttons */
+  .btn-cancel    { @apply flex-1 h-11 bg-elevated border border-outline rounded-xl text-muted text-sm; }
+  .btn-close     { @apply text-muted hover:text-foreground text-2xl; }
+
+  /* Forms */
+  .form-label    { @apply block text-dim mb-1.5 text-[11px] font-medium; }
+  .form-input    { @apply w-full bg-elevated border border-outline rounded-md px-3 h-[38px] text-foreground outline-none focus:border-primary transition-colors text-xs; }
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}

@@ -1,0 +1,49 @@
+# ===========================
+# Build output
+# ===========================
+build/
+out/
+*.jar
+*.war
+*.class
+
+# ===========================
+# Gradle
+# ===========================
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+!gradle-wrapper.properties
+
+# ===========================
+# Spring Boot
+# ===========================
+target/
+
+# ===========================
+# Logs
+# ===========================
+logs/
+*.log
+
+# ===========================
+# Environment
+# ===========================
+.env
+.env.*
+!.env.example
+!.env.production.example
+src/main/resources/application-local.yml
+src/main/resources/application-secret.yml
+src/gatling/resources/tokens.csv
+
+# ===========================
+# IDE
+# ===========================
+.idea/
+*.iml
+*.iws
+*.ipr
+.settings/
+.project
+.classpath
