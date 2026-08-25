@@ -4,9 +4,14 @@ on:
   pull_request:
     branches: [dev, main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with:
@@ -18,7 +23,8 @@ jobs:
           HEAD=${{ github.event.pull_request.head.sha }}
           INVALID=0
 
-          PATTERN='^\[(FEAT|FIX|HOTFIX|REFACTOR|TEST|CHORE|DOCS|STYLE|PERF)\] .+'
+          # [TYPE] 뒤에 선택적 도메인 브라켓 허용: [TYPE][auction], [TYPE][fe], [TYPE][infra]
+          PATTERN='^\[(FEAT|FIX|HOTFIX|REFACTOR|TEST|CHORE|DOCS|STYLE|PERF)\](\[[a-z0-9-]+\])? .+'
 
           while IFS= read -r msg; do
             # Merge 커밋은 검사에서 제외
@@ -37,7 +43,7 @@ jobs:
             echo "  커밋 메시지 규칙"
             echo "========================================"
             echo ""
-            echo "  형식: [PREFIX] 제목"
+            echo "  형식: [PREFIX][domain] 제목    ([domain]은 선택 — MSA 도메인 표기)"
             echo ""
             echo "  PREFIX 목록:"
             echo "    [FEAT]      새로운 기능 추가"
@@ -51,10 +57,14 @@ jobs:
             echo "    [PERF]      성능 개선"
             echo ""
             echo "  예시:"
-            echo "    [FEAT] 월드맵 UI 구현"
-            echo "    [FIX] 경매 입찰 금액 음수 처리 오류 수정"
-            echo "    [CHORE] Spring Boot 의존성 추가"
-            echo "    [DOCS] README 작성"
+            echo "    [FEAT][auction] 입찰 분산락 적용"
+            echo "    [FIX][map] 영토 만료 브로드캐스트 누락 수정"
+            echo "    [FEAT][fe] 입찰 폼 UI"
+            echo "    [DOCS][infra] CI/CD 정책 문서화"
+            echo "    [CHORE] Spring Boot 의존성 추가       (도메인 생략 가능)"
+            echo ""
+            echo "  도메인: auth user map auction military building guild social"
+            echo "          notification item season / fe(프론트) / infra(횡단)"
             echo ""
             echo "  이슈 연결은 커밋 본문에 작성하세요:"
             echo "    Closes #번호     → PR 머지 시 이슈 자동 Close"
