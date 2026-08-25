@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'jacoco'
     id 'org.springframework.boot' version '3.4.4'
     id 'io.spring.dependency-management' version '1.1.7'
     id 'com.diffplug.spotless' version '6.25.0'
@@ -52,6 +53,17 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    finalizedBy jacocoTestReport
+}
+
+// 커버리지 리포트만 생성한다(리포트-온리). 강제 임계(jacocoTestCoverageVerification)는
+// 베이스라인 측정 후 도입한다 — docs/operations/ci-cd-policy.md 4.5 참고.
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+    }
 }
 
 spotless {
