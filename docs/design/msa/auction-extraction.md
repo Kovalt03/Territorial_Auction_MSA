@@ -4,11 +4,9 @@
 >
 > 전제: [Strangler 전략, 서비스당 DB](./local-run.md) · [CI/CD·검증 정책](../../operations/ci-cd-policy.md) · [아키텍처 경계](../architecture.md). auction을 첫 추출 대상으로 삼은 근거는 [부하 테스트 결론](../testing.md)(단일 인기 경매의 지속 경합 한계).
 
-> **⚠️ 범위 선택 (읽기 전 결정)** — [목표 토폴로지](./README.md#목표-서비스-토폴로지-6개)에서 **map은 auction과 같은 서비스**(auction-service = auction+map)다. 1단계를 어디까지 뗄지에 따라 이 가이드의 territory 관련 서술이 달라진다:
-> - **(A) auction 단독 추출** — map은 모놀리식에 잔류, auction은 `territoryId`로 **외부 참조**. → 아래 territory 관련 크로스서비스 서술(스냅샷·`/internal/territories/occupy`·읽기 모델)이 **그대로 적용**. 첫 조각이 작고, 크로스서비스 territory 호출을 학습.
-> - **(B) auction+map 동시 추출** — 목표 형태로 바로. territory가 **인프로세스**라 territory 스냅샷·occupy 크로스콜·읽기 모델 문제가 **사라진다**. user·building·season·notification만 외부.
->
-> 아래 본문은 **(A) 기준**으로 서술한다(더 일반적인 크로스서비스 케이스를 다루므로). (B)를 택하면 "map/territory = 외부" 부분을 "내부"로 읽고 해당 계약을 생략하면 된다.
+> **📌 territory는 외부 참조 (map은 독립 서비스)** — [목표 토폴로지](./README.md)에서 **map은 독립 `map-service`**다(territory를 8개 도메인이 참조하는 공유 커널이라 auction에 병합하지 않음). 따라서 auction은 territory를 **항상 외부 참조**한다 — 아래 territory 관련 서술(ID+스냅샷·`/internal/territories/*`·읽기 모델)은 임시 배관이 아니라 **최종 형태**다.
+> - territory 소유자는 전환 내내 **모놀리식**(map 잔류)이다 → auction은 모놀리식의 territory API를 호출(DB 공유 아님), 표시용 값은 스냅샷으로 복사.
+> - 전환 **최후에 map이 map-service로 분리**되면, auction의 호출 대상만 모놀리식 → map-service로 바뀐다(계약 형태는 동일).
 
 ---
 
