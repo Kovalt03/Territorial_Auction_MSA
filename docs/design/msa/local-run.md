@@ -2,7 +2,7 @@
 
 > MSA 전환은 **Strangler(한 서비스씩 추출)**로 진행한다. 따라서 로컬에서도 "8개를 한 번에" 띄우지 않는다 — 모놀리식 + 추출된 서비스만 나란히 띄운다. 이 문서는 그 구동 방법과 자원을 가볍게 유지하는 법을 정리한다.
 >
-> 배경 결정: [CI/CD·테스트 정책](./ci-cd-policy.md) · [아키텍처](../design/architecture.md). 서비스 추출 설계는 별도 문서(`design/msa-*-extraction.md`)에서 다룬다.
+> 배경 결정: [CI/CD·테스트 정책](../../operations/ci-cd-policy.md) · [아키텍처](../architecture.md). 서비스 추출 설계는 별도 문서(`design/msa-*-extraction.md`)에서 다룬다.
 
 ---
 
@@ -43,7 +43,7 @@ frontend
    ```
    compose는 명시한 서비스 + 그 `depends_on`만 기동한다.
 2. **모놀리식이 "나머지 세계" 역할을 한다.** Strangler 초기엔 통신 상대가 모놀리식 하나뿐이라, `backend + auction-service` 2개 앱이면 통합 흐름을 전부 재현할 수 있다(≈2~3GB).
-3. **전체가 다 떠야 하는 검증은 로컬이 아니라 CI 러너에 맡긴다.** push하면 러너가 `compose up` → 스모크 → 폐기한다([정책 5.4](./ci-cd-policy.md#54-msa-검증-전략-테스트-피라미드)).
+3. **전체가 다 떠야 하는 검증은 로컬이 아니라 CI 러너에 맡긴다.** push하면 러너가 `compose up` → 스모크 → 폐기한다([정책 5.4](../../operations/ci-cd-policy.md#54-msa-검증-전략-테스트-피라미드)).
 4. **인터랙티브하게 무거운 스택이 필요하면 Codespaces**(클라우드 개발환경)로 노트북 부하 0.
 
 > 참고 사용량: 앱 1개(Spring Boot) ≈ 300~500MB, postgres 1개 ≈ 50~150MB, redis ≈ 20MB. 단계 1(앱 2 + PG 2 + redis + frontend)은 4GB Docker 메모리에서 충분히 돈다.
@@ -170,6 +170,6 @@ docker compose -f docker-compose.msa.yml down
 
 ## 7. 관련 문서
 
-- [CI/CD·테스트 정책](./ci-cd-policy.md) — push 시 검증 파이프라인, 계약 테스트
-- [모놀리식 로컬 운영](./local-production.md) — 단일 스택 실행(단계 0)
-- [아키텍처·MSA 전환 기준](../design/architecture.md) — 8개 Bounded Context 경계
+- [CI/CD·테스트 정책](../../operations/ci-cd-policy.md) — push 시 검증 파이프라인, 계약 테스트
+- [모놀리식 로컬 운영](../../operations/local-production.md) — 단일 스택 실행(단계 0)
+- [아키텍처·MSA 전환 기준](../architecture.md) — 8개 Bounded Context 경계

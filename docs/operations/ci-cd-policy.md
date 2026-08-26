@@ -198,7 +198,7 @@ merge → main       → 풀스택 스모크(러너 compose up)      [무거움,
                    → (승인) → CD 배포 (§6)
 ```
 
-로컬에서 전체 스택을 직접 띄우는 방법은 [로컬 MSA 구동 가이드](./local-msa.md) 참고.
+로컬에서 전체 스택을 직접 띄우는 방법은 [로컬 MSA 구동 가이드](../design/msa/local-run.md) 참고.
 
 ---
 
