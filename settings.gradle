@@ -1,0 +1,11 @@
+// 모노레포 composite build.
+// IDE(IntelliJ)가 backend·services·libs를 한 워크스페이스로 인식해 에러·자동완성·의존성 해석이 되게 한다.
+// 각 하위 프로젝트는 여전히 독립 빌드(자기 settings.gradle·wrapper·Dockerfile)로 유지된다 —
+// includeBuild는 '합쳐진 하나의 빌드'가 아니라 '독립 빌드들을 느슨히 묶는' 방식이다.
+// 부수 효과: auction-service의 com.territorial:common 의존이 libs/common 소스로 자동 치환되어,
+// 로컬 개발 시 common을 mavenLocal에 재발행하지 않아도 변경이 즉시 반영된다.
+rootProject.name = 'territorial-auction-msa'
+
+includeBuild('libs/common')
+includeBuild('services/auction-service')
+includeBuild('backend')
