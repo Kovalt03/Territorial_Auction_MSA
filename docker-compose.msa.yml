@@ -1,0 +1,53 @@
+# MSA 로컬 구동 (Strangler 전환용). 모놀리식 docker-compose.yml과 별개.
+# 스캐폴드 단계 검증:
+#   docker compose -f docker-compose.msa.yml up -d --build auction-postgres auction-service
+#   docker compose -f docker-compose.msa.yml exec auction-service wget -qO- localhost:8080/actuator/health
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: msa-redis
+    ports:
+      - "6380:6379"   # 모놀리식 redis(6379)와 충돌 회피
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  auction-postgres:
+    image: postgres:16-alpine
+    container_name: msa-auction-postgres
+    environment:
+      POSTGRES_DB: auction
+      POSTGRES_USER: auction
+      POSTGRES_PASSWORD: auction
+    ports:
+      - "5433:5432"   # 모놀리식 postgres(5432)와 충돌 회피
+    volumes:
+      - auction-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auction -d auction"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  auction-service:
+    build:
+      context: ./services/auction-service
+      dockerfile: Dockerfile
+    container_name: msa-auction-service
+    environment:
+      TZ: Asia/Seoul
+      DB_HOST: auction-postgres
+      DB_PORT: 5432
+      DB_NAME: auction
+      DB_USERNAME: auction
+      DB_PASSWORD: auction
+    ports:
+      - "8081:8080"   # 모놀리식 backend(8080)와 충돌 회피
+    depends_on:
+      auction-postgres:
+        condition: service_healthy
+
+volumes:
+  auction-pg:
