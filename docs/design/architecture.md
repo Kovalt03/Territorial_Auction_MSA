@@ -57,17 +57,18 @@ com.territorial.auction
 
 현재 패키지 경계는 향후 분리 후보 경계다. 분리는 선행하지 않고, 부하 테스트에서 병목·독립 확장 필요성·데이터 정합성 비용이 확인될 때 검토한다.
 
-**목표 서비스 토폴로지 (6개)** — 게임플레이 결합도 기준으로 도메인을 묶는다. 상세·근거·전환 순서는 [MSA 전환 허브](./msa/README.md)가 기준.
+**목표 서비스 토폴로지 (7개)** — 게임플레이 결합도 기준으로 도메인을 묶는다. 상세·근거·전환 순서는 [MSA 전환 허브](./msa/README.md)가 기준.
 
 | 서비스 | 포함 도메인 |
 |---|---|
-| auction-service | auction, map |
+| auction-service | auction |
+| map-service | map (공유 커널, 최후 추출) |
 | combat-service | military, building |
 | user-service | user, auth |
 | social-service | social, guild |
 | notification-service | notification |
 | economy-service | item, season |
 
-초기 검토안(auth·map 독립, notification을 social에 포함)에서 다음과 같이 조정: **auth→user 병합**(인증은 유저와 밀접), **map→auction 병합**(경매는 지도 위 영토 점유), **notification 독립**(다수 서비스가 발행하는 횡단 채널). ranking(미구현)은 추후 별도. 공성전은 military 소속이므로 combat-service에 포함.
+초기 검토안(auth·map 독립, notification을 social에 포함)에서 조정: **auth→user 병합**(인증은 유저와 밀접), **notification 독립**(다수 서비스가 발행하는 횡단 채널). **map은 독립 유지** — territory를 8개 도메인이 참조하는 공유 커널이라 특정 서비스에 병합하지 않고, 전환 최후에 분리한다. ranking(미구현)은 추후 별도. 공성전은 military 소속이므로 combat-service에 포함.
 
 관련 자료: [MSA 전환 허브](./msa/README.md), [도메인 설계](./domain-design.md), [성능 테스트 가이드](./performance-testing.md)
