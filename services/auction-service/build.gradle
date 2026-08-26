@@ -17,6 +17,15 @@ java {
 
 repositories {
     mavenCentral()
+    mavenLocal() // 로컬 dev: publishToMavenLocal 한 common 소비
+    maven {
+        name = 'GitHubPackages'
+        url = 'https://maven.pkg.github.com/Kovalt03/Territorial_Auction_MSA'
+        credentials {
+            username = project.findProperty('gpr.user') ?: System.getenv('GITHUB_ACTOR')
+            password = project.findProperty('gpr.token') ?: System.getenv('GITHUB_TOKEN')
+        }
+    }
 }
 
 dependencies {
@@ -24,8 +33,13 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'   // SimpMessagingTemplate (STOMP 브로드캐스트)
     implementation 'org.flywaydb:flyway-core'
     implementation 'org.flywaydb:flyway-database-postgresql'
+
+    // 공유 플랫폼 라이브러리 (ApiResponse·CustomException·GlobalExceptionHandler·@DistributedLock·RedissonConfig)
+    // redisson·aspectjweaver 등은 common의 전이 런타임 의존으로 따라온다
+    implementation 'com.territorial:common:0.1.0'
 
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
@@ -33,9 +47,6 @@ dependencies {
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 
-    // 다음 단계에서 추가:
-    //   코드 이동  → spring-boot-starter-websocket (STOMP 브로드캐스트)
-    //   입찰/정산  → spring-boot-starter-data-redis, org.redisson:redisson (@DistributedLock)
     // auth 관련(security·oauth2·jjwt·totp)은 user-service 소유 — auction은 인증하지 않음
 }
 
