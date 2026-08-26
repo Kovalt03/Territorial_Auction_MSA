@@ -1,0 +1,70 @@
+plugins {
+    id 'java-library'
+    id 'io.spring.dependency-management' version '1.1.7'
+    id 'maven-publish'
+    id 'com.diffplug.spotless' version '6.25.0'
+}
+
+group = 'com.territorial'
+version = '0.1.0'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencyManagement {
+    imports {
+        mavenBom 'org.springframework.boot:spring-boot-dependencies:3.4.4'
+    }
+}
+
+dependencies {
+    // HttpStatus가 공개 API(ErrorCodeType)에 노출 → api
+    api 'org.springframework:spring-web'
+    // 내부에서만 사용
+    implementation 'org.springframework:spring-webmvc'
+    implementation 'org.springframework:spring-context'
+    implementation 'org.springframework:spring-aop'
+    implementation 'org.springframework:spring-expression'
+    implementation 'org.aspectj:aspectjweaver'
+    implementation 'org.redisson:redisson:3.27.2'
+    implementation 'org.slf4j:slf4j-api'
+
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+        }
+    }
+    repositories {
+        maven {
+            name = 'GitHubPackages'
+            url = 'https://maven.pkg.github.com/Kovalt03/Territorial_Auction_MSA'
+            credentials {
+                // 로컬: ~/.gradle/gradle.properties 의 gpr.user / gpr.token (PAT)
+                // CI:   GITHUB_ACTOR / GITHUB_TOKEN
+                username = project.findProperty('gpr.user') ?: System.getenv('GITHUB_ACTOR')
+                password = project.findProperty('gpr.token') ?: System.getenv('GITHUB_TOKEN')
+            }
+        }
+    }
+}
+
+spotless {
+    java {
+        googleJavaFormat('1.22.0').aosp()
+        importOrder()
+        removeUnusedImports()
+        toggleOffOn()
+    }
+}
