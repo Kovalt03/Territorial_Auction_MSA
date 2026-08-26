@@ -1,0 +1,88 @@
+# MSA 전환
+
+모놀리식 Spring Boot에서 마이크로서비스로의 전환 문서 허브. 전환은 **Strangler(한 서비스씩 추출)**로 진행하며, 모놀리식은 전 과정 동안 계속 운영된다.
+
+> 이 문서가 **목표 서비스 토폴로지의 기준**이다. [아키텍처 문서](../architecture.md)의 런타임 구조와 정합을 맞춘다. CI/CD·검증 정책은 [operations/ci-cd-policy.md](../../operations/ci-cd-policy.md)에 있다(MSA 전용이 아니라 프로젝트 공통 정책이라 그쪽에 둔다).
+
+## 목표 서비스 토폴로지 (6개)
+
+게임플레이 결합도 기준으로 11개 도메인을 6개 서비스로 묶는다.
+
+| 서비스 | 포함 도메인 | 소유 데이터(개괄) |
+|---|---|---|
+| **auction-service** | auction, map | 경매·입찰·이력 / 지도·영토·대륙 |
+| **combat-service** | military, building | 유닛·공성전 / 건물·섬·보관함 |
+| **user-service** | user, auth | 프로필·지갑(AP·GP) / 인증·JWT |
+| **social-service** | social, guild | 채팅 / 길드·멤버 |
+| **notification-service** | notification | 알림 |
+| **economy-service** | item, season | 아이템·결제 / 시즌패스·트로피 |
+
+**그룹핑 근거**
+- **auction + map** — 경매는 "지도 위 영토 점유"라 지도·영토 데이터와 밀착. 영토 소유·경매를 한 서비스가 소유하고, 다른 서비스는 `territoryId`로 참조만.
+- **combat = military + building** — 유닛·공성전·건물·섬은 "소유한 영토 위에서 벌어지는 것"으로 묶임. **공성전은 military 소속**이라 여기 포함.
+- **user + auth** — 인증은 유저 신원과 밀접.
+- **social + guild** — 채팅과 길드는 같은 소셜 상호작용.
+- **notification 독립** — 다수 서비스가 발행하는 횡단 채널이라 단독.
+- **economy = item + season** — 결제·아이템·시즌패스·트로피는 경제/과금 묶음.
+- ranking(미구현)은 추후 별도 서비스.
+
+초기 검토안([architecture.md](../architecture.md))에서 조정: auth→user 병합, map→auction 병합, notification 독립.
+
+## 전환 로드맵 (Strangler)
+
+한 서비스씩 추출하며 모놀리식은 전 과정 계속 운영. **auction을 첫 대상**으로 삼은 근거: 부하 테스트에서 단일 인기 경매의 지속 경합이 병목으로 확인됨([testing 결론](../testing.md)).
+
+| 단계 | 대상 서비스 | 상태 |
+|---|---|---|
+| 0 | 모놀리식 + CI/CD·검증 정책 확립 | ✅ 완료 |
+| 1 | **auction-service** (auction[, map]) | 설계 완료, 구현 대기 |
+| 2 | user-service (user, auth) | 예정 |
+| 3 | combat-service (military, building) | 예정 |
+| 4 | economy-service (item, season) | 예정 |
+| 5 | social-service (social, guild) | 예정 |
+| 6 | notification-service (notification) | 예정 |
+| 7 | 모놀리식 잔여 소멸, 전 서비스 확정 | 예정 |
+
+> 1단계 범위는 **auction 단독 추출**(map은 모놀리식에 두고 `territoryId` 참조) vs **auction+map 동시 추출**(목표 형태로 바로, territory 인프로세스) 중 택1 — 상세는 `msa/auction-service` 브랜치의 auction 추출 가이드 참고. 추출 순서(2~6)는 도메인 간 의존과 학습 우선순위에 따라 조정 가능.
+
+## 브랜치·PR 전략 (서비스 통합 브랜치)
+
+서비스 추출은 **단계별로 작게 개발하되, dev로는 서비스 완성 단위로 크게 올린다.**
+
+```
+feature/{domain}-{n}-{step}  ─┐
+feature/{domain}-{n}-{step}  ─┼─(작은 PR)→  msa/{service}  ─(큰 PR)→  dev
+feature/{domain}-{n}-{step}  ─┘             (서비스 통합 브랜치)     서비스 완성 단위
+```
+
+| 레벨 | 브랜치 | 병합 | 단위 |
+|---|---|---|---|
+| 단계 작업 | `feature/{domain}-{n}-{step}` | 작은 PR → `msa/{service}` | 추출 한 단계(스캐폴딩·DB분리·입찰치환 등) |
+| 서비스 완성 | `msa/{service}` | **큰 PR → `dev`** (Squash) | 서비스 하나 전체 |
+
+- 각 단계 PR·통합 PR 모두 **CI 그린 필수**. dev 머지는 Squash라 dev엔 서비스당 1커밋으로 남는다(세부는 PR 보존).
+- Strangler라 `msa/{service}`가 dev에 병합되기 **전까지 모놀리식이 계속 서빙** → 중간 단계가 운영을 깨지 않는다.
+- 통합 브랜치는 주기적으로 `dev`를 머지해 drift를 줄인다.
+- 순수 문서·정책 같은 단발 변경은 통합 브랜치 없이 `feature/*` → `dev` 직접 PR로 간다(이 규칙은 서비스 추출 코드에 적용).
+
+## 문서 인덱스
+
+이 폴더(`docs/design/msa/`)에는 **서비스 공통 프레임워크 문서**만 둔다.
+
+| 문서 | 내용 |
+|---|---|
+| [local-run.md](./local-run.md) | 로컬 MSA 구동 — Strangler 토폴로지, 서비스당 DB, 자원 절감, compose 구성 |
+
+### 서비스별 추출 가이드
+
+각 서비스의 추출 가이드(소유/참조 경계·통신 계약·Saga 등)는 **해당 `msa/{service}` 통합 브랜치에서 관리**하고, 서비스 완성 PR로 dev에 함께 병합한다 — 특정 서비스에 종속된 작업 문서라 공통 프레임워크와 분리한다.
+
+| 서비스 | 가이드 | 위치 |
+|---|---|---|
+| auction | `auction-extraction.md` | `msa/auction-service` 브랜치 (작업 중 추가 예정) |
+
+## 관련 (MSA 밖 공통 문서)
+
+- [operations/ci-cd-policy.md](../../operations/ci-cd-policy.md) — CI/CD·테스트 정책, MSA 검증 피라미드(격리·계약·풀스택)
+- [design/architecture.md](../architecture.md) — 런타임 구조·Bounded Context 경계
+- [design/chat-broker-strategy.md](../chat-broker-strategy.md) — STOMP 브로커 전환(서비스 분리 시 Redis relay 검토)
