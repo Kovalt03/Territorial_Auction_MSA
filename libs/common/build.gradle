@@ -29,6 +29,8 @@ dependencies {
     api 'org.springframework:spring-web'
     // 내부에서만 사용
     implementation 'org.springframework:spring-webmvc'
+    // MissingRequestHeaderException의 상위 타입이 jakarta.servlet.ServletException 참조 → 컴파일 전용
+    compileOnly 'jakarta.servlet:jakarta.servlet-api'
     implementation 'org.springframework:spring-context'
     implementation 'org.springframework:spring-aop'
     implementation 'org.springframework:spring-expression'
