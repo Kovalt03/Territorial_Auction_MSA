@@ -40,14 +40,14 @@
 | `POST /internal/territories/{id}/release` | 영토 IDLE 복귀(nextAuctionAt) | `TerritoryClient.release` | ⬜ |
 | `POST /internal/buildings/initial-castle` | 낙찰 영토에 초기 성 생성 | `BuildingClient.createInitialCastle` | ⬜ |
 
-**실패 응답 계약** (auction 클라이언트가 이 상태코드로 도메인 예외를 매핑함 — Part B는 반드시 지킬 것):
+**실패 응답 계약** — 상태코드는 모놀리식 **GlobalExceptionHandler 단일 소스**(ErrorCode.httpStatus)를 따른다. 내부 전용 로컬 핸들러를 두지 않는다. `INSUFFICIENT_AP`은 400→**409(CONFLICT)**로 변경(검증 400과 겹치지 않게, 모놀리식·auction 양쪽 ErrorCode 일치).
 
-| 엔드포인트 | 404 | 409 |
+| 엔드포인트 | 에러 | HTTP(글로벌) |
 |---|---|---|
-| bid-escrow | USER_NOT_FOUND | INSUFFICIENT_AP |
-| consume-locked | USER_NOT_FOUND | INSUFFICIENT_AP |
-| territories/occupy·release | TERRITORY_NOT_FOUND | — |
-| buildings/initial-castle | BUILDING_TYPE_NOT_FOUND | (idempotent, 200 처리) |
+| bid-escrow | INSUFFICIENT_AP / USER_NOT_FOUND | 409 / 404 |
+| consume-locked | INSUFFICIENT_AP / USER_NOT_FOUND | 409 / 404 |
+| territories/occupy·release | TERRITORY_NOT_FOUND | 404 |
+| buildings/initial-castle | BUILDING_TYPE_NOT_FOUND | 404 (성 존재 시 idempotent→200) |
 
 ## 3. 보상(Saga) — 미구현
 
@@ -67,7 +67,7 @@
 
 ## 5. 알려진 임시/제약
 
-- STOMP: SimpleBroker는 인스턴스 로컬 → 크로스서비스 실시간은 Redis relay 필요([chat-broker-strategy](./../chat-broker-strategy.md)). 그래서 브로드캐스트를 event로 넘김.
+- **실시간 아키텍처 결정: (A) 이벤트 + realtime 허브** — 비즈니스 서비스는 WS를 모르고 이벤트만 발행, 클라이언트 WS를 소유한 realtime 서비스가 `auction.bid`·`auction.settled`를 구독해 push. (대안 (B) 공유 STOMP relay는 미채택.) → §1의 realtime push 소비자 = 이 허브.
 - 계약 테스트(Spring Cloud Contract)로 §2 엔드포인트 계약 고정 예정.
 - **버그**: `Auction.currentBidderId`에 `@Column(nullable = false)`가 있어 current_bidder_id가 NOT NULL — 입찰 없는 경매 저장 불가. 입찰 전엔 null이어야 하므로 nullable로 수정 필요.
 - `RedisEventPublisher`: `AuctionSettledEvent`(record) 직렬화 코덱 확인 필요 — 기본 코덱에서 record가 안 풀리면 토픽에 `JsonJacksonCodec` 지정. 소비자와 코덱 일치해야 함.

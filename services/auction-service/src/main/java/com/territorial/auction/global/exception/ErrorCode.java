@@ -19,7 +19,7 @@ public enum ErrorCode implements ErrorCodeType {
     AUCTION_NO_BIDDER_TO_SETTLE(HttpStatus.CONFLICT, "입찰자가 없어 강제 낙찰할 수 없습니다. 강제 취소를 사용하세요."),
     BID_AMOUNT_TOO_LOW(HttpStatus.BAD_REQUEST, "입찰 금액이 현재 최고가보다 낮습니다."),
     ALREADY_HIGHEST_BIDDER(HttpStatus.BAD_REQUEST, "이미 최고 입찰자입니다."),
-    INSUFFICIENT_AP(HttpStatus.BAD_REQUEST, "AP 잔액이 부족합니다.");
+    INSUFFICIENT_AP(HttpStatus.CONFLICT, "AP 잔액이 부족합니다.");
 
     private final HttpStatus httpStatus;
     private final String message;
