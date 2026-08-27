@@ -32,7 +32,7 @@ public class Auction {
     @Column(nullable = false)
     private String grade;
 
-    @Column(name = "currentBidder_id", nullable = false)
+    @Column(name = "current_bidder_id")
     private Long currentBidderId;
 
     private String currentBidderNickname;
