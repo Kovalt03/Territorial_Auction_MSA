@@ -2,6 +2,8 @@ package com.territorial.auction.repository;
 
 import com.territorial.auction.entity.AuctionBid;
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -9,6 +11,15 @@ import org.springframework.data.repository.query.Param;
 public interface AuctionBidRepository extends JpaRepository<AuctionBid, Long> {
 
     List<AuctionBid> findTop5ByAuctionIdOrderByBidAtDesc(Long auctionId);
+
+    /** 관리자 조회 — 특정 유저의 전체 입찰 이력 (auction 스냅샷 함께 로드). */
+    @Query(
+            value =
+                    "SELECT ab FROM AuctionBid ab JOIN FETCH ab.auction"
+                            + " WHERE ab.bidderId = :bidderId ORDER BY ab.bidAt DESC",
+            countQuery = "SELECT COUNT(ab) FROM AuctionBid ab WHERE ab.bidderId = :bidderId")
+    Page<AuctionBid> findAllByBidderIdWithAuction(
+            @Param("bidderId") Long bidderId, Pageable pageable);
 
     List<AuctionBid> findAllByAuctionIdOrderByBidAtAsc(Long auctionId);
 
