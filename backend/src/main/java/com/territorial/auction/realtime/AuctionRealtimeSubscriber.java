@@ -14,8 +14,8 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 
 /**
- * 실시간 허브. auction-service가 발행하는 auction.bid·auction.settled 이벤트를 구독해 클라이언트에 STOMP push +
- * 알림을 남긴다. 클라이언트 WS는 모놀리식(/ws)이 소유하므로 여기서 push한다. (실시간 아키텍처 결정 A)
+ * 실시간 허브. auction-service가 발행하는 auction.bid·auction.settled 이벤트를 구독해 클라이언트에 STOMP push + 알림을 남긴다.
+ * 클라이언트 WS는 모놀리식(/ws)이 소유하므로 여기서 push한다. (실시간 아키텍처 결정 A)
  *
  * <p>auction 도메인이 삭제돼도 살아남도록 자체 DTO를 쓴다(map의 MapUpdateBroadcast는 map 소유라 유지됨).
  */
@@ -31,7 +31,9 @@ public class AuctionRealtimeSubscriber {
 
     @PostConstruct
     public void subscribe() {
-        redissonClient.getTopic("auction.bid").addListener(String.class, (ch, json) -> handleBid(json));
+        redissonClient
+                .getTopic("auction.bid")
+                .addListener(String.class, (ch, json) -> handleBid(json));
         redissonClient
                 .getTopic("auction.settled")
                 .addListener(String.class, (ch, json) -> handleSettled(json));
@@ -56,7 +58,11 @@ public class AuctionRealtimeSubscriber {
             messagingTemplate.convertAndSend(
                     "/sub/user/" + e.winnerId() + "/auction-result",
                     new ResultAlert(
-                            e.auctionId(), e.territoryId(), e.coordX(), e.coordY(), e.finalPrice(),
+                            e.auctionId(),
+                            e.territoryId(),
+                            e.coordX(),
+                            e.coordY(),
+                            e.finalPrice(),
                             "WIN"));
             notificationService.sendNotification(
                     e.winnerId(),
@@ -67,16 +73,25 @@ public class AuctionRealtimeSubscriber {
             messagingTemplate.convertAndSend(
                     "/sub/map/update",
                     new MapUpdateBroadcast(
-                            e.territoryId(), e.coordX(), e.coordY(), e.winnerId(), e.winnerNickname(),
+                            e.territoryId(),
+                            e.coordX(),
+                            e.coordY(),
+                            e.winnerId(),
+                            e.winnerNickname(),
                             "OCCUPIED"));
 
             // 차순위 — LOSE 토스트 + 알림
             ResultAlert lose =
                     new ResultAlert(
-                            e.auctionId(), e.territoryId(), e.coordX(), e.coordY(), e.finalPrice(),
+                            e.auctionId(),
+                            e.territoryId(),
+                            e.coordX(),
+                            e.coordY(),
+                            e.finalPrice(),
                             "LOSE");
             for (Long runnerUpId : e.runnerUpIds()) {
-                messagingTemplate.convertAndSend("/sub/user/" + runnerUpId + "/auction-result", lose);
+                messagingTemplate.convertAndSend(
+                        "/sub/user/" + runnerUpId + "/auction-result", lose);
                 notificationService.sendNotification(
                         runnerUpId, NotificationType.AUCTION_LOSE, coord + " 영토 경매에서 낙찰에 실패했습니다.");
             }
