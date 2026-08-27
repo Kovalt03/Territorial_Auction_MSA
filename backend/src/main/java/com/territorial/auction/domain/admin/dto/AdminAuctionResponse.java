@@ -1,10 +1,8 @@
 package com.territorial.auction.domain.admin.dto;
 
-import com.territorial.auction.domain.auction.entity.Auction;
-import com.territorial.auction.domain.map.entity.Continent;
-import com.territorial.auction.domain.map.entity.Territory;
 import java.time.LocalDateTime;
 
+/** 관리자용 진행 중 경매 항목. auction-service /internal 응답을 그대로 역직렬화한다(필드명 일치). */
 public record AdminAuctionResponse(
         Long auctionId,
         Long territoryId,
@@ -15,25 +13,4 @@ public record AdminAuctionResponse(
         int currentPrice,
         Long currentBidderId,
         String currentBidderNickname,
-        LocalDateTime endAt) {
-
-    public static AdminAuctionResponse from(Auction a) {
-        Territory t = a.getTerritory();
-        var bidder = a.getCurrentBidder();
-        return new AdminAuctionResponse(
-                a.getId(),
-                t.getId(),
-                t.getCoordX(),
-                t.getCoordY(),
-                continentName(t.getContinent()),
-                t.getGrade().getGrade(),
-                a.getCurrentPrice(),
-                bidder != null ? bidder.getId() : null,
-                bidder != null ? bidder.getNickname() : null,
-                a.getEndAt());
-    }
-
-    private static String continentName(Continent c) {
-        return c.getDisplayName() != null ? c.getDisplayName() : c.getName();
-    }
-}
+        LocalDateTime endAt) {}

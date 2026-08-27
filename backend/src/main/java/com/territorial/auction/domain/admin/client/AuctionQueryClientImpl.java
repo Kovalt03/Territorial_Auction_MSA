@@ -1,7 +1,10 @@
 package com.territorial.auction.domain.admin.client;
 
+import com.territorial.auction.domain.admin.dto.AdminAuctionListResponse;
 import com.territorial.auction.domain.admin.dto.AdminUserActiveBidListResponse;
 import com.territorial.auction.domain.admin.dto.AdminUserBidListResponse;
+import com.territorial.auction.global.exception.CustomException;
+import com.territorial.auction.global.exception.ErrorCode;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -44,5 +47,55 @@ public class AuctionQueryClientImpl implements AuctionQueryClient {
                 .uri("/internal/auctions/bidders/{id}/active-bids", bidderId)
                 .retrieve()
                 .body(AdminUserActiveBidListResponse.class);
+    }
+
+    @Override
+    public AdminAuctionListResponse getActiveAuctions(Pageable pageable) {
+        return restClient
+                .get()
+                .uri(
+                        "/internal/auctions/active?page={page}&size={size}",
+                        pageable.getPageNumber(),
+                        pageable.getPageSize())
+                .retrieve()
+                .body(AdminAuctionListResponse.class);
+    }
+
+    @Override
+    public void forceSettle(Long auctionId) {
+        restClient
+                .post()
+                .uri("/internal/auctions/{id}/force-settle", auctionId)
+                .retrieve()
+                .onStatus(
+                        status -> status.value() == 404,
+                        (req, res) -> {
+                            throw new CustomException(ErrorCode.AUCTION_NOT_FOUND);
+                        })
+                .onStatus(
+                        status -> status.value() == 409,
+                        (req, res) -> {
+                            throw new CustomException(ErrorCode.AUCTION_NO_BIDDER_TO_SETTLE);
+                        })
+                .toBodilessEntity();
+    }
+
+    @Override
+    public void forceCancel(Long auctionId) {
+        restClient
+                .post()
+                .uri("/internal/auctions/{id}/force-cancel", auctionId)
+                .retrieve()
+                .onStatus(
+                        status -> status.value() == 404,
+                        (req, res) -> {
+                            throw new CustomException(ErrorCode.AUCTION_NOT_FOUND);
+                        })
+                .onStatus(
+                        status -> status.value() == 409,
+                        (req, res) -> {
+                            throw new CustomException(ErrorCode.AUCTION_ALREADY_SETTLED);
+                        })
+                .toBodilessEntity();
     }
 }
