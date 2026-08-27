@@ -56,5 +56,22 @@ public class WalletClientImpl implements WalletClient {
                 .toBodilessEntity();
     }
 
+    @Override
+    public void refundLocked(Long bidderId, int amount) {
+        restClient
+                .post()
+                .uri("/internal/wallets/refund-locked")
+                .body(new RefundLockedRequest(bidderId, amount))
+                .retrieve()
+                .onStatus(
+                        status -> status.value() == 404,
+                        (req, res) -> {
+                            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+                        })
+                .toBodilessEntity();
+    }
+
     private record ConsumeLockedRequest(Long winnerId, int finalPrice, Long auctionId) {}
+
+    private record RefundLockedRequest(Long bidderId, int amount) {}
 }

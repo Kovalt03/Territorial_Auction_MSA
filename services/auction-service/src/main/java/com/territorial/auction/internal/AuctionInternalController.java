@@ -1,11 +1,15 @@
 package com.territorial.auction.internal;
 
 import com.territorial.auction.internal.dto.AdminActiveBidListView;
+import com.territorial.auction.internal.dto.AdminAuctionListView;
 import com.territorial.auction.internal.dto.AdminBidPageView;
+import com.territorial.auction.service.AuctionLifecycleService;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -18,14 +22,34 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuctionInternalController {
 
     private final AdminAuctionQueryService queryService;
+    private final AuctionLifecycleService lifecycleService;
 
-    public AuctionInternalController(AdminAuctionQueryService queryService) {
+    public AuctionInternalController(
+            AdminAuctionQueryService queryService, AuctionLifecycleService lifecycleService) {
         this.queryService = queryService;
+        this.lifecycleService = lifecycleService;
     }
 
     @GetMapping("/active-count")
     public long countActiveAuctions() {
         return queryService.countActiveAuctions();
+    }
+
+    @GetMapping("/active")
+    public AdminAuctionListView getActiveAuctions(
+            @PageableDefault(size = 20, sort = "endAt", direction = Sort.Direction.ASC)
+                    Pageable pageable) {
+        return queryService.getActiveAuctions(pageable);
+    }
+
+    @PostMapping("/{auctionId}/force-settle")
+    public void forceSettle(@PathVariable Long auctionId) {
+        lifecycleService.forceSettle(auctionId);
+    }
+
+    @PostMapping("/{auctionId}/force-cancel")
+    public void forceCancel(@PathVariable Long auctionId) {
+        lifecycleService.forceCancel(auctionId);
     }
 
     @GetMapping("/bidders/{bidderId}/bids")

@@ -9,6 +9,8 @@ import com.territorial.auction.entity.AuctionHistory;
 import com.territorial.auction.event.AuctionClosedEvent;
 import com.territorial.auction.event.AuctionSettledEvent;
 import com.territorial.auction.event.EventPublisher;
+import com.territorial.auction.global.exception.CustomException;
+import com.territorial.auction.global.exception.ErrorCode;
 import com.territorial.auction.repository.AuctionBidRepository;
 import com.territorial.auction.repository.AuctionHistoryRepository;
 import com.territorial.auction.repository.AuctionRepository;
@@ -49,6 +51,51 @@ public class AuctionLifecycleService {
                 log.error("[AuctionLifecycle] 경매 정산 실패 auctionId={}", auction.getId(), e);
             }
         }
+    }
+
+    /** 관리자 강제 낙찰: 현재 최고 입찰자에게 즉시 낙찰(정산 로직 재사용). 입찰자 없으면 거부. */
+    @Transactional
+    public void forceSettle(Long auctionId) {
+        Auction auction = findUnsettledOrThrow(auctionId);
+        if (auction.getCurrentBidderId() == null) {
+            throw new CustomException(ErrorCode.AUCTION_NO_BIDDER_TO_SETTLE);
+        }
+        settleAuction(auction, LocalDateTime.now());
+    }
+
+    /** 관리자 강제 취소: 현재 입찰자 잠금 AP 환불 + 영토 재경매 예약 + 경매 종료. */
+    @Transactional
+    public void forceCancel(Long auctionId) {
+        Auction auction = findUnsettledOrThrow(auctionId);
+        LocalDateTime now = LocalDateTime.now();
+        if (auction.getCurrentBidderId() != null) {
+            walletClient.refundLocked(auction.getCurrentBidderId(), auction.getCurrentPrice());
+        }
+        territoryClient.release(
+                auction.getTerritoryId(), now.plusHours(AuctionPolicy.IDLE_REAUCTION_DELAY_HOURS));
+        auction.settle();
+
+        AuctionClosedEvent closedEvent =
+                new AuctionClosedEvent(auction.getId(), auction.getTerritoryId());
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        eventPublisher.publish("auction.closed", closedEvent);
+                    }
+                });
+        log.info("[AuctionLifecycle] 관리자 강제 취소 auctionId={}", auctionId);
+    }
+
+    private Auction findUnsettledOrThrow(Long auctionId) {
+        Auction auction =
+                auctionRepository
+                        .findById(auctionId)
+                        .orElseThrow(() -> new CustomException(ErrorCode.AUCTION_NOT_FOUND));
+        if (auction.isSettled()) {
+            throw new CustomException(ErrorCode.AUCTION_ALREADY_SETTLED);
+        }
+        return auction;
     }
 
     private void settleAuction(Auction auction, LocalDateTime now) {

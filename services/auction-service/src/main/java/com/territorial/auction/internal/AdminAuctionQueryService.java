@@ -3,6 +3,7 @@ package com.territorial.auction.internal;
 import com.territorial.auction.entity.Auction;
 import com.territorial.auction.entity.AuctionBid;
 import com.territorial.auction.internal.dto.AdminActiveBidListView;
+import com.territorial.auction.internal.dto.AdminAuctionListView;
 import com.territorial.auction.internal.dto.AdminBidPageView;
 import com.territorial.auction.repository.AuctionBidRepository;
 import com.territorial.auction.repository.AuctionRepository;
@@ -25,6 +26,28 @@ public class AdminAuctionQueryService {
 
     public long countActiveAuctions() {
         return auctionRepository.countActiveAuctions(LocalDateTime.now());
+    }
+
+    public AdminAuctionListView getActiveAuctions(Pageable pageable) {
+        Page<Auction> page = auctionRepository.findActiveForAdmin(LocalDateTime.now(), pageable);
+        List<AdminAuctionListView.Item> auctions =
+                page.getContent().stream().map(this::toAuctionItem).toList();
+        return new AdminAuctionListView(
+                page.getTotalElements(), page.getNumber(), page.getSize(), auctions);
+    }
+
+    private AdminAuctionListView.Item toAuctionItem(Auction a) {
+        return new AdminAuctionListView.Item(
+                a.getId(),
+                a.getTerritoryId(),
+                a.getCoordX(),
+                a.getCoordY(),
+                a.getContinentName(),
+                a.getGrade(),
+                a.getCurrentPrice(),
+                a.getCurrentBidderId(),
+                a.getCurrentBidderNickname(),
+                a.getEndAt());
     }
 
     public AdminBidPageView getBids(Long bidderId, Pageable pageable) {

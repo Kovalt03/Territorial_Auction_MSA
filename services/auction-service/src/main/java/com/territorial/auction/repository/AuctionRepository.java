@@ -42,4 +42,11 @@ public interface AuctionRepository extends JpaRepository<Auction, Long> {
 
     @Query("SELECT COUNT(a) FROM Auction a WHERE a.settled = false AND a.endAt > :now")
     long countActiveAuctions(@Param("now") LocalDateTime now);
+
+    // 관리자 목록 — 진행 중(미정산·미종료) 경매. 표시 데이터는 스냅샷 필드라 조인 불필요.
+    @Query(
+            value = "SELECT a FROM Auction a WHERE a.settled = false AND a.endAt > :now",
+            countQuery =
+                    "SELECT COUNT(a) FROM Auction a WHERE a.settled = false AND a.endAt > :now")
+    Page<Auction> findActiveForAdmin(@Param("now") LocalDateTime now, Pageable pageable);
 }
