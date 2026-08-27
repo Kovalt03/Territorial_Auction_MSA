@@ -54,5 +54,25 @@ services:
       redis:
         condition: service_healthy
 
+  gateway:
+    build:
+      context: ./services/gateway
+      dockerfile: Dockerfile
+    container_name: msa-gateway
+    env_file:
+      - ./backend/.env   # JWT_SECRET 공유 — 모놀리식과 동일 서명키로 검증
+    environment:
+      TZ: Asia/Seoul
+      AUCTION_SERVICE_URL: http://auction-service:8080
+      # 모놀리식은 별도 compose(docker-compose.yml)에서 실행 → host 경유. 필요 시 override.
+      MONOLITH_URL: ${MONOLITH_URL:-http://host.docker.internal:8080}
+      MONOLITH_WS_URL: ${MONOLITH_WS_URL:-ws://host.docker.internal:8080}
+    ports:
+      - "8090:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - auction-service
+
 volumes:
   auction-pg:

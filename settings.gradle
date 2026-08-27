@@ -8,4 +8,5 @@ rootProject.name = 'territorial-auction-msa'
 
 includeBuild('libs/common')
 includeBuild('services/auction-service')
+includeBuild('services/gateway')
 includeBuild('backend')
