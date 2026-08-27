@@ -12,33 +12,40 @@
 
 이벤트 페이로드: `auctionId, territoryId, coordX, coordY, winnerId, winnerNickname, finalPrice, grade, runnerUpIds`
 
-| 소비자 | 구현할 동작 | 원본(모놀리식 참조) | 상태 |
+현재(스트랭글러) 소비자는 전부 **모놀리식**이다: WS push·알림·map은 `realtime/AuctionRealtimeSubscriber`, 랭킹·시즌 귀속은 `ranking/AuctionSettledRelaySubscriber`(→ `AuctionSettlementRelayService`가 인프로세스 Spring 이벤트로 중계). 향후 각 서비스로 분리 시 이 소비자들을 이동한다.
+
+| 소비자(현행) | 구현한 동작 | 원본(모놀리식 참조) | 상태 |
 |---|---|---|---|
-| **notification-service** | 낙찰자에 `AUCTION_WIN` 알림 "({x},{y}) 영토를 낙찰받았습니다! 낙찰가 {finalPrice} AP." | `notifyAuctionResult` | ⬜ |
-| **notification-service** | runnerUpIds 전원에 `AUCTION_LOSE` 알림 "({x},{y}) 영토 경매에서 낙찰에 실패했습니다." | `notifyAuctionResult` | ⬜ |
-| **map-service** | `/sub/map/update`에 `OCCUPIED` 브로드캐스트 (territoryId, coord, winnerId, winnerNickname) | settleAuction afterCommit | ⬜ |
-| **realtime(push)** | `/sub/user/{winnerId}/auction-result` WIN, runnerUp들에 LOSE | settleAuction afterCommit | ⬜ |
-| **ranking-service** | `AuctionSettledEvent`(winnerId, seasonId, finalPrice) — **시즌은 ranking이 귀속** | `publishSettlementEvents` | ⬜ |
-| **ranking-service** | `TerritoryHoldStartedEvent`(winnerId, seasonId, territoryId, grade) | `publishSettlementEvents` | ⬜ |
+| realtime 허브 | 낙찰자에 `AUCTION_WIN` 알림 | `notifyAuctionResult` | ✅ |
+| realtime 허브 | runnerUpIds 전원에 `AUCTION_LOSE` 알림 | `notifyAuctionResult` | ✅ |
+| realtime 허브 | `/sub/map/update`에 `OCCUPIED` 브로드캐스트 | settleAuction afterCommit | ✅ |
+| realtime 허브 | `/sub/user/{winnerId}/auction-result` WIN, runnerUp들에 LOSE | settleAuction afterCommit | ✅ |
+| ranking 브리지 | Spring `AuctionSettledEvent`(winnerId, seasonId, finalPrice) — 경매 소비 랭킹·시즌 XP·미션. seasonId는 모놀리식이 현재 활성 시즌 조회로 채움 | `publishSettlementEvents` | ✅ |
+| ranking 브리지 | Spring `TerritoryHoldStartedEvent`(winnerId, seasonId, territoryId, grade, now) — 영토 보유 트로피 | `publishSettlementEvents` | ✅ |
 
-> ⚠️ 그래서 이벤트에 **`grade`** 를 반드시 포함해야 한다(ranking이 씀). 빠뜨리면 이 기능이 조용히 죽는다.
+> ⚠️ 이벤트에 **`grade`** 필수(ranking이 씀). ✅ 페이로드에 포함됨.
+> ⚠️ 랭킹/시즌 리스너는 `@TransactionalEventListener(AFTER_COMMIT)`라, 브리지는 반드시 **활성 트랜잭션 안**에서 Spring 이벤트를 발행해야 한다(`AuctionSettlementRelayService`가 `@Transactional`).
 
-**`auction.bid` 이벤트** — 입찰 시 발행(`AuctionBidBroadcast`). auction-service엔 WebSocket이 없으므로 실시간 브로드캐스트를 소비 서비스가 담당:
+**`auction.bid` 이벤트** — 입찰 시 발행(`AuctionBidBroadcast`, `previousBidderId`·coord 포함). auction-service엔 WebSocket이 없으므로 소비 서비스가 담당:
 
-| 소비자 | 동작 | 상태 |
+| 소비자(현행) | 동작 | 상태 |
 |---|---|---|
-| realtime(push) | `/sub/auction/{auctionId}`에 입찰 브로드캐스트 | ⬜ |
+| realtime 허브 | `/sub/auction/{auctionId}`에 입찰 브로드캐스트 | ✅ |
+| realtime 허브 | 이전 최고 입찰자에게 `OUTBID` 알림("입찰이 밀렸습니다") | ✅ |
 
 ## 2. 모놀리식 `/internal/*` 엔드포인트 (auction이 동기 호출 → 모놀리식 구현 필요, Part B)
 
 | 엔드포인트 | 하는 일 | 호출부 | 상태 |
 |---|---|---|---|
-| `POST /internal/wallets/bid-escrow` | 이전 입찰자 환불 + 신규 입찰자 잠금(원자적), 닉네임 반환 | `WalletClient.bidEscrow` | ⬜ |
-| `POST /internal/wallets/bid-escrow/cancel` | escrow 보상(롤백) | (보상) | ⬜ |
-| `POST /internal/wallets/consume-locked` | 낙찰자 lockedAp 소비 | `WalletClient.consumeLocked` | ⬜ |
-| `POST /internal/territories/{id}/occupy` | 영토 점유(winner, occupiedUntil, protectedUntil) | `TerritoryClient.occupy` | ⬜ |
-| `POST /internal/territories/{id}/release` | 영토 IDLE 복귀(nextAuctionAt) | `TerritoryClient.release` | ⬜ |
-| `POST /internal/buildings/initial-castle` | 낙찰 영토에 초기 성 생성 | `BuildingClient.createInitialCastle` | ⬜ |
+| `POST /internal/wallets/bid-escrow` | 이전 입찰자 환불 + 신규 입찰자 잠금(원자적), 닉네임 반환 | `WalletClient.bidEscrow` | ✅ |
+| `POST /internal/wallets/bid-escrow/cancel` | escrow 보상(롤백) | (보상) | ⬜ (saga §3) |
+| `POST /internal/wallets/consume-locked` | 낙찰자 lockedAp 소비 | `WalletClient.consumeLocked` | ✅ |
+| `POST /internal/wallets/refund-locked` | 잠금 AP 환불(관리자 강제 취소) | `WalletClient.refundLocked` | ✅ |
+| `POST /internal/territories/{id}/occupy` | 영토 점유(winner, occupiedUntil, protectedUntil) | `TerritoryClient.occupy` | ✅ |
+| `POST /internal/territories/{id}/release` | 영토 IDLE 복귀(nextAuctionAt) | `TerritoryClient.release` | ✅ |
+| `POST /internal/buildings/initial-castle` | 낙찰 영토에 초기 성 생성 | `BuildingClient.createInitialCastle` | ✅ |
+
+관리자 경매 관리(모놀리식 `/api/v1/admin/auctions` → auction-service `/internal/auctions/*`): 목록·강제정산·강제취소·유저 입찰내역·활성 경매 카운트 모두 ✅. 인증·감사 로그는 모놀리식 유지.
 
 **실패 응답 계약** — 상태코드는 모놀리식 **GlobalExceptionHandler 단일 소스**(ErrorCode.httpStatus)를 따른다. 내부 전용 로컬 핸들러를 두지 않는다. `INSUFFICIENT_AP`은 400→**409(CONFLICT)**로 변경(검증 400과 겹치지 않게, 모놀리식·auction 양쪽 ErrorCode 일치).
 
@@ -61,7 +68,12 @@
 | 흐름 | 원래 위치 | 어디로 | 상태 |
 |---|---|---|---|
 | 경매 **생성** | LifecycleService | ✅ map `territory.auction-ready` 이벤트 발행(모놀리식) → auction 구독 생성(JSON). 모놀리식 createPendingAuctions 비활성 | ✅ |
-| 영토 **점유 만료**(releaseExpiredTerritories) | LifecycleService | map-service 소유 | ⬜ |
+| 영토 **점유 만료**(releaseExpiredTerritories) | LifecycleService | ✅ map `TerritoryExpiryService`(@Scheduled) 소유. `TerritoryLostEvent`·`TerritoryHoldClosedEvent`도 여기서 발행 | ✅ |
+| 상회입찰(OUTBID) 알림 | AuctionService.notifyOutbid | ✅ auction.bid에 previousBidderId 실어 realtime 허브가 알림 | ✅ |
+| 관리자 경매 관리(목록·강제정산·강제취소) | LifecycleService+AuctionAdminController | ✅ auction-service `/internal` + 모놀리식 admin 프록시 | ✅ |
+| auction 도메인 삭제 | 모놀리식 domain/auction | ✅ 전체 삭제(테이블은 stale 유지) | ✅ |
+
+**단위 테스트**: auction-service `AuctionServiceTest`(입찰 검증 5) + `AuctionLifecycleServiceTest`(강제정산·취소 4) 이식 완료.
 | 관리자 강제 정산·취소·목록 | LifecycleService + AuctionAdminController | 모놀리식 잔류(또는 auction 자체 admin 후속) | ⬜ |
 | 인증(@AuthenticationPrincipal) | 컨트롤러 | 게이트웨이 X-User-Id 헤더 | 🔄 임시(헤더) |
 
