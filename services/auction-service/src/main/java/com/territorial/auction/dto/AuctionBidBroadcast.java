@@ -8,4 +8,7 @@ public record AuctionBidBroadcast(
         Long bidderId,
         String bidderNickname,
         LocalDateTime bidAt,
-        LocalDateTime endAt) {}
+        LocalDateTime endAt,
+        Long previousBidderId,
+        int coordX,
+        int coordY) {}

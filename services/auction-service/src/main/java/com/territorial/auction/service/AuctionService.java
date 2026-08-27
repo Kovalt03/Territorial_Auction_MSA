@@ -142,10 +142,9 @@ public class AuctionService {
                         .build());
 
         applyAntiSniping(auction, now);
-        //        [todo] previousBidderId에게 '상회입찰' 알림 -> 이벤트 발행으로
-        //        notifyOutbid(previousBidder, auction, request.bidAmount());
 
         LocalDateTime finalEndAt = auction.getEndAt();
+        // previousBidderId·좌표를 함께 실어, realtime 허브가 이전 입찰자에게 OUTBID 알림을 보내게 한다.
         AuctionBidBroadcast broadcast =
                 new AuctionBidBroadcast(
                         auction.getId(),
@@ -153,7 +152,10 @@ public class AuctionService {
                         userId,
                         escrow.bidderNickname(),
                         now,
-                        finalEndAt);
+                        finalEndAt,
+                        previousBidderId,
+                        auction.getCoordX(),
+                        auction.getCoordY());
         TransactionSynchronizationManager.registerSynchronization(
                 new TransactionSynchronization() {
                     @Override

@@ -44,6 +44,19 @@ public class AuctionRealtimeSubscriber {
         try {
             BidEvent e = objectMapper.readValue(json, BidEvent.class);
             messagingTemplate.convertAndSend("/sub/auction/" + e.auctionId(), e);
+            // 이전 최고 입찰자에게 상회입찰(OUTBID) 알림 — 시작가 레코드(previousBidderId=null)는 대상 없음
+            if (e.previousBidderId() != null) {
+                notificationService.sendNotification(
+                        e.previousBidderId(),
+                        NotificationType.OUTBID,
+                        "("
+                                + e.coordX()
+                                + ", "
+                                + e.coordY()
+                                + ") 영토 경매에서 입찰이 밀렸습니다. 현재가 "
+                                + e.currentPrice()
+                                + " AP.");
+            }
         } catch (Exception ex) {
             log.error("[AuctionRealtime] bid 처리 실패: {}", json, ex);
         }
@@ -107,7 +120,10 @@ public class AuctionRealtimeSubscriber {
             Long bidderId,
             String bidderNickname,
             LocalDateTime bidAt,
-            LocalDateTime endAt) {}
+            LocalDateTime endAt,
+            Long previousBidderId,
+            int coordX,
+            int coordY) {}
 
     private record SettledEvent(
             Long auctionId,
