@@ -20,11 +20,5 @@ public class AuctionScheduler {
         auctionLifecycleService.settlePendingAuctions();
     }
 
-    /** 1분마다 점유 만료 처리 + 신규 경매 생성 */
-    @Scheduled(fixedDelay = 60_000)
-    public void createAuctions() {
-        log.debug("[AuctionScheduler] 점유 만료 + 경매 생성 실행");
-        auctionLifecycleService.releaseExpiredTerritories();
-        auctionLifecycleService.createPendingAuctions();
-    }
+    // 점유 만료(map 소유)·경매 생성(#3 이벤트 기반 재설계)은 제거함 — tracking §4 참고.
 }

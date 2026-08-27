@@ -43,10 +43,15 @@ services:
       DB_NAME: auction
       DB_USERNAME: auction
       DB_PASSWORD: auction
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MONOLITH_BASE_URL: http://backend:8080   # Part B 이후 실제 호출 대상(현재 모놀리식 미포함이라 호출 시에만 필요)
     ports:
       - "8081:8080"   # 모놀리식 backend(8080)와 충돌 회피
     depends_on:
       auction-postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
 volumes:

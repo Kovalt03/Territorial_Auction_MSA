@@ -1,7 +1,5 @@
 package com.territorial.auction.entity;
 
-import com.territorial.auction.domain.map.entity.Territory;
-import com.territorial.auction.domain.user.entity.User;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import lombok.*;
@@ -16,13 +14,28 @@ public class Auction {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "territory_id", nullable = false)
-    private Territory territory;
+    @Column(name = "territory_id", nullable = false)
+    private Long territoryId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "current_bidder_id")
-    private User currentBidder;
+    @Column(nullable = false)
+    private Integer coordX;
+
+    @Column(nullable = false)
+    private Integer coordY;
+
+    @Column(nullable = false)
+    private String continentName;
+
+    // 대륙 필터(getAuctions)용 스냅샷. 경매 생성(#3) 시 territory의 continentId를 복사.
+    private Long continentId;
+
+    @Column(nullable = false)
+    private String grade;
+
+    @Column(name = "currentBidder_id", nullable = false)
+    private Long currentBidderId;
+
+    private String currentBidderNickname;
 
     @Column(nullable = false)
     private Integer currentPrice;
@@ -41,12 +54,22 @@ public class Auction {
 
     @Builder
     public Auction(
-            Territory territory,
+            Long territoryId,
+            Integer coordX,
+            Integer coordY,
+            String continentName,
+            Long continentId,
+            String grade,
             Integer currentPrice,
             LocalDateTime startAt,
             LocalDateTime endAt,
             LocalDateTime maxExtendUntil) {
-        this.territory = territory;
+        this.territoryId = territoryId;
+        this.coordX = coordX;
+        this.coordY = coordY;
+        this.continentName = continentName;
+        this.continentId = continentId;
+        this.grade = grade;
         this.currentPrice = currentPrice;
         this.startAt = startAt;
         this.endAt = endAt;
@@ -57,8 +80,9 @@ public class Auction {
         return LocalDateTime.now().isAfter(this.endAt);
     }
 
-    public void updateBid(User bidder, int newPrice) {
-        this.currentBidder = bidder;
+    public void updateBid(Long bidderId, String bidderNickname, int newPrice) {
+        this.currentBidderId = bidderId;
+        this.currentBidderNickname = bidderNickname;
         this.currentPrice = newPrice;
     }
 

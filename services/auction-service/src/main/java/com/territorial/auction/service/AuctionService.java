@@ -1,6 +1,9 @@
 package com.territorial.auction.service;
 
 import com.territorial.auction.AuctionPolicy;
+import com.territorial.auction.client.BidEscrowRequest;
+import com.territorial.auction.client.BidEscrowResult;
+import com.territorial.auction.client.WalletClient;
 import com.territorial.auction.dto.AuctionBidBroadcast;
 import com.territorial.auction.dto.AuctionBidHistoryResponse;
 import com.territorial.auction.dto.AuctionDetailResponse;
@@ -13,27 +16,19 @@ import com.territorial.auction.entity.Auction;
 import com.territorial.auction.entity.AuctionBid;
 import com.territorial.auction.entity.AuctionHistory;
 import com.territorial.auction.entity.AuctionStatus;
-import com.territorial.auction.repository.AuctionBidRepository;
-import com.territorial.auction.repository.AuctionHistoryRepository;
-import com.territorial.auction.repository.AuctionRepository;
-import com.territorial.auction.domain.map.entity.Territory;
-import com.territorial.auction.domain.map.repository.TerritoryRepository;
-import com.territorial.auction.domain.notification.entity.NotificationLog.NotificationType;
-import com.territorial.auction.domain.notification.service.NotificationService;
-import com.territorial.auction.domain.user.entity.User;
-import com.territorial.auction.domain.user.entity.Wallet;
-import com.territorial.auction.domain.user.repository.UserRepository;
-import com.territorial.auction.domain.user.repository.WalletRepository;
+import com.territorial.auction.event.EventPublisher;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import com.territorial.auction.global.lock.DistributedLock;
+import com.territorial.auction.repository.AuctionBidRepository;
+import com.territorial.auction.repository.AuctionHistoryRepository;
+import com.territorial.auction.repository.AuctionRepository;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -48,11 +43,8 @@ public class AuctionService {
     private final AuctionRepository auctionRepository;
     private final AuctionBidRepository auctionBidRepository;
     private final AuctionHistoryRepository auctionHistoryRepository;
-    private final UserRepository userRepository;
-    private final WalletRepository walletRepository;
-    private final TerritoryRepository territoryRepository;
-    private final NotificationService notificationService;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final WalletClient walletClient;
+    private final EventPublisher eventPublisher;
 
     public Auction findById(Long auctionId) {
         return auctionRepository
@@ -72,15 +64,13 @@ public class AuctionService {
                                 a ->
                                         new AuctionListResponse.AuctionItemDto(
                                                 a.getId(),
-                                                a.getTerritory().getId(),
-                                                a.getTerritory().getCoordX(),
-                                                a.getTerritory().getCoordY(),
-                                                a.getTerritory().getContinent().getDisplayName(),
-                                                a.getTerritory().getGrade().getGrade(),
+                                                a.getTerritoryId(),
+                                                a.getCoordX(),
+                                                a.getCoordY(),
+                                                a.getContinentName(),
+                                                a.getGrade(),
                                                 a.getCurrentPrice(),
-                                                a.getCurrentBidder() != null
-                                                        ? a.getCurrentBidder().getNickname()
-                                                        : null,
+                                                a.getCurrentBidderNickname(),
                                                 a.getEndAt(),
                                                 AuctionStatus.from(a.getEndAt(), now)))
                         .toList();
@@ -101,22 +91,16 @@ public class AuctionService {
                         .map(
                                 b ->
                                         new AuctionDetailResponse.RecentBidDto(
-                                                b.getBidder() != null
-                                                        ? b.getBidder().getNickname()
-                                                        : null,
-                                                b.getPrice(),
-                                                b.getBidAt()))
+                                                b.getBidderNickname(), b.getPrice(), b.getBidAt()))
                         .toList();
         return new AuctionDetailResponse(
                 auction.getId(),
-                auction.getTerritory().getId(),
-                auction.getTerritory().getCoordX(),
-                auction.getTerritory().getCoordY(),
-                auction.getTerritory().getGrade().getGrade(),
+                auction.getTerritoryId(),
+                auction.getCoordX(),
+                auction.getCoordY(),
+                auction.getGrade(),
                 auction.getCurrentPrice(),
-                auction.getCurrentBidder() != null
-                        ? auction.getCurrentBidder().getNickname()
-                        : null,
+                auction.getCurrentBidderNickname(),
                 auction.getStartAt(),
                 auction.getEndAt(),
                 recentBidDtos);
@@ -134,54 +118,48 @@ public class AuctionService {
         if (now.isAfter(auction.getEndAt())) {
             throw new CustomException(ErrorCode.AUCTION_ALREADY_ENDED);
         }
-        if (auction.getCurrentBidder() != null
-                && auction.getCurrentBidder().getId().equals(userId)) {
+        if (auction.getCurrentBidderNickname() != null
+                && auction.getCurrentBidderId().equals(userId)) {
             throw new CustomException(ErrorCode.ALREADY_HIGHEST_BIDDER);
         }
         validateBidAmount(auction.getCurrentPrice(), request.bidAmount());
 
-        User bidder =
-                userRepository
-                        .findById(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        User previousBidder = auction.getCurrentBidder();
-        LockedWallets wallets =
-                lockWallets(userId, previousBidder != null ? previousBidder.getId() : null);
-        Wallet bidderWallet = wallets.bidder();
+        Long previousBidderId = auction.getCurrentBidderId();
+        Integer previousAmount = previousBidderId != null ? auction.getCurrentPrice() : null;
+        BidEscrowResult escrow =
+                walletClient.bidEscrow(
+                        new BidEscrowRequest(
+                                userId, request.bidAmount(), previousBidderId, previousAmount));
 
-        if (bidderWallet.getAvailableAp() < request.bidAmount()) {
-            throw new CustomException(ErrorCode.INSUFFICIENT_AP);
-        }
-
-        refundPreviousBidder(auction, auctionId, wallets.previousBidder());
-        bidderWallet.lockAp(request.bidAmount());
-        auction.updateBid(bidder, request.bidAmount());
+        auction.updateBid(userId, escrow.bidderNickname(), request.bidAmount());
 
         auctionBidRepository.save(
                 AuctionBid.builder()
                         .auction(auction)
-                        .bidder(bidder)
+                        .bidderId(userId)
+                        .bidderNickname(escrow.bidderNickname())
                         .price(request.bidAmount())
                         .build());
 
         applyAntiSniping(auction, now);
-        notifyOutbid(previousBidder, auction, request.bidAmount());
+        //        [todo] previousBidderId에게 '상회입찰' 알림 -> 이벤트 발행으로
+        //        notifyOutbid(previousBidder, auction, request.bidAmount());
 
         LocalDateTime finalEndAt = auction.getEndAt();
         AuctionBidBroadcast broadcast =
                 new AuctionBidBroadcast(
                         auction.getId(),
                         request.bidAmount(),
-                        bidder.getId(),
-                        bidder.getNickname(),
+                        userId,
+                        escrow.bidderNickname(),
                         now,
                         finalEndAt);
         TransactionSynchronizationManager.registerSynchronization(
                 new TransactionSynchronization() {
                     @Override
                     public void afterCommit() {
-                        messagingTemplate.convertAndSend(
-                                "/sub/auction/" + auction.getId(), broadcast);
+                        // 실시간 입찰 브로드캐스트(/sub/auction/{id})는 realtime 소비 서비스가 처리 — tracking §1
+                        eventPublisher.publish("auction.bid", broadcast);
                     }
                 });
 
@@ -197,22 +175,21 @@ public class AuctionService {
                                 b -> {
                                     Auction a = b.getAuction();
                                     boolean isHighest =
-                                            a.getCurrentBidder() != null
-                                                    && a.getCurrentBidder()
-                                                            .getId()
-                                                            .equals(b.getBidder().getId());
+                                            a.getCurrentBidderNickname() != null
+                                                    && a.getCurrentBidderId()
+                                                            .equals(b.getBidderId());
                                     return new MyBidListResponse.MyBidItemDto(
                                             a.getId(),
-                                            a.getTerritory().getId(),
-                                            a.getTerritory().getCoordX(),
-                                            a.getTerritory().getCoordY(),
+                                            a.getTerritoryId(),
+                                            a.getCoordX(),
+                                            a.getCoordY(),
                                             b.getPrice(),
                                             a.getCurrentPrice(),
                                             isHighest,
                                             a.getEndAt(),
                                             AuctionStatus.from(a.getEndAt(), now),
-                                            a.getTerritory().getGrade().getGrade(),
-                                            a.getTerritory().getContinent().getDisplayName());
+                                            a.getGrade(),
+                                            a.getContinentName());
                                 })
                         .toList();
         return new MyBidListResponse(bids.size(), 0, bids.size(), bids);
@@ -229,20 +206,12 @@ public class AuctionService {
                         .map(
                                 b ->
                                         new AuctionBidHistoryResponse.BidDto(
-                                                b.getPrice(),
-                                                b.getBidAt(),
-                                                b.getBidder() != null
-                                                        ? b.getBidder().getNickname()
-                                                        : null))
+                                                b.getPrice(), b.getBidAt(), b.getBidderNickname()))
                         .toList();
         return new AuctionBidHistoryResponse(auction.getId(), bidDtos);
     }
 
     public TerritoryAuctionHistoryResponse getTerritoryAuctionHistory(Long territoryId) {
-        Territory territory =
-                territoryRepository
-                        .findById(territoryId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.TERRITORY_NOT_FOUND));
         List<AuctionHistory> histories =
                 auctionHistoryRepository.findAllByTerritoryIdOrderByWonAtDesc(territoryId);
         List<TerritoryAuctionHistoryResponse.HistoryDto> historyDtos =
@@ -251,11 +220,11 @@ public class AuctionService {
                                 h ->
                                         new TerritoryAuctionHistoryResponse.HistoryDto(
                                                 h.getAuction().getId(),
-                                                h.getWinner().getNickname(),
+                                                h.getWinnerName(),
                                                 h.getFinalPrice(),
                                                 h.getWonAt()))
                         .toList();
-        return new TerritoryAuctionHistoryResponse(territory.getId(), historyDtos);
+        return new TerritoryAuctionHistoryResponse(territoryId, historyDtos);
     }
 
     private void validateBidAmount(int currentPrice, int bidAmount) {
@@ -267,49 +236,20 @@ public class AuctionService {
     }
 
     // 이전 최고 입찰자에게만 입찰 밀림을 알린다. 시작가 레코드(bidder=null)엔 알림 대상이 없다.
-    private void notifyOutbid(User previousBidder, Auction auction, int newBidAmount) {
-        if (previousBidder == null) return;
-        Territory territory = auction.getTerritory();
-        notificationService.sendNotification(
-                previousBidder.getId(),
-                NotificationType.OUTBID,
-                "("
-                        + territory.getCoordX()
-                        + ", "
-                        + territory.getCoordY()
-                        + ") 영토 경매에서 입찰이 밀렸습니다. 현재가 "
-                        + newBidAmount
-                        + " AP.");
-    }
-
-    private LockedWallets lockWallets(Long bidderId, Long previousBidderId) {
-        if (previousBidderId == null) {
-            return new LockedWallets(findWalletWithLock(bidderId), null);
-        }
-        if (previousBidderId < bidderId) {
-            Wallet previousWallet = findWalletWithLock(previousBidderId);
-            return new LockedWallets(findWalletWithLock(bidderId), previousWallet);
-        }
-        Wallet bidderWallet = findWalletWithLock(bidderId);
-        return new LockedWallets(bidderWallet, findWalletWithLock(previousBidderId));
-    }
-
-    private Wallet findWalletWithLock(Long userId) {
-        return walletRepository
-                .findByIdWithLock(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-    }
-
-    private void refundPreviousBidder(
-            Auction auction, Long auctionId, Wallet previousBidderWallet) {
-        User prevBidder = auction.getCurrentBidder();
-        if (prevBidder == null) return;
-        auctionBidRepository
-                .findTopByAuctionIdAndBidderIdOrderByPriceDesc(auctionId, prevBidder.getId())
-                .ifPresent(prevBid -> previousBidderWallet.refundLockedAp(prevBid.getPrice()));
-    }
-
-    private record LockedWallets(Wallet bidder, Wallet previousBidder) {}
+    //    private void notifyOutbid(User previousBidder, Auction auction, int newBidAmount) {
+    //        if (previousBidder == null) return;
+    //        Territory territory = auction.getTerritory();
+    //        notificationService.sendNotification(
+    //                previousBidder.getId(),
+    //                NotificationType.OUTBID,
+    //                "("
+    //                        + territory.getCoordX()
+    //                        + ", "
+    //                        + territory.getCoordY()
+    //                        + ") 영토 경매에서 입찰이 밀렸습니다. 현재가 "
+    //                        + newBidAmount
+    //                        + " AP.");
+    //    }
 
     private void applyAntiSniping(Auction auction, LocalDateTime now) {
         LocalDateTime endAt = auction.getEndAt();

@@ -1,6 +1,5 @@
 package com.territorial.auction.entity;
 
-import com.territorial.auction.domain.user.entity.User;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import lombok.*;
@@ -26,9 +25,13 @@ public class AuctionBid {
     @JoinColumn(name = "auction_id", nullable = false)
     private Auction auction;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "bidder_id")
-    private User bidder; // NULL = 시스템(시작가)
+    //    @ManyToOne(fetch = FetchType.LAZY)
+    //    @JoinColumn(name = "bidder_id")
+    //    private User bidder; // NULL = 시스템(시작가)
+    @Column(name = "bidder_id")
+    private Long bidderId;
+
+    private String bidderNickname;
 
     @Column(nullable = false)
     private Integer price;
@@ -38,9 +41,10 @@ public class AuctionBid {
     private LocalDateTime bidAt;
 
     @Builder
-    public AuctionBid(Auction auction, User bidder, Integer price) {
+    public AuctionBid(Auction auction, Long bidderId, String bidderNickname, Integer price) {
         this.auction = auction;
-        this.bidder = bidder;
+        this.bidderId = bidderId;
+        this.bidderNickname = bidderNickname;
         this.price = price;
     }
 }

@@ -1,8 +1,5 @@
 package com.territorial.auction.entity;
 
-import com.territorial.auction.domain.map.entity.Territory;
-import com.territorial.auction.domain.season.entity.Season;
-import com.territorial.auction.domain.user.entity.User;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import lombok.*;
@@ -21,13 +18,13 @@ public class AuctionHistory {
     @JoinColumn(name = "auction_id", nullable = false)
     private Auction auction;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "territory_id", nullable = false)
-    private Territory territory;
+    @Column(name = "territory_id", nullable = false)
+    private Long territoryId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "winner_id", nullable = false)
-    private User winner;
+    @Column(name = "winner_id", nullable = false)
+    private Long winnerId;
+
+    private String winnerName;
 
     @Column(nullable = false)
     private Integer finalPrice;
@@ -35,23 +32,24 @@ public class AuctionHistory {
     @Column(nullable = false)
     private LocalDateTime wonAt;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "season_id", nullable = true)
-    private Season season;
+    @Column(name = "season_id", nullable = true)
+    private Long seasonId;
 
     @Builder
     public AuctionHistory(
             Auction auction,
-            Territory territory,
-            User winner,
+            Long territoryId,
+            Long winnerId,
+            String winnerName,
             Integer finalPrice,
             LocalDateTime wonAt,
-            Season season) {
+            Long seasonId) {
         this.auction = auction;
-        this.territory = territory;
-        this.winner = winner;
+        this.territoryId = territoryId;
+        this.winnerId = winnerId;
+        this.winnerName = winnerName;
         this.finalPrice = finalPrice;
         this.wonAt = wonAt;
-        this.season = season;
+        this.seasonId = seasonId;
     }
 }

@@ -16,21 +16,18 @@ public interface AuctionRepository extends JpaRepository<Auction, Long> {
 
     Optional<Auction> findFirstByTerritoryIdAndSettledFalseOrderByEndAtDesc(Long territoryId);
 
+    // 관계(territory·continent·grade·currentBidder) 제거됨 — 표시 데이터는 Auction 스냅샷 필드.
+    // 대륙 필터는 continentId 스냅샷으로.
     @Query(
             value =
                     "SELECT a FROM Auction a"
-                            + " JOIN FETCH a.territory t"
-                            + " JOIN FETCH t.continent"
-                            + " JOIN FETCH t.grade"
-                            + " LEFT JOIN FETCH a.currentBidder"
-                            + " WHERE (:continentId IS NULL OR t.continent.id = :continentId)"
+                            + " WHERE (:continentId IS NULL OR a.continentId = :continentId)"
                             + " AND (:status IS NULL"
                             + "   OR (:status = 'BIDDING' AND a.endAt > :now)"
                             + "   OR (:status = 'IDLE'    AND a.endAt <= :now))",
             countQuery =
                     "SELECT COUNT(a) FROM Auction a"
-                            + " JOIN a.territory t"
-                            + " WHERE (:continentId IS NULL OR t.continent.id = :continentId)"
+                            + " WHERE (:continentId IS NULL OR a.continentId = :continentId)"
                             + " AND (:status IS NULL"
                             + "   OR (:status = 'BIDDING' AND a.endAt > :now)"
                             + "   OR (:status = 'IDLE'    AND a.endAt <= :now))")
@@ -40,43 +37,9 @@ public interface AuctionRepository extends JpaRepository<Auction, Long> {
             @Param("now") LocalDateTime now,
             Pageable pageable);
 
-    @Query(
-            "SELECT a FROM Auction a"
-                    + " JOIN FETCH a.territory t"
-                    + " JOIN FETCH t.grade"
-                    + " LEFT JOIN FETCH a.currentBidder"
-                    + " WHERE a.endAt <= :now AND a.settled = false")
+    @Query("SELECT a FROM Auction a WHERE a.endAt <= :now AND a.settled = false")
     List<Auction> findAllExpiredUnsettled(@Param("now") LocalDateTime now);
-
-    @Query(
-            "SELECT a.territory.id FROM Auction a"
-                    + " WHERE a.territory.id IN :territoryIds"
-                    + " AND a.settled = false"
-                    + " AND a.endAt > :now")
-    List<Long> findActiveAuctionTerritoryIds(
-            @Param("territoryIds") List<Long> territoryIds, @Param("now") LocalDateTime now);
 
     @Query("SELECT COUNT(a) FROM Auction a WHERE a.settled = false AND a.endAt > :now")
     long countActiveAuctions(@Param("now") LocalDateTime now);
-
-    @Query(
-            "SELECT a FROM Auction a"
-                    + " JOIN FETCH a.territory t"
-                    + " JOIN FETCH t.continent"
-                    + " JOIN FETCH t.grade"
-                    + " LEFT JOIN FETCH a.currentBidder"
-                    + " WHERE a.id = :id")
-    Optional<Auction> findByIdWithDetails(@Param("id") Long id);
-
-    @Query(
-            value =
-                    "SELECT a FROM Auction a"
-                            + " JOIN FETCH a.territory t"
-                            + " JOIN FETCH t.continent"
-                            + " JOIN FETCH t.grade"
-                            + " LEFT JOIN FETCH a.currentBidder"
-                            + " WHERE a.settled = false AND a.endAt > :now",
-            countQuery =
-                    "SELECT COUNT(a) FROM Auction a WHERE a.settled = false AND a.endAt > :now")
-    Page<Auction> findActiveForAdmin(@Param("now") LocalDateTime now, Pageable pageable);
 }

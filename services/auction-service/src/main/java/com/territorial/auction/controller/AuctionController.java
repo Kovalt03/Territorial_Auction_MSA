@@ -8,14 +8,13 @@ import com.territorial.auction.dto.PlaceBidRequest;
 import com.territorial.auction.dto.PlaceBidResponse;
 import com.territorial.auction.dto.TerritoryAuctionHistoryResponse;
 import com.territorial.auction.entity.AuctionStatus;
-import com.territorial.auction.service.AuctionService;
 import com.territorial.auction.global.common.ApiResponse;
+import com.territorial.auction.service.AuctionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -36,7 +35,8 @@ public class AuctionController {
 
     @GetMapping("/my-bids")
     public ResponseEntity<ApiResponse<MyBidListResponse>> getMyBids(
-            @AuthenticationPrincipal Long userId, @PageableDefault(size = 20) Pageable pageable) {
+            @RequestHeader("X-User-Id") Long userId,
+            @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.ok(auctionService.getMyBids(userId, pageable)));
     }
 
@@ -61,7 +61,7 @@ public class AuctionController {
 
     @PostMapping("/{auctionId}/bids")
     public ResponseEntity<ApiResponse<PlaceBidResponse>> placeBid(
-            @AuthenticationPrincipal Long userId,
+            @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long auctionId,
             @RequestBody @Valid PlaceBidRequest request) {
         return ResponseEntity.ok(
