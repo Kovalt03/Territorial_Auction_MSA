@@ -2,8 +2,8 @@ package com.territorial.auction.domain.user.service;
 
 import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.entity.Wallet;
-import com.territorial.auction.domain.user.repository.WalletRepository;
 import com.territorial.auction.domain.user.repository.UserRepository;
+import com.territorial.auction.domain.user.repository.WalletRepository;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -18,8 +18,12 @@ public class WalletService {
     private final UserRepository userRepository;
 
     @Transactional
-    public String bidEscrow(Long bidderId, int bidAmount, Long previousBidderId, Integer previousAmount) {
-        User bidder = userRepository.findById(bidderId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    public String bidEscrow(
+            Long bidderId, int bidAmount, Long previousBidderId, Integer previousAmount) {
+        User bidder =
+                userRepository
+                        .findById(bidderId)
+                        .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         Wallet bidderWallet;
         Wallet previousWallet = null;
@@ -52,7 +56,16 @@ public class WalletService {
         wallet.consumeLockedAp(finalPrice);
     }
 
+    /** 잠금 AP를 환불(관리자 강제 취소 시 현재 입찰자에게). */
+    @Transactional
+    public void refundLocked(Long bidderId, int amount) {
+        Wallet wallet = lockOrThrow(bidderId);
+        wallet.refundLockedAp(amount);
+    }
+
     private Wallet lockOrThrow(Long bidderId) {
-        return walletRepository.findByIdWithLock(bidderId).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        return walletRepository
+                .findByIdWithLock(bidderId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
     }
 }

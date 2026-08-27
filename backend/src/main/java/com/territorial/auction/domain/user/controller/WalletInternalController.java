@@ -3,6 +3,7 @@ package com.territorial.auction.domain.user.controller;
 import com.territorial.auction.domain.user.dto.BidEscrowRequest;
 import com.territorial.auction.domain.user.dto.BidEscrowResponse;
 import com.territorial.auction.domain.user.dto.ConsumeLockedRequest;
+import com.territorial.auction.domain.user.dto.RefundLockedRequest;
 import com.territorial.auction.domain.user.service.WalletService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -33,6 +34,12 @@ public class WalletInternalController {
     @PostMapping("/consume-locked")
     public ResponseEntity<Void> consumeLocked(@RequestBody ConsumeLockedRequest request) {
         walletService.consumeLocked(request.winnerId(), request.finalPrice());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/refund-locked")
+    public ResponseEntity<Void> refundLocked(@RequestBody RefundLockedRequest request) {
+        walletService.refundLocked(request.bidderId(), request.amount());
         return ResponseEntity.ok().build();
     }
 }
