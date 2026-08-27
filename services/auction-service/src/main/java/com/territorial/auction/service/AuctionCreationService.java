@@ -3,6 +3,8 @@ package com.territorial.auction.service;
 import com.territorial.auction.AuctionPolicy;
 import com.territorial.auction.entity.Auction;
 import com.territorial.auction.entity.AuctionBid;
+import com.territorial.auction.event.AuctionOpenedEvent;
+import com.territorial.auction.event.EventPublisher;
 import com.territorial.auction.event.TerritoryAuctionReadyEvent;
 import com.territorial.auction.repository.AuctionBidRepository;
 import com.territorial.auction.repository.AuctionRepository;
@@ -11,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Slf4j
 @Service
@@ -19,6 +23,7 @@ public class AuctionCreationService {
 
     private final AuctionRepository auctionRepository;
     private final AuctionBidRepository auctionBidRepository;
+    private final EventPublisher eventPublisher;
 
     /** map의 territory.auction-ready 이벤트로 경매 생성. 중복 이벤트에 대비해 진행 중 경매가 있으면 스킵(idempotent). */
     @Transactional
@@ -54,6 +59,18 @@ public class AuctionCreationService {
         // 시작가 레코드 (bidder 없음 = 그래프 상 시작점)
         auctionBidRepository.save(
                 AuctionBid.builder().auction(auction).price(startingPrice).build());
+
+        // map 읽기 프로젝션에 '경매중' upsert (tracking §1) — 커밋 이후 발행
+        AuctionOpenedEvent openedEvent =
+                new AuctionOpenedEvent(
+                        auction.getId(), auction.getTerritoryId(), startingPrice, endAt);
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        eventPublisher.publish("auction.opened", openedEvent);
+                    }
+                });
 
         log.info(
                 "[AuctionCreation] 경매 생성 territoryId={} startingPrice={}",

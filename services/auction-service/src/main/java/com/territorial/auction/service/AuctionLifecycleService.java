@@ -6,6 +6,7 @@ import com.territorial.auction.client.TerritoryClient;
 import com.territorial.auction.client.WalletClient;
 import com.territorial.auction.entity.Auction;
 import com.territorial.auction.entity.AuctionHistory;
+import com.territorial.auction.event.AuctionClosedEvent;
 import com.territorial.auction.event.AuctionSettledEvent;
 import com.territorial.auction.event.EventPublisher;
 import com.territorial.auction.repository.AuctionBidRepository;
@@ -91,11 +92,14 @@ public class AuctionLifecycleService {
                             auction.getGrade(),
                             List.copyOf(runnerUpIds));
             // 비동기: 알림·랭킹·map 브로드캐스트는 소비 서비스가 처리 (tracking §1)
+            AuctionClosedEvent closedEvent =
+                    new AuctionClosedEvent(auction.getId(), auction.getTerritoryId());
             TransactionSynchronizationManager.registerSynchronization(
                     new TransactionSynchronization() {
                         @Override
                         public void afterCommit() {
                             eventPublisher.publish("auction.settled", event);
+                            eventPublisher.publish("auction.closed", closedEvent);
                         }
                     });
 
@@ -109,6 +113,18 @@ public class AuctionLifecycleService {
             LocalDateTime nextAuctionAt = now.plusHours(AuctionPolicy.IDLE_REAUCTION_DELAY_HOURS);
             territoryClient.release(auction.getTerritoryId(), nextAuctionAt);
             auction.settle();
+
+            // map 읽기 프로젝션에서 '경매중' 제거 (낙찰·무낙찰 공통)
+            AuctionClosedEvent closedEvent =
+                    new AuctionClosedEvent(auction.getId(), auction.getTerritoryId());
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            eventPublisher.publish("auction.closed", closedEvent);
+                        }
+                    });
+
             log.info(
                     "[AuctionLifecycle] 무낙찰 정산 auctionId={} nextAuctionAt={}",
                     auction.getId(),
