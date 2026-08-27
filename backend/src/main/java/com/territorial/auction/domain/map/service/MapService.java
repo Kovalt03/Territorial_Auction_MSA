@@ -1,6 +1,5 @@
 package com.territorial.auction.domain.map.service;
 
-import com.territorial.auction.domain.auction.repository.AuctionRepository;
 import com.territorial.auction.domain.building.StoragePolicy;
 import com.territorial.auction.domain.building.entity.BuildingInstance;
 import com.territorial.auction.domain.building.repository.BuildingInstanceRepository;
@@ -9,14 +8,16 @@ import com.territorial.auction.domain.map.dto.TerritoryDetailResponse;
 import com.territorial.auction.domain.map.entity.ColorHistory;
 import com.territorial.auction.domain.map.entity.Territory;
 import com.territorial.auction.domain.map.entity.Territory.TerritoryStatus;
+import com.territorial.auction.domain.map.entity.TerritoryAuctionStatus;
 import com.territorial.auction.domain.map.repository.ColorHistoryRepository;
+import com.territorial.auction.domain.map.repository.TerritoryAuctionStatusRepository;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import java.time.LocalDateTime;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -31,7 +32,7 @@ public class MapService {
     private static final int COLOR_CHANGE_LIMIT = 3;
 
     private final TerritoryRepository territoryRepository;
-    private final AuctionRepository auctionRepository;
+    private final TerritoryAuctionStatusRepository territoryAuctionStatusRepository;
     private final BuildingInstanceRepository buildingInstanceRepository;
     private final ColorHistoryRepository colorHistoryRepository;
     private final TerritoryIncomeService territoryIncomeService;
@@ -45,9 +46,11 @@ public class MapService {
 
         List<Long> territoryIds = territories.stream().map(Territory::getId).toList();
         Set<Long> activeAuctionTerritoryIds =
-                new HashSet<>(
-                        auctionRepository.findActiveAuctionTerritoryIds(
-                                territoryIds, LocalDateTime.now()));
+                territoryAuctionStatusRepository
+                        .findByTerritoryIdInAndEndAtAfter(territoryIds, LocalDateTime.now())
+                        .stream()
+                        .map(TerritoryAuctionStatus::getTerritoryId)
+                        .collect(Collectors.toSet());
 
         List<GridMapResponse.GridTerritoryDto> gridMapDtos =
                 territories.stream()
@@ -98,12 +101,14 @@ public class MapService {
                                 territory.getCurrentColor());
 
         TerritoryDetailResponse.AuctionInfo auction =
-                auctionRepository
-                        .findFirstByTerritoryIdAndSettledFalseOrderByEndAtDesc(territoryId)
+                territoryAuctionStatusRepository
+                        .findByTerritoryIdAndEndAtAfter(territoryId, LocalDateTime.now())
                         .map(
-                                a ->
+                                s ->
                                         new TerritoryDetailResponse.AuctionInfo(
-                                                a.getId(), a.getCurrentPrice(), a.getEndAt()))
+                                                s.getAuctionId(),
+                                                s.getCurrentPrice(),
+                                                s.getEndAt()))
                         .orElse(null);
 
         // 성·저장소가 함께 GP 를 담는다. 점유 중이면 성이 있어 목록이 비지 않는다.
