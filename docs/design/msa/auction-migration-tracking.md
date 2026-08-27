@@ -60,7 +60,7 @@
 
 | 흐름 | 원래 위치 | 어디로 | 상태 |
 |---|---|---|---|
-| 경매 **생성**(createAuction/createPendingAuctions/createInitialCastle 트리거) | LifecycleService | map "territory-ready" 이벤트 구독으로 재설계(#3) | ⬜ |
+| 경매 **생성** | LifecycleService | ✅ map `territory.auction-ready` 이벤트 발행(모놀리식) → auction 구독 생성(JSON). 모놀리식 createPendingAuctions 비활성 | ✅ |
 | 영토 **점유 만료**(releaseExpiredTerritories) | LifecycleService | map-service 소유 | ⬜ |
 | 관리자 강제 정산·취소·목록 | LifecycleService + AuctionAdminController | 모놀리식 잔류(또는 auction 자체 admin 후속) | ⬜ |
 | 인증(@AuthenticationPrincipal) | 컨트롤러 | 게이트웨이 X-User-Id 헤더 | 🔄 임시(헤더) |
