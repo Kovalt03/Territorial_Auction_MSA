@@ -8,19 +8,14 @@ import com.territorial.auction.domain.admin.dto.AdminChangeGradeRequest;
 import com.territorial.auction.domain.admin.dto.AdminTerritoryListResponse;
 import com.territorial.auction.domain.admin.dto.AdminTerritoryResponse;
 import com.territorial.auction.domain.admin.dto.AdminToggleAuctionRequest;
-import com.territorial.auction.domain.auction.AuctionPolicy;
-import com.territorial.auction.domain.auction.entity.Auction;
-import com.territorial.auction.domain.auction.entity.AuctionBid;
-import com.territorial.auction.domain.auction.repository.AuctionBidRepository;
-import com.territorial.auction.domain.auction.repository.AuctionRepository;
 import com.territorial.auction.domain.map.entity.Territory;
 import com.territorial.auction.domain.map.entity.TerritoryGrade;
 import com.territorial.auction.domain.map.repository.ContinentRepository;
 import com.territorial.auction.domain.map.repository.TerritoryGradeRepository;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
+import com.territorial.auction.domain.map.service.TerritoryAuctionReadyPublisher;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -36,8 +31,7 @@ public class AdminTerritoryService {
     private final TerritoryRepository territoryRepository;
     private final TerritoryGradeRepository territoryGradeRepository;
     private final ContinentRepository continentRepository;
-    private final AuctionRepository auctionRepository;
-    private final AuctionBidRepository auctionBidRepository;
+    private final TerritoryAuctionReadyPublisher territoryAuctionReadyPublisher;
     private final AdminAuditLogger adminAuditLogger;
 
     public AdminTerritoryListResponse getTerritories(Long continentId) {
@@ -123,17 +117,16 @@ public class AdminTerritoryService {
                         .orElseThrow(() -> new CustomException(ErrorCode.TERRITORY_NOT_FOUND));
         validateIdle(territory);
 
-        Auction auction = createAuction(territory, LocalDateTime.now());
+        // 경매 '생성'은 auction-service가 territory.auction-ready 이벤트를 받아 담당(모놀리식은 생성하지 않음).
         territory.startBidding();
+        territoryAuctionReadyPublisher.publishFor(territory);
 
         adminAuditLogger.record(
                 adminUserId,
                 "TERRITORY_AUCTION_FORCE_START",
                 "TERRITORY",
                 territoryId,
-                Map.of(
-                        "auctionId", auction.getId(),
-                        "startingPrice", auction.getCurrentPrice()));
+                Map.of("territoryId", territoryId));
         return AdminTerritoryResponse.from(territory);
     }
 
@@ -204,7 +197,6 @@ public class AdminTerritoryService {
             allEntries = true)
     public AdminBulkResultResponse bulkForceStart(
             Long adminUserId, AdminBulkForceStartRequest request) {
-        LocalDateTime now = LocalDateTime.now();
         List<Long> territoryIds = request.territoryIds().stream().distinct().toList();
         int started = 0;
         for (Long territoryId : territoryIds) {
@@ -212,18 +204,14 @@ public class AdminTerritoryService {
             if (territory.getStatus() != Territory.TerritoryStatus.IDLE) {
                 continue;
             }
-            Auction auction = createAuction(territory, now);
             territory.startBidding();
+            territoryAuctionReadyPublisher.publishFor(territory);
             adminAuditLogger.record(
                     adminUserId,
                     "TERRITORY_AUCTION_FORCE_START_BULK",
                     "TERRITORY",
                     territoryId,
-                    Map.of(
-                            "auctionId",
-                            auction.getId(),
-                            "startingPrice",
-                            auction.getCurrentPrice()));
+                    Map.of("territoryId", territoryId));
             started++;
         }
         return new AdminBulkResultResponse(started);
@@ -246,27 +234,6 @@ public class AdminTerritoryService {
         if (territory.getStatus() == Territory.TerritoryStatus.OCCUPIED) {
             throw new CustomException(ErrorCode.TERRITORY_GRADE_LOCKED_OCCUPIED);
         }
-    }
-
-    private Auction createAuction(Territory territory, LocalDateTime now) {
-        int startingPrice =
-                AuctionPolicy.GRADE_START_PRICES.getOrDefault(
-                        territory.getGrade().getGrade(), AuctionPolicy.DEFAULT_START_PRICE);
-        LocalDateTime endAt = now.plusHours(AuctionPolicy.AUCTION_DURATION_HOURS);
-        LocalDateTime maxExtendUntil = endAt.plusMinutes(AuctionPolicy.MAX_EXTEND_UNTIL_MINUTES);
-
-        Auction auction =
-                auctionRepository.save(
-                        Auction.builder()
-                                .territory(territory)
-                                .currentPrice(startingPrice)
-                                .startAt(now)
-                                .endAt(endAt)
-                                .maxExtendUntil(maxExtendUntil)
-                                .build());
-        auctionBidRepository.save(
-                AuctionBid.builder().auction(auction).bidder(null).price(startingPrice).build());
-        return auction;
     }
 
     private String nullSafe(String value) {

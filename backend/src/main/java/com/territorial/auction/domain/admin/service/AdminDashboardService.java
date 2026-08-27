@@ -1,7 +1,7 @@
 package com.territorial.auction.domain.admin.service;
 
+import com.territorial.auction.domain.admin.client.AuctionQueryClient;
 import com.territorial.auction.domain.admin.dto.AdminDashboardResponse;
-import com.territorial.auction.domain.auction.repository.AuctionRepository;
 import com.territorial.auction.domain.building.repository.BuildingInstanceRepository;
 import com.territorial.auction.domain.building.repository.GlobalVaultRepository;
 import com.territorial.auction.domain.map.entity.Territory;
@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AdminDashboardService {
 
     private final UserRepository userRepository;
-    private final AuctionRepository auctionRepository;
+    private final AuctionQueryClient auctionQueryClient;
     private final TerritoryRepository territoryRepository;
     private final WalletRepository walletRepository;
     private final GlobalVaultRepository globalVaultRepository;
@@ -36,7 +36,7 @@ public class AdminDashboardService {
                 userRepository.count(),
                 userRepository.countByStatus(UserStatus.ACTIVE),
                 userRepository.countByStatus(UserStatus.SUSPENDED),
-                auctionRepository.countActiveAuctions(now),
+                auctionQueryClient.countActiveAuctions(),
                 territoryRepository.countByStatus(Territory.TerritoryStatus.BIDDING),
                 territoryRepository.countByStatus(Territory.TerritoryStatus.OCCUPIED),
                 territoryRepository.countByStatus(Territory.TerritoryStatus.IDLE),

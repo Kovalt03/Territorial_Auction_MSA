@@ -2,7 +2,6 @@ package com.territorial.auction.domain.admin.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 
 import com.territorial.auction.domain.admin.dto.AdminBulkForceStartRequest;
@@ -11,19 +10,16 @@ import com.territorial.auction.domain.admin.dto.AdminBulkResultResponse;
 import com.territorial.auction.domain.admin.dto.AdminBulkTerritoryAuctionRequest;
 import com.territorial.auction.domain.admin.dto.AdminChangeGradeRequest;
 import com.territorial.auction.domain.admin.dto.AdminTerritoryResponse;
-import com.territorial.auction.domain.auction.entity.Auction;
-import com.territorial.auction.domain.auction.repository.AuctionBidRepository;
-import com.territorial.auction.domain.auction.repository.AuctionRepository;
 import com.territorial.auction.domain.map.entity.Territory;
 import com.territorial.auction.domain.map.entity.Territory.TerritoryStatus;
 import com.territorial.auction.domain.map.entity.TerritoryGrade;
 import com.territorial.auction.domain.map.repository.ContinentRepository;
 import com.territorial.auction.domain.map.repository.TerritoryGradeRepository;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
+import com.territorial.auction.domain.map.service.TerritoryAuctionReadyPublisher;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -42,8 +38,7 @@ class AdminTerritoryServiceTest {
     @Mock private TerritoryRepository territoryRepository;
     @Mock private TerritoryGradeRepository territoryGradeRepository;
     @Mock private ContinentRepository continentRepository;
-    @Mock private AuctionRepository auctionRepository;
-    @Mock private AuctionBidRepository auctionBidRepository;
+    @Mock private TerritoryAuctionReadyPublisher territoryAuctionReadyPublisher;
     @Mock private AdminAuditLogger adminAuditLogger;
 
     private TerritoryGrade grade(String g) {
@@ -197,16 +192,6 @@ class AdminTerritoryServiceTest {
         ReflectionTestUtils.setField(bidding, "status", TerritoryStatus.BIDDING);
         given(territoryRepository.findById(1L)).willReturn(Optional.of(idle));
         given(territoryRepository.findById(2L)).willReturn(Optional.of(bidding));
-        Auction saved =
-                Auction.builder()
-                        .territory(idle)
-                        .currentPrice(1000)
-                        .startAt(LocalDateTime.now())
-                        .endAt(LocalDateTime.now().plusHours(24))
-                        .maxExtendUntil(LocalDateTime.now().plusHours(25))
-                        .build();
-        ReflectionTestUtils.setField(saved, "id", 500L);
-        given(auctionRepository.save(any())).willReturn(saved);
 
         AdminBulkResultResponse res =
                 adminTerritoryService.bulkForceStart(

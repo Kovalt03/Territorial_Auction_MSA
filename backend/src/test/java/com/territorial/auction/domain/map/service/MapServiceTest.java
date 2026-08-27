@@ -7,8 +7,6 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import com.territorial.auction.domain.auction.entity.Auction;
-import com.territorial.auction.domain.auction.repository.AuctionRepository;
 import com.territorial.auction.domain.building.entity.BuildingInstance;
 import com.territorial.auction.domain.building.entity.BuildingType;
 import com.territorial.auction.domain.building.repository.BuildingInstanceRepository;
@@ -18,8 +16,10 @@ import com.territorial.auction.domain.map.entity.ColorHistory;
 import com.territorial.auction.domain.map.entity.Continent;
 import com.territorial.auction.domain.map.entity.Territory;
 import com.territorial.auction.domain.map.entity.Territory.TerritoryStatus;
+import com.territorial.auction.domain.map.entity.TerritoryAuctionStatus;
 import com.territorial.auction.domain.map.entity.TerritoryGrade;
 import com.territorial.auction.domain.map.repository.ColorHistoryRepository;
+import com.territorial.auction.domain.map.repository.TerritoryAuctionStatusRepository;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
 import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.global.exception.CustomException;
@@ -43,7 +43,7 @@ class MapServiceTest {
     @InjectMocks private MapService mapService;
 
     @Mock private TerritoryRepository territoryRepository;
-    @Mock private AuctionRepository auctionRepository;
+    @Mock private TerritoryAuctionStatusRepository territoryAuctionStatusRepository;
     @Mock private BuildingInstanceRepository buildingInstanceRepository;
     @Mock private ColorHistoryRepository colorHistoryRepository;
 
@@ -132,17 +132,13 @@ class MapServiceTest {
         return b;
     }
 
-    private Auction auction(Territory territory) {
-        Auction a =
-                Auction.builder()
-                        .territory(territory)
-                        .currentPrice(100)
-                        .startAt(LocalDateTime.now().minusHours(1))
-                        .endAt(LocalDateTime.now().plusHours(1))
-                        .maxExtendUntil(LocalDateTime.now().plusHours(2))
-                        .build();
-        ReflectionTestUtils.setField(a, "id", 1L);
-        return a;
+    private TerritoryAuctionStatus auctionStatus(Long territoryId) {
+        return TerritoryAuctionStatus.builder()
+                .territoryId(territoryId)
+                .auctionId(1L)
+                .currentPrice(100)
+                .endAt(LocalDateTime.now().plusHours(1))
+                .build();
     }
 
     // ────────────────────────────────────────────────────────────────
@@ -159,7 +155,7 @@ class MapServiceTest {
             List<Territory> territories =
                     List.of(territory(1L, 0, 0), territory(2L, 1, 0), territory(3L, 2, 0));
             given(territoryRepository.findAllWithContinentAndGrade()).willReturn(territories);
-            given(auctionRepository.findActiveAuctionTerritoryIds(any(), any()))
+            given(territoryAuctionStatusRepository.findByTerritoryIdInAndEndAtAfter(any(), any()))
                     .willReturn(List.of());
 
             GridMapResponse response = mapService.getGridMap(null);
@@ -173,7 +169,7 @@ class MapServiceTest {
         void getGridMap_withContinentFilter_returnsFiltered() {
             List<Territory> filtered = List.of(territory(1L, 0, 0));
             given(territoryRepository.findAllByContinentId(1L)).willReturn(filtered);
-            given(auctionRepository.findActiveAuctionTerritoryIds(any(), any()))
+            given(territoryAuctionStatusRepository.findByTerritoryIdInAndEndAtAfter(any(), any()))
                     .willReturn(List.of());
 
             GridMapResponse response = mapService.getGridMap(1L);
@@ -187,8 +183,8 @@ class MapServiceTest {
         void getGridMap_hasActiveAuction_true() {
             Territory t = territory(1L, 0, 0);
             given(territoryRepository.findAllWithContinentAndGrade()).willReturn(List.of(t));
-            given(auctionRepository.findActiveAuctionTerritoryIds(any(), any()))
-                    .willReturn(List.of(1L));
+            given(territoryAuctionStatusRepository.findByTerritoryIdInAndEndAtAfter(any(), any()))
+                    .willReturn(List.of(auctionStatus(1L)));
 
             GridMapResponse response = mapService.getGridMap(null);
 
@@ -200,7 +196,7 @@ class MapServiceTest {
         void getGridMap_noOwner_ownerFieldsNull() {
             Territory t = territory(1L, 0, 0);
             given(territoryRepository.findAllWithContinentAndGrade()).willReturn(List.of(t));
-            given(auctionRepository.findActiveAuctionTerritoryIds(any(), any()))
+            given(territoryAuctionStatusRepository.findByTerritoryIdInAndEndAtAfter(any(), any()))
                     .willReturn(List.of());
 
             GridMapResponse response = mapService.getGridMap(null);
@@ -224,7 +220,7 @@ class MapServiceTest {
             Territory t = territory(1L, 3, 7);
             given(territoryRepository.findByIdWithDetails(1L)).willReturn(Optional.of(t));
             given(buildingInstanceRepository.findByTerritoryId(1L)).willReturn(List.of());
-            given(auctionRepository.findFirstByTerritoryIdAndSettledFalseOrderByEndAtDesc(1L))
+            given(territoryAuctionStatusRepository.findByTerritoryIdAndEndAtAfter(any(), any()))
                     .willReturn(Optional.empty());
 
             TerritoryDetailResponse response = mapService.getTerritoryDetail(1L);
@@ -242,7 +238,7 @@ class MapServiceTest {
             Territory t = occupiedTerritory(1L, 0, 0);
             given(territoryRepository.findByIdWithDetails(1L)).willReturn(Optional.of(t));
             given(buildingInstanceRepository.findByTerritoryId(1L)).willReturn(List.of());
-            given(auctionRepository.findFirstByTerritoryIdAndSettledFalseOrderByEndAtDesc(1L))
+            given(territoryAuctionStatusRepository.findByTerritoryIdAndEndAtAfter(any(), any()))
                     .willReturn(Optional.empty());
 
             TerritoryDetailResponse response = mapService.getTerritoryDetail(1L);
@@ -258,7 +254,7 @@ class MapServiceTest {
             Territory t = territory(1L, 0, 0);
             given(territoryRepository.findByIdWithDetails(1L)).willReturn(Optional.of(t));
             given(buildingInstanceRepository.findByTerritoryId(1L)).willReturn(List.of());
-            given(auctionRepository.findFirstByTerritoryIdAndSettledFalseOrderByEndAtDesc(1L))
+            given(territoryAuctionStatusRepository.findByTerritoryIdAndEndAtAfter(any(), any()))
                     .willReturn(Optional.empty());
 
             TerritoryDetailResponse response = mapService.getTerritoryDetail(1L);
@@ -273,7 +269,7 @@ class MapServiceTest {
             BuildingInstance b = buildingInstance(t);
             given(territoryRepository.findByIdWithDetails(1L)).willReturn(Optional.of(t));
             given(buildingInstanceRepository.findByTerritoryId(1L)).willReturn(List.of(b));
-            given(auctionRepository.findFirstByTerritoryIdAndSettledFalseOrderByEndAtDesc(1L))
+            given(territoryAuctionStatusRepository.findByTerritoryIdAndEndAtAfter(any(), any()))
                     .willReturn(Optional.empty());
 
             TerritoryDetailResponse response = mapService.getTerritoryDetail(1L);
@@ -288,11 +284,10 @@ class MapServiceTest {
         @DisplayName("경매 진행 중 — auction 필드 반환")
         void getTerritoryDetail_withActiveAuction() {
             Territory t = territory(1L, 0, 0);
-            Auction a = auction(t);
             given(territoryRepository.findByIdWithDetails(1L)).willReturn(Optional.of(t));
             given(buildingInstanceRepository.findByTerritoryId(1L)).willReturn(List.of());
-            given(auctionRepository.findFirstByTerritoryIdAndSettledFalseOrderByEndAtDesc(1L))
-                    .willReturn(Optional.of(a));
+            given(territoryAuctionStatusRepository.findByTerritoryIdAndEndAtAfter(any(), any()))
+                    .willReturn(Optional.of(auctionStatus(1L)));
 
             TerritoryDetailResponse response = mapService.getTerritoryDetail(1L);
 
@@ -306,7 +301,7 @@ class MapServiceTest {
             Territory t = territory(1L, 0, 0);
             given(territoryRepository.findByIdWithDetails(1L)).willReturn(Optional.of(t));
             given(buildingInstanceRepository.findByTerritoryId(1L)).willReturn(List.of());
-            given(auctionRepository.findFirstByTerritoryIdAndSettledFalseOrderByEndAtDesc(1L))
+            given(territoryAuctionStatusRepository.findByTerritoryIdAndEndAtAfter(any(), any()))
                     .willReturn(Optional.empty());
 
             TerritoryDetailResponse response = mapService.getTerritoryDetail(1L);
