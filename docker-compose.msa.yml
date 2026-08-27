@@ -1,19 +1,50 @@
-# MSA 로컬 구동 (Strangler 전환용). 모놀리식 docker-compose.yml과 별개.
-# 스캐폴드 단계 검증:
-#   docker compose -f docker-compose.msa.yml up -d --build auction-postgres auction-service
-#   docker compose -f docker-compose.msa.yml exec auction-service wget -qO- localhost:8080/actuator/health
+# MSA 풀스택 로컬 구동 (Strangler 전환 상태 전체).
+#   docker compose -f docker-compose.msa.yml up -d --build
+#
+# 구성:
+#   - DB 분리: 모놀리식(territorial-postgres) / auction-service(auction-postgres) 각자 소유
+#   - 공유 redis: 서비스 간 이벤트 버스(auction.* pub/sub) + 캐시. 이벤트가 오가려면 반드시 동일 인스턴스.
+#   - 게이트웨이: /api/v1/auctions/** → auction-service, /ws·그 외 → 모놀리식. JWT→X-User-Id 주입.
+#   - 프론트: 게이트웨이로 프록시.
+# 모놀리식 단독(전환 이전) 구동은 docker-compose.yml 사용.
 services:
+  # ── 공유 이벤트 버스 / 캐시 ────────────────────────────────
   redis:
-    image: redis:7-alpine
+    build:
+      context: ./backend/docker/redis
+      dockerfile: Dockerfile
     container_name: msa-redis
     ports:
-      - "6380:6379"   # 모놀리식 redis(6379)와 충돌 회피
+      - "6379:6379"
+    volumes:
+      - msa-redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # ── 모놀리식 DB ───────────────────────────────────────────
+  postgres:
+    build:
+      context: ./backend/docker/postgres
+      dockerfile: Dockerfile
+    container_name: msa-postgres
+    environment:
+      POSTGRES_DB: territorial_auction
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - msa-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── auction-service 전용 DB (분리) ────────────────────────
   auction-postgres:
     image: postgres:16-alpine
     container_name: msa-auction-postgres
@@ -22,19 +53,48 @@ services:
       POSTGRES_USER: auction
       POSTGRES_PASSWORD: auction
     ports:
-      - "5433:5432"   # 모놀리식 postgres(5432)와 충돌 회피
+      - "5433:5432"
     volumes:
-      - auction-pg:/var/lib/postgresql/data
+      - msa-auction-pg-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U auction -d auction"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # ── 모놀리식 ──────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: msa-backend
+    env_file:
+      - ./backend/.env
+    environment:
+      TZ: Asia/Seoul
+      SPRING_PROFILES_ACTIVE: local
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: territorial_auction
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      AUCTION_SERVICE_BASE_URL: http://auction-service:8080
+      ADMIN_IP_ALLOWLIST: ""
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── auction-service ──────────────────────────────────────
   auction-service:
     build:
-      context: ./services/auction-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/auction-service/Dockerfile
     container_name: msa-auction-service
     environment:
       TZ: Asia/Seoul
@@ -45,15 +105,16 @@ services:
       DB_PASSWORD: auction
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      MONOLITH_BASE_URL: http://backend:8080   # Part B 이후 실제 호출 대상(현재 모놀리식 미포함이라 호출 시에만 필요)
+      MONOLITH_BASE_URL: http://backend:8080
     ports:
-      - "8081:8080"   # 모놀리식 backend(8080)와 충돌 회피
+      - "8082:8080"
     depends_on:
       auction-postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
 
+  # ── API 게이트웨이 ────────────────────────────────────────
   gateway:
     build:
       context: ./services/gateway
@@ -64,15 +125,31 @@ services:
     environment:
       TZ: Asia/Seoul
       AUCTION_SERVICE_URL: http://auction-service:8080
-      # 모놀리식은 별도 compose(docker-compose.yml)에서 실행 → host 경유. 필요 시 override.
-      MONOLITH_URL: ${MONOLITH_URL:-http://host.docker.internal:8080}
-      MONOLITH_WS_URL: ${MONOLITH_WS_URL:-ws://host.docker.internal:8080}
+      MONOLITH_URL: http://backend:8080
+      MONOLITH_WS_URL: ws://backend:8080
     ports:
       - "8090:8080"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     depends_on:
+      - backend
       - auction-service
 
+  # ── 프론트 (게이트웨이로 프록시) ──────────────────────────
+  frontend:
+    image: node:20-alpine
+    container_name: msa-frontend
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "3000:5173"
+    environment:
+      API_TARGET: http://gateway:8080
+      WS_TARGET: ws://gateway:8080
+    command: sh -c "npm install && npm run dev -- --host"
+    depends_on:
+      - gateway
+
 volumes:
-  auction-pg:
+  msa-redis-data:
+  msa-postgres-data:
+  msa-auction-pg-data:
