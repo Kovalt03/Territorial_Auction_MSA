@@ -75,6 +75,69 @@ class AuctionLifecycleServiceTest {
     }
 
     @Test
+    @DisplayName("정산 — 만료 경매 없으면 아무 작업 안 함")
+    void settlePending_empty() {
+        given(auctionRepository.findAllExpiredUnsettled(any())).willReturn(List.of());
+
+        lifecycleService.settlePendingAuctions();
+
+        verify(territoryClient, never()).occupy(any(), any(), any(), any());
+        verify(territoryClient, never()).release(any(), any());
+    }
+
+    @Test
+    @DisplayName("정산 — 낙찰자 있음: 점유·소비·성·이력·정산")
+    void settlePending_winner() {
+        Auction a = auction();
+        a.updateBid(3L, "낙찰자", 2000);
+        given(auctionRepository.findAllExpiredUnsettled(any())).willReturn(List.of(a));
+        given(auctionBidRepository.findDistinctBidderIdsExcluding(any(), eq(3L)))
+                .willReturn(List.of());
+
+        lifecycleService.settlePendingAuctions();
+
+        verify(territoryClient).occupy(eq(1L), eq(3L), any(), any());
+        verify(walletClient).consumeLocked(eq(3L), eq(2000), any());
+        verify(buildingClient).createInitialCastle(1L);
+        verify(auctionHistoryRepository).save(any());
+        org.assertj.core.api.Assertions.assertThat(a.isSettled()).isTrue();
+    }
+
+    @Test
+    @DisplayName("정산 — 무낙찰: 재경매 예약(release), 이력 없음, 정산")
+    void settlePending_noWinner() {
+        Auction a = auction(); // currentBidderId null
+        given(auctionRepository.findAllExpiredUnsettled(any())).willReturn(List.of(a));
+
+        lifecycleService.settlePendingAuctions();
+
+        verify(territoryClient).release(eq(1L), any());
+        verify(territoryClient, never()).occupy(any(), any(), any(), any());
+        verify(auctionHistoryRepository, never()).save(any());
+        org.assertj.core.api.Assertions.assertThat(a.isSettled()).isTrue();
+    }
+
+    @Test
+    @DisplayName("정산 — 한 건 실패해도 나머지는 정산(예외 격리)")
+    void settlePending_isolatesFailure() {
+        Auction fail = auction();
+        fail.updateBid(3L, "낙찰자", 2000);
+        Auction ok = auction(); // 무낙찰
+        ReflectionTestUtils.setField(ok, "id", 2L);
+        ReflectionTestUtils.setField(ok, "territoryId", 2L);
+        given(auctionRepository.findAllExpiredUnsettled(any())).willReturn(List.of(fail, ok));
+        org.mockito.BDDMockito.willThrow(new RuntimeException("occupy 실패"))
+                .given(territoryClient)
+                .occupy(eq(1L), any(), any(), any());
+
+        lifecycleService.settlePendingAuctions();
+
+        // 두 번째(무낙찰)는 정상 정산
+        verify(territoryClient).release(eq(2L), any());
+        org.assertj.core.api.Assertions.assertThat(ok.isSettled()).isTrue();
+    }
+
+    @Test
     @DisplayName("강제 낙찰 — 입찰자 없음 → AUCTION_NO_BIDDER_TO_SETTLE")
     void forceSettle_noBidder() {
         Auction a = auction(); // currentBidderId null
