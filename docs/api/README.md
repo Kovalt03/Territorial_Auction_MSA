@@ -78,4 +78,5 @@ Authorization: Bearer {accessToken}
 | [tax.md](./tax.md) | 토지세 | 2 |
 | [admin.md](./admin.md) | 관리자 페이지 (대륙 영토 구성·유저·경매·시즌·아이템, ROLE_ADMIN) ⬜ | 25 |
 | [websocket/](./websocket/README.md) | WebSocket (STOMP) — chat ✅ / auction·map·notification ⬜ | — |
+| [internal.md](./internal.md) | ⚙️ MSA 서비스 간 계약 (`/internal/*` 동기 + Redis 이벤트) | — |
 | [errors.md](./errors.md) | 에러 코드 레퍼런스 | — |

@@ -1,6 +1,8 @@
 # Auction API
 
-> 구현 상태: 🔄 진행 중 (핵심 API 완료 / Redis 분산락·캐시 미구현)
+> 구현 상태: ✅ 완료. Redis 분산락 적용됨. 입찰 실시간은 이벤트→realtime 허브 경유(아래).
+>
+> **⚙️ MSA**: 경매는 이제 **auction-service**가 담당한다. 클라이언트는 **게이트웨이(`/api/v1/auctions/**`)**로 호출하고, 게이트웨이가 auction-service로 라우팅 + JWT의 subject를 `X-User-Id`로 주입한다(경로·요청/응답 스키마는 아래 그대로 불변). 입찰 시 실시간 브로드캐스트는 auction-service가 `auction.bid` 이벤트를 발행하고 모놀리식 realtime 허브가 `/sub/auction/{id}`로 push한다. 서비스 간 계약: [internal.md](./internal.md).
 
 ## 목차
 
@@ -8,7 +10,7 @@
 |---|---|---|---|---|
 | GET | `/api/v1/auctions` | [경매 목록 조회](#경매-목록-조회) | ✅ | - |
 | GET | `/api/v1/auctions/{auctionId}` | [경매 상세 조회](#경매-상세-조회) | ✅ | Redis 캐시 |
-| POST | `/api/v1/auctions/{auctionId}/bids` | [입찰하기](#입찰하기) | ✅ | Redis 분산락, WebSocket 브로드캐스트 |
+| POST | `/api/v1/auctions/{auctionId}/bids` | [입찰하기](#입찰하기) | ✅ | 분산락·실시간 브로드캐스트 완료 |
 | GET | `/api/v1/auctions/{auctionId}/bids` | [가격 변동 그래프 데이터](#가격-변동-그래프-데이터) | ✅ | - |
 | GET | `/api/v1/auctions/my-bids` | [내 입찰 내역](#내-입찰-내역-조회) | ✅ | - |
 | GET | `/api/v1/auctions/territories/{territoryId}` | [영토 경매 이력](#영토-경매-이력-조회) | ✅ | - |
