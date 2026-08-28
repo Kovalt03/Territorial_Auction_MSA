@@ -10,6 +10,17 @@
 
 ---
 
+> ## ✅ 구현 완료 (2026-08)
+>
+> 이 가이드대로 auction 추출을 완료하고 **모놀리식 auction 도메인을 삭제**했다. 이 문서는 이제 "왜 이렇게 나눴나"의 근거(historical rationale)로 남긴다. 실제 코드는 `services/auction-service/`, 이관 현황은 [auction-migration-tracking.md](./auction-migration-tracking.md), 서비스 간 계약은 [internal.md](../../api/internal.md).
+>
+> **설계와 실제 구현의 차이 (읽는 순서상 먼저):**
+> - **맵 읽기 = 동기 호출이 아니라 이벤트 프로젝션.** 그리드 '경매중' 표시는 auction을 매번 조회하는 대신, 모놀리식이 `auction.opened/bid/closed` 이벤트로 유지하는 로컬 read-model(`territory_auction_status`)을 읽는다. 핫패스를 auction-service 장애/지연에서 격리하고 쿼리도 가볍다(부하 실측 p99 ~10배 개선).
+> - **알림·랭킹·시즌 = 인프로세스 이벤트가 아니라 Redis 이벤트 + 브리지.** 정산이 별도 프로세스로 가면서 OUTBID/WIN/LOSE 알림·경매소비 랭킹·시즌 XP·트로피가 끊기므로, 모놀리식이 `auction.settled`/`auction.bid`를 구독해 realtime push + 인프로세스 Spring 이벤트로 재발행한다.
+> - **관리자 경매 관리 = 모놀리식 잔류 + 위임.** `/api/v1/admin/auctions`(목록·강제정산·강제취소)는 모놀리식이 인증·감사 로그를 유지하되 데이터·작업은 auction-service `/internal`에 위임.
+> - **영토 만료·경매 순환 편입 = map 소유.** `releaseExpiredTerritories`·`IdleAuctionScheduleSeeder`는 영토 수명주기라 map 도메인으로 이관(경매 '생성'만 auction-service).
+> - **미구현(후속)**: 정산 saga 보상(§3).
+
 ## 0. 왜 auction부터, 무엇을 조심하나
 
 auction은 **쓰기 경합이 가장 심한 도메인**(입찰)이라 분리 1순위다. 동시에, 아래에서 보듯 **결합이 얕지 않다** — 그래서 "단순히 패키지를 옮기면 되는" 작업이 아니다. 이 가이드의 목적은 그 결합을 하나씩 끊는 방법을 정하는 것이다.

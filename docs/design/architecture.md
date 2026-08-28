@@ -1,6 +1,6 @@
 # 시스템 아키텍처
 
-> 현재 구조는 Spring Boot 모놀리식이다. 도메인 경계를 먼저 확립하고, 성능 측정 결과를 근거로 MSA 전환을 검토한다.
+> 모놀리식 Spring Boot로 시작해 도메인 경계를 확립하고, 부하 측정 결과를 근거로 **MSA 전환에 착수**했다. 현재 **auction은 별도 서비스로 추출됨**(1단계 완료) — 아래 "MSA 런타임(현재)" 참고. 나머지 도메인은 모놀리식에 잔류하며 한 서비스씩 추출한다.
 
 ![Territorial Auction 계층형 시스템 아키텍처](../assets/architecture.svg)
 
@@ -53,11 +53,33 @@ com.territorial.auction
 
 상세 메시지 규약은 [WebSocket 문서](../api/websocket/README.md)를 참고한다.
 
-## MSA 전환 검토 기준
+## MSA 런타임 (현재)
 
-현재 패키지 경계는 향후 분리 후보 경계다. 분리는 선행하지 않고, 부하 테스트에서 병목·독립 확장 필요성·데이터 정합성 비용이 확인될 때 검토한다.
+부하 테스트에서 단일 인기 경매의 지속 경합이 병목으로 확인돼, **auction을 첫 서비스로 추출**했다(1단계 완료). 현재 로컬 런타임은 모놀리식 + auction-service + 게이트웨이가 나란히 뜬다([구동](./msa/local-run.md)).
 
-**목표 서비스 토폴로지 (7개)** — 게임플레이 결합도 기준으로 도메인을 묶는다. 상세·근거·전환 순서는 [MSA 전환 허브](./msa/README.md)가 기준.
+```text
+            ┌───────────────┐
+Client ───▶ │  API Gateway  │  JWT 검증 → X-User-Id 주입, 경로 라우팅
+            └──────┬────────┘
+        /api/v1/auctions/**     그 외 · /ws
+               │                     │
+               ▼                     ▼
+        ┌──────────────┐      ┌──────────────┐
+        │auction-service│◀────▶│  모놀리식     │  (auction 제외 전 도메인)
+        │  (auction DB) │ /internal (동기)    │  (monolith DB + realtime WS)
+        └──────┬───────┘      └──────┬───────┘
+               └──── Redis pub/sub (이벤트 버스) ────┘
+```
+
+- **게이트웨이**(Spring Cloud Gateway): `/api/v1/auctions/**`→auction-service, 그 외·`/ws`→모놀리식. 유입 `X-User-Id` 제거 후 유효 JWT의 subject를 `X-User-Id`로 주입 → 내부 서비스가 신뢰(인증 경계).
+- **DB 분리**: auction-service는 자체 DB(`auction-postgres`) 소유. 모놀리식 DB를 직접 조회하지 않는다.
+- **동기 통신**(`/internal`): auction-service → 모놀리식(지갑 에스크로·영토 점유/해제·성 생성). 상태(돈·영토·건물)는 아직 모놀리식 소유이므로 되불러온다. [계약](../api/internal.md)
+- **비동기 통신**(Redis pub/sub): `auction.opened/bid/settled/closed`, `territory.auction-ready`. 소비 = 모놀리식의 **읽기 프로젝션**(맵 그리드 '경매중'), **realtime 허브**(클라이언트 STOMP push + 알림), **랭킹·시즌 브리지**.
+- **읽기 프로젝션**: 맵 그리드가 auction 테이블을 매번 조회하던 것을 로컬 read-model(`territory_auction_status`, 이벤트로 유지)로 대체 → 핫패스를 auction 경합에서 격리(부하 실측 p99 ~10배 개선).
+
+## MSA 목표 토폴로지 (7개)
+
+패키지 경계 = 분리 후보 경계. 게임플레이 결합도 기준으로 도메인을 묶는다. 상세·근거·전환 순서는 [MSA 전환 허브](./msa/README.md)가 기준.
 
 | 서비스 | 포함 도메인 |
 |---|---|

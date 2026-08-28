@@ -259,6 +259,10 @@ INDEX: `(season_id, user_id)` — 랭킹 집계 최적화
 
 ### 🔨 Auction Domain
 
+> **⚙️ MSA — DB 분리**: `auctions`·`auction_bids`·`auction_histories`는 이제 **auction-service 전용 DB(`auction-postgres`)가 소유**한다(Flyway `V1__init_auction.sql`). 관계는 FK가 아니라 **ID + 스냅샷**(coordX·continentName·grade·bidderNickname 등)으로 보관 — 아래 표의 `FK →`는 모놀리식 단일 DB 시절 표기이며, 실제 auction-service에선 값(ID)만 저장하고 조인하지 않는다.
+> - 모놀리식 DB에 남은 동명 테이블은 **stale**(추출 이후 미사용) — 하드 컷오버 후 별도 drop 마이그레이션 예정.
+> - 맵 그리드 '경매중' 표시는 모놀리식 DB의 **`territory_auction_status` 프로젝션**(아래)에서 읽는다.
+
 #### auctions
 
 | column | 자료형 | 조건 | 설명 |
@@ -294,6 +298,19 @@ INDEX: `(auction_id, bid_at ASC)` — 그래프 조회 최적화
 | `final_price` | `INTEGER` | NOT NULL | |
 | `won_at` | `TIMESTAMPTZ` | NOT NULL | |
 | `season_id` | `BIGINT` | FK → seasons.id, NULL 허용 | 시즌 중 낙찰 시 연결 (경매 AP 소비 랭킹 집계용) |
+
+#### territory_auction_status (⚙️ MSA 읽기 프로젝션 — 모놀리식/map DB)
+
+auction-service의 `auction.opened/bid/closed` 이벤트로만 갱신되는 read-model. 맵 그리드 '경매중' 뱃지·영토 상세 현재가를 auction 테이블 조회 없이 로컬에서 읽기 위함(핫패스 격리). 영토당 활성 경매 1개이므로 `territory_id`가 PK.
+
+| column | 자료형 | 조건 | 설명 |
+|---|---|---|---|
+| `territory_id` | `BIGINT` | PK | 영토당 1행 (활성 경매) |
+| `auction_id` | `BIGINT` | NOT NULL, INDEX | bid 이벤트 매칭용 |
+| `current_price` | `INTEGER` | NOT NULL | |
+| `end_at` | `TIMESTAMPTZ` | NOT NULL | 조회 시 `end_at > now()`로 활성 판별(누락된 close 이벤트 자가 치유) |
+
+> 행 존재 + `end_at` 미래 ⟺ 경매 진행 중. 소유: 모놀리식 map 도메인(Flyway `V2__territory_auction_status.sql`).
 
 ---
 
@@ -590,6 +607,8 @@ INDEX: `(auction_id, bid_at ASC)` — 그래프 조회 최적화
 ---
 
 ## Redis 구조
+
+> **⚙️ MSA**: redis는 **공유 인스턴스**(서비스 간 이벤트 버스 `auction.*`/`territory.auction-ready` + 캐시). `auction:lock:{auctionId}`(입찰 분산락)은 이제 **auction-service**가 Redisson으로 잡는다. `ranking:...:auction_spend`는 auction-service의 `auction.settled`를 모놀리식 랭킹 브리지가 받아 갱신한다.
 
 | Key | 타입 | TTL | 역할 |
 |---|---|---|---|

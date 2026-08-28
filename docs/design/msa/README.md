@@ -37,7 +37,7 @@
 | 단계 | 대상 서비스 | 상태 |
 |---|---|---|
 | 0 | 모놀리식 + CI/CD·검증 정책 확립 | ✅ 완료 |
-| 1 | **auction-service** (auction) | 설계 완료, 구현 대기 |
+| 1 | **auction-service** (auction) | ✅ **완료** — 서비스 추출·게이트웨이·이벤트 프로젝션·모놀리식 auction 도메인 삭제 |
 | 2 | user-service (user, auth) | 예정 |
 | 3 | combat-service (military, building) | 예정 |
 | 4 | economy-service (item, season) | 예정 |
@@ -47,6 +47,18 @@
 | 8 | 모놀리식 잔여 소멸, 전 서비스 확정 | 예정 |
 
 > **map은 공유 커널이라 전환 내내 모놀리식에 남는다.** territory가 필요한 서비스(auction 등)는 그동안 **모놀리식의 territory API를 호출**(DB 공유 아님)하고, 표시용 값은 스냅샷으로 자기 DB에 복사한다. 모든 territory 의존 도메인이 서비스로 빠진 **마지막 단계에 map-service로 분리**하며, 그때 호출 대상이 모놀리식 → map-service로 바뀐다. 추출 순서(2~6)는 도메인 간 의존과 학습 우선순위에 따라 조정 가능.
+
+### 1단계 완료 (auction-service)
+
+첫 서비스 추출을 완료했다. 하드 컷오버(모놀리식 auction 도메인 삭제)까지 진행.
+
+- **서비스 분리**: `services/auction-service` — 자체 DB(`auction-postgres`) 소유. 엔티티는 크로스도메인 관계 대신 ID+스냅샷.
+- **게이트웨이**: Spring Cloud Gateway — `/api/v1/auctions/**` → auction-service, JWT의 subject를 `X-User-Id`로 주입.
+- **동기 통신**: auction-service → 모놀리식 `/internal/*`(지갑 에스크로·영토 점유·성 생성). [계약: internal.md](../../api/internal.md)
+- **비동기 통신**: Redis pub/sub — 경매 생성/입찰/정산/종료 이벤트.
+- **읽기 프로젝션**: 맵 그리드 '경매중' 표시를 auction 테이블 조회 → 모놀리식 로컬 read-model(`territory_auction_status`)로 대체(이벤트 구독). 부하 실측: 경매 쓰기 경합 하 맵 그리드 조회 **p99 ~10배 개선**.
+- **실시간·랭킹·시즌**: 클라이언트 WS는 모놀리식 realtime 허브가 이벤트를 구독해 push. 랭킹·시즌 귀속은 이벤트 브리지로 인프로세스 재발행.
+- 상세: [auction-extraction.md](./auction-extraction.md) · [auction-migration-tracking.md](./auction-migration-tracking.md)
 
 ## 브랜치·PR 전략 (서비스 통합 브랜치)
 
