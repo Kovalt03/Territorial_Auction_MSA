@@ -6,8 +6,10 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public record SignupRequest(
-        @NotBlank @Size(max = 50) String username,
+        @NotBlank @Size(min = 4, max = 20) @Pattern(regexp = "^[a-zA-Z0-9]+$") String username,
         @NotBlank @Email String email,
-        @NotBlank @Size(min = 8, max = 20) @Pattern(regexp = "^(?=.*[a-zA-Z])(?=.*\\d).+$")
+        @NotBlank
+                @Size(min = 8, max = 20)
+                @Pattern(regexp = "^(?=.*[a-zA-Z])(?=.*\\d)(?=.*[^a-zA-Z0-9]).+$")
                 String password,
-        @NotBlank @Size(max = 30) String nickname) {}
+        @NotBlank @Size(min = 2, max = 20) String nickname) {}

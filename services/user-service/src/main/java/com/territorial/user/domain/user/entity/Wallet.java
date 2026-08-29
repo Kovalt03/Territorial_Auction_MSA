@@ -10,10 +10,12 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.MapsId;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
 @Table(name = "wallets")
@@ -34,25 +36,47 @@ public class Wallet {
     @Column(nullable = false)
     private Integer lockedAp = 0;
 
+    @UpdateTimestamp
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
+
     @Builder
     public Wallet(User user) {
         this.user = user;
     }
 
     public void lockAp(int amount) {
+        validatePositive(amount);
         availableAp -= amount;
         lockedAp += amount;
     }
 
     public void refundLockedAp(int amount) {
+        validateLockedAmount(amount);
         lockedAp -= amount;
         availableAp += amount;
     }
 
     public void consumeLockedAp(int amount) {
+        validateLockedAmount(amount);
+        lockedAp -= amount;
+    }
+
+    public void addAp(int amount) {
+        validatePositive(amount);
+        availableAp += amount;
+    }
+
+    private void validateLockedAmount(int amount) {
+        validatePositive(amount);
         if (lockedAp < amount) {
             throw new CustomException(ErrorCode.INSUFFICIENT_AP);
         }
-        lockedAp -= amount;
+    }
+
+    private void validatePositive(int amount) {
+        if (amount <= 0) {
+            throw new CustomException(ErrorCode.INVALID_WALLET_AMOUNT);
+        }
     }
 }

@@ -21,6 +21,9 @@ public class JwtTokenProvider {
     }
 
     private static final String ROLE_CLAIM = "role";
+    private static final String TOKEN_TYPE_CLAIM = "type";
+    private static final String ACCESS_TOKEN_TYPE = "access";
+    private static final String REFRESH_TOKEN_TYPE = "refresh";
     private static final String DEFAULT_ROLE = "USER";
 
     public String createAccessToken(Long userId) {
@@ -28,26 +31,48 @@ public class JwtTokenProvider {
     }
 
     public String createAccessToken(Long userId, String role) {
-        return buildToken(userId, role, jwtProperties.accessTokenExpiry());
+        return buildToken(userId, role, ACCESS_TOKEN_TYPE, jwtProperties.accessTokenExpiry());
     }
 
     public String createRefreshToken(Long userId) {
-        return buildToken(userId, DEFAULT_ROLE, jwtProperties.refreshTokenExpiry());
+        return buildToken(
+                userId, DEFAULT_ROLE, REFRESH_TOKEN_TYPE, jwtProperties.refreshTokenExpiry());
     }
 
-    private String buildToken(Long userId, String role, long expiryMs) {
+    private String buildToken(Long userId, String role, String tokenType, long expiryMs) {
         Date now = new Date();
         return Jwts.builder()
                 .subject(String.valueOf(userId))
                 .claim(ROLE_CLAIM, role)
+                .claim(TOKEN_TYPE_CLAIM, tokenType)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + expiryMs))
                 .signWith(getSigningKey())
                 .compact();
     }
 
-    public Long getUserId(String token) {
-        return Long.parseLong(getClaims(token).getSubject());
+    public Long getAccessTokenUserId(String token) {
+        return getUserId(token, ACCESS_TOKEN_TYPE);
+    }
+
+    public Long getRefreshTokenUserId(String token) {
+        return getUserId(token, REFRESH_TOKEN_TYPE);
+    }
+
+    public boolean validateAccessToken(String token) {
+        try {
+            return ACCESS_TOKEN_TYPE.equals(getClaims(token).get(TOKEN_TYPE_CLAIM, String.class));
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    private Long getUserId(String token, String expectedType) {
+        Claims claims = getClaims(token);
+        if (!expectedType.equals(claims.get(TOKEN_TYPE_CLAIM, String.class))) {
+            throw new IllegalArgumentException("잘못된 JWT token type");
+        }
+        return Long.parseLong(claims.getSubject());
     }
 
     // 과거 발급 토큰(role claim 없음) 하위호환을 위해 기본값 USER 반환

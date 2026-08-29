@@ -69,7 +69,8 @@ public class AuctionLifecycleService {
         Auction auction = findUnsettledOrThrow(auctionId);
         LocalDateTime now = LocalDateTime.now();
         if (auction.getCurrentBidderId() != null) {
-            walletClient.refundLocked(auction.getCurrentBidderId(), auction.getCurrentPrice());
+            walletClient.refundLocked(
+                    auction.getCurrentBidderId(), auction.getCurrentPrice(), auction.getId());
         }
         territoryClient.release(
                 auction.getTerritoryId(), now.plusHours(AuctionPolicy.IDLE_REAUCTION_DELAY_HOURS));

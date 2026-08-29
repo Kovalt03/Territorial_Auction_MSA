@@ -7,6 +7,10 @@ spring:
   cloud:
     gateway:
       routes:
+        - id: user-service-wallet
+          uri: ${USER_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/v1/users/me/wallet,/api/v1/users/me/ap/charge
         - id: user-service-auth
           uri: ${USER_SERVICE_URL:http://localhost:8083}
           predicates:

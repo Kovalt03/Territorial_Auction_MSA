@@ -39,7 +39,7 @@ public class AuthService {
         User user = userRepository.save(newUser(request));
         walletRepository.save(Wallet.builder().user(user).build());
         globalVaultRepository.save(GlobalVault.builder().user(user).build());
-        userCreatedEventPublisher.publishAfterCommit(
+        userCreatedEventPublisher.enqueue(
                 new UserCreatedEvent(
                         user.getId(), user.getUsername(), user.getEmail(), user.getNickname()));
         return SignupResponse.from(user);
@@ -48,6 +48,7 @@ public class AuthService {
     @Transactional
     public TokenPair login(LoginRequest request) {
         User user = findByEmailOrThrow(request.email());
+        validateLoginStatus(user);
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new CustomException(ErrorCode.INVALID_CREDENTIALS);
         }
@@ -56,18 +57,38 @@ public class AuthService {
 
     @Transactional
     public TokenPair refresh(String refreshToken) {
-        Long userId = jwtTokenProvider.getUserId(refreshToken);
+        Long userId = parseRefreshUserId(refreshToken);
         if (!refreshTokenService.isValid(userId, refreshToken)) {
             throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
-        return issueTokenPair(
+        User user =
                 userRepository
                         .findById(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND)));
+                        .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        validateLoginStatus(user);
+        return issueTokenPair(user);
     }
 
     public void logout(Long userId) {
         refreshTokenService.delete(userId);
+    }
+
+    public void checkUsername(String username) {
+        if (userRepository.existsByUsername(username)) {
+            throw new CustomException(ErrorCode.DUPLICATE_USERNAME);
+        }
+    }
+
+    public void checkEmail(String email) {
+        if (userRepository.existsByEmail(email)) {
+            throw new CustomException(ErrorCode.DUPLICATE_EMAIL);
+        }
+    }
+
+    public void checkNickname(String nickname) {
+        if (userRepository.existsByNickname(nickname)) {
+            throw new CustomException(ErrorCode.DUPLICATE_NICKNAME);
+        }
     }
 
     private TokenPair issueTokenPair(User user) {
@@ -101,6 +122,23 @@ public class AuthService {
         }
         if (userRepository.existsByNickname(request.nickname())) {
             throw new CustomException(ErrorCode.DUPLICATE_NICKNAME);
+        }
+    }
+
+    private void validateLoginStatus(User user) {
+        if ("WITHDRAWN".equals(user.getStatus())) {
+            throw new CustomException(ErrorCode.WITHDRAWN_USER);
+        }
+        if ("SUSPENDED".equals(user.getStatus())) {
+            throw new CustomException(ErrorCode.SUSPENDED_USER);
+        }
+    }
+
+    private Long parseRefreshUserId(String refreshToken) {
+        try {
+            return jwtTokenProvider.getRefreshTokenUserId(refreshToken);
+        } catch (RuntimeException e) {
+            throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
     }
 }

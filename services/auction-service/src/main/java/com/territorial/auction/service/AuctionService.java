@@ -129,7 +129,11 @@ public class AuctionService {
         BidEscrowResult escrow =
                 walletClient.bidEscrow(
                         new BidEscrowRequest(
-                                userId, request.bidAmount(), previousBidderId, previousAmount));
+                                auctionId,
+                                userId,
+                                request.bidAmount(),
+                                previousBidderId,
+                                previousAmount));
 
         auction.updateBid(userId, escrow.bidderNickname(), request.bidAmount());
 

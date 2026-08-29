@@ -5,5 +5,5 @@ public interface WalletClient {
 
     void consumeLocked(Long winnerId, int finalPrice, Long auctionId);
 
-    void refundLocked(Long bidderId, int amount);
+    void refundLocked(Long bidderId, int amount, Long auctionId);
 }

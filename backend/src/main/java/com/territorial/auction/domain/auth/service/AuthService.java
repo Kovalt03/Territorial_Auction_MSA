@@ -122,7 +122,7 @@ public class AuthService {
 
     public TokenPair refresh(String refreshToken) {
         // refreshToken 파싱
-        Long userId = jwtTokenProvider.getUserId(refreshToken);
+        Long userId = jwtTokenProvider.getRefreshTokenUserId(refreshToken);
 
         // Redis 검증
         if (!refreshTokenService.isValid(userId, refreshToken))

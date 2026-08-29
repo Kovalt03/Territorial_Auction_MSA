@@ -7,29 +7,34 @@ import com.territorial.user.domain.auth.dto.SignupResponse;
 import com.territorial.user.domain.auth.dto.TokenPair;
 import com.territorial.user.domain.auth.dto.TokenResponse;
 import com.territorial.user.domain.auth.service.AuthService;
-import com.territorial.user.global.security.JwtTokenProvider;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
+@Validated
 public class AuthController {
 
     private static final String REFRESH_TOKEN_COOKIE = "refreshToken";
     private static final int REFRESH_TOKEN_MAX_AGE = 60 * 60 * 24 * 14;
     private final AuthService authService;
-    private final JwtTokenProvider jwtTokenProvider;
 
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<SignupResponse>> signup(
@@ -57,9 +62,30 @@ public class AuthController {
 
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(
-            @RequestHeader("Authorization") String authorization, HttpServletResponse response) {
-        authService.logout(jwtTokenProvider.getUserId(authorization.substring("Bearer ".length())));
+            @AuthenticationPrincipal Long userId, HttpServletResponse response) {
+        authService.logout(userId);
         clearRefreshTokenCookie(response);
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    @GetMapping("/check-username")
+    public ResponseEntity<ApiResponse<Void>> checkUsername(
+            @RequestParam @NotBlank @Size(min = 4, max = 20) String username) {
+        authService.checkUsername(username);
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    @GetMapping("/check-email")
+    public ResponseEntity<ApiResponse<Void>> checkEmail(
+            @RequestParam @NotBlank @Email String email) {
+        authService.checkEmail(email);
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    @GetMapping("/check-nickname")
+    public ResponseEntity<ApiResponse<Void>> checkNickname(
+            @RequestParam @NotBlank @Size(min = 2, max = 20) String nickname) {
+        authService.checkNickname(nickname);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 

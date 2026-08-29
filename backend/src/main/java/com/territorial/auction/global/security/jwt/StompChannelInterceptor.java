@@ -35,11 +35,11 @@ public class StompChannelInterceptor implements ChannelInterceptor {
             return message;
         }
 
-        if (!jwtTokenProvider.validate(token)) {
+        if (!jwtTokenProvider.validateAccessToken(token)) {
             throw new IllegalArgumentException("유효하지 않은 JWT 토큰입니다.");
         }
 
-        Long userId = jwtTokenProvider.getUserId(token);
+        Long userId = jwtTokenProvider.getAccessTokenUserId(token);
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(
                         userId, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));

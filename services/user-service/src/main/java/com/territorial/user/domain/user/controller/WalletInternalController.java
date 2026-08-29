@@ -21,6 +21,7 @@ public class WalletInternalController {
         return ResponseEntity.ok(
                 new BidEscrowResponse(
                         walletService.bidEscrow(
+                                request.auctionId(),
                                 request.bidderId(),
                                 request.bidAmount(),
                                 request.previousBidderId(),
@@ -29,22 +30,26 @@ public class WalletInternalController {
 
     @PostMapping("/consume-locked")
     public ResponseEntity<Void> consumeLocked(@RequestBody ConsumeLockedRequest request) {
-        walletService.consumeLocked(request.winnerId(), request.finalPrice());
+        walletService.consumeLocked(request.winnerId(), request.finalPrice(), request.auctionId());
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/refund-locked")
     public ResponseEntity<Void> refundLocked(@RequestBody RefundLockedRequest request) {
-        walletService.refundLocked(request.bidderId(), request.amount());
+        walletService.refundLocked(request.bidderId(), request.amount(), request.auctionId());
         return ResponseEntity.ok().build();
     }
 
     public record BidEscrowRequest(
-            Long bidderId, int bidAmount, Long previousBidderId, Integer previousAmount) {}
+            Long auctionId,
+            Long bidderId,
+            int bidAmount,
+            Long previousBidderId,
+            Integer previousAmount) {}
 
     public record BidEscrowResponse(String bidderNickname) {}
 
     public record ConsumeLockedRequest(Long winnerId, int finalPrice, Long auctionId) {}
 
-    public record RefundLockedRequest(Long bidderId, int amount) {}
+    public record RefundLockedRequest(Long bidderId, int amount, Long auctionId) {}
 }
