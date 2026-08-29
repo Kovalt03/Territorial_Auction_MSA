@@ -1,0 +1,25 @@
+CREATE TABLE users (
+    id BIGSERIAL PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    nickname VARCHAR(30) NOT NULL UNIQUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(10) NOT NULL DEFAULT 'ACTIVE',
+    role VARCHAR(10) NOT NULL DEFAULT 'USER',
+    totp_secret VARCHAR(64)
+);
+
+CREATE TABLE wallets (
+    user_id BIGINT PRIMARY KEY REFERENCES users(id),
+    available_ap INTEGER NOT NULL DEFAULT 0,
+    locked_ap INTEGER NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE global_vaults (
+    user_id BIGINT PRIMARY KEY REFERENCES users(id),
+    stored_gp INTEGER NOT NULL DEFAULT 0,
+    capacity INTEGER NOT NULL DEFAULT 10000,
+    last_transfer_at TIMESTAMP
+);
