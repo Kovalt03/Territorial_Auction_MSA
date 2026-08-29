@@ -62,6 +62,22 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── user-service 전용 DB (분리) ───────────────────────────
+  user-postgres:
+    image: postgres:16-alpine
+    container_name: msa-user-postgres
+    environment:
+      POSTGRES_DB: user
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: user
+    volumes:
+      - msa-user-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # ── 모놀리식 ──────────────────────────────────────────────
   backend:
     build:
@@ -106,10 +122,36 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       MONOLITH_BASE_URL: http://backend:8080
+      USER_SERVICE_BASE_URL: http://user-service:8080
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
     ports:
       - "8082:8080"
     depends_on:
       auction-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── user-service ─────────────────────────────────────────
+  user-service:
+    build:
+      context: .
+      dockerfile: services/user-service/Dockerfile
+    container_name: msa-user-service
+    env_file:
+      - ./backend/.env
+    environment:
+      TZ: Asia/Seoul
+      DB_HOST: user-postgres
+      DB_PORT: 5432
+      DB_NAME: user
+      DB_USERNAME: user
+      DB_PASSWORD: user
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
+    depends_on:
+      user-postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -132,6 +174,7 @@ services:
     depends_on:
       - backend
       - auction-service
+      - user-service
 
   # ── 프론트 (게이트웨이로 프록시) ──────────────────────────
   frontend:
@@ -153,3 +196,4 @@ volumes:
   msa-redis-data:
   msa-postgres-data:
   msa-auction-pg-data:
+  msa-user-pg-data:

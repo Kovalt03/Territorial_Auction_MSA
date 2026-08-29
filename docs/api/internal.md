@@ -1,8 +1,8 @@
 # Internal API — 서비스 간 계약
 
-> **⚙️ MSA 전용.** 서비스 간(모놀리식 ↔ auction-service) 동기 호출과 비동기 이벤트의 계약을 정의한다. 공개 API가 아니다.
+> **⚙️ MSA 전용.** 서비스 간 동기 호출과 비동기 이벤트의 계약을 정의한다. 공개 API가 아니다.
 >
-> - **인증 없음 / 게이트웨이 우회**: `/internal/**`는 게이트웨이를 거치지 않는 신뢰 호출이다. **네트워크 경계로만 보호**되므로 외부에 절대 노출하지 않는다(모놀리식 SecurityConfig: `/internal/**` permitAll; auction-service는 Security 자체가 없음).
+> - **게이트웨이 우회 + 내부 토큰**: `/internal/**`는 외부에 노출하지 않고, 호출자는 `X-Internal-Service-Token`에 `INTERNAL_API_SECRET`을 담는다. 수신 서비스는 고정 시간 비교로 검증한다.
 > - **응답 래핑 없음**: 성공 시 `ApiResponse` 래핑 없이 원시 DTO(또는 204/200)를 반환한다. 오류만 각 서비스의 `GlobalExceptionHandler`가 `ApiResponse.error`로 감싼다.
 > - **상태코드 단일 소스**: 각 서비스의 `ErrorCode.httpStatus`를 따른다. `INSUFFICIENT_AP`은 **409**(검증 400과 구분).
 
@@ -10,9 +10,9 @@
 
 ---
 
-## 1. 모놀리식 `/internal/*` (auction-service가 호출)
+## 1. user-service `/internal/wallets/*` (auction-service가 호출)
 
-상태 변경(돈·영토·건물)은 아직 모놀리식이 소유하므로 auction-service가 되불러온다.
+지갑(AP·GP)은 user-service가 소유한다.
 
 ### 지갑 (user 도메인)
 
@@ -25,6 +25,10 @@
 - **bid-escrow**: 이전 최고 입찰자 잠금 AP **환불** + 신규 입찰자 AP **잠금**을 한 트랜잭션에서. 두 지갑을 **id 오름차순 비관적 락**(데드락 회피). 잔액 부족 시 이전 입찰자는 환불되지 않는다.
 - **consume-locked**: 낙찰자 잠금 AP 소비(정산). `auctionId`는 추적용.
 - **refund-locked**: 관리자 강제 취소 시 현재 입찰자 잠금 AP 환불.
+
+## 2. 모놀리식 `/internal/*` (auction-service가 호출)
+
+영토·건물 상태는 아직 모놀리식이 소유한다.
 
 ### 영토 (map 도메인)
 
@@ -43,7 +47,7 @@
 
 ---
 
-## 2. auction-service `/internal/auctions/*` (모놀리식 admin이 호출)
+## 3. auction-service `/internal/auctions/*` (모놀리식 admin이 호출)
 
 관리자 경매 관리. 모놀리식이 인증·감사 로그를 유지하고 데이터·작업만 위임한다.
 
@@ -60,7 +64,7 @@
 
 ---
 
-## 3. 이벤트 (Redis pub/sub — 공유 인스턴스)
+## 4. 이벤트 (Redis pub/sub — 공유 인스턴스)
 
 JSON 문자열로 발행. 소비자는 필드명만 일치하는 자체 record로 역직렬화한다(클래스 공유 아님).
 
@@ -76,7 +80,7 @@ JSON 문자열로 발행. 소비자는 필드명만 일치하는 자체 record�
 
 ---
 
-## 4. 미구현 (후속)
+## 5. 미구현 (후속)
 
 - **정산 saga 보상**: `occupy` 성공 후 `consume-locked`/`initial-castle` 실패 시 `occupy` 되돌리기(release). 현재는 로깅만.
 - **escrow 보상**: escrow 성공 후 경매 트랜잭션 롤백 시 취소.

@@ -12,8 +12,13 @@ public class WalletClientImpl implements WalletClient {
     private final RestClient restClient;
 
     public WalletClientImpl(
-            RestClient.Builder builder, @Value("${monolith.base-url}") String baseUrl) {
-        this.restClient = builder.baseUrl(baseUrl).build();
+            RestClient.Builder builder,
+            @Value("${user-service.base-url}") String baseUrl,
+            @Value("${internal-api.secret}") String internalApiSecret) {
+        this.restClient =
+                builder.baseUrl(baseUrl)
+                        .defaultHeader("X-Internal-Service-Token", internalApiSecret)
+                        .build();
     }
 
     @Override
