@@ -33,6 +33,12 @@ public class User {
     @Column(nullable = false, unique = true, length = 30)
     private String nickname;
 
+    @Column(nullable = false, length = 10)
+    private String status = "ACTIVE";
+
+    @Column(nullable = false, length = 10)
+    private String role = "USER";
+
     @Builder
     public User(String username, String email, String passwordHash, String nickname) {
         this.username = username;

@@ -167,6 +167,7 @@ services:
     environment:
       TZ: Asia/Seoul
       AUCTION_SERVICE_URL: http://auction-service:8080
+      USER_SERVICE_URL: http://user-service:8080
       MONOLITH_URL: http://backend:8080
       MONOLITH_WS_URL: ws://backend:8080
     ports:
