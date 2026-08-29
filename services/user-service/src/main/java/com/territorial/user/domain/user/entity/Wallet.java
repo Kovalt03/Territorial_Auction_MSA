@@ -1,5 +1,7 @@
 package com.territorial.user.domain.user.entity;
 
+import com.territorial.auction.global.exception.CustomException;
+import com.territorial.user.global.exception.ErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -35,5 +37,22 @@ public class Wallet {
     @Builder
     public Wallet(User user) {
         this.user = user;
+    }
+
+    public void lockAp(int amount) {
+        availableAp -= amount;
+        lockedAp += amount;
+    }
+
+    public void refundLockedAp(int amount) {
+        lockedAp -= amount;
+        availableAp += amount;
+    }
+
+    public void consumeLockedAp(int amount) {
+        if (lockedAp < amount) {
+            throw new CustomException(ErrorCode.INSUFFICIENT_AP);
+        }
+        lockedAp -= amount;
     }
 }
