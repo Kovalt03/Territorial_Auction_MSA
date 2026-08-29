@@ -1,0 +1,75 @@
+plugins {
+    id 'java'
+    id 'jacoco'
+    id 'org.springframework.boot' version '3.4.4'
+    id 'io.spring.dependency-management' version '1.1.7'
+    id 'com.diffplug.spotless' version '6.25.0'
+}
+
+group = 'com.territorial'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+    mavenLocal() // 로컬 dev: publishToMavenLocal 한 common 소비
+    maven {
+        name = 'GitHubPackages'
+        url = 'https://maven.pkg.github.com/Kovalt03/Territorial_Auction_MSA'
+        credentials {
+            username = project.findProperty('gpr.user') ?: System.getenv('GITHUB_ACTOR')
+            password = project.findProperty('gpr.token') ?: System.getenv('GITHUB_TOKEN')
+        }
+    }
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.redisson:redisson:3.27.2'                             // @DistributedLock(common) + 이벤트 발행
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-database-postgresql'
+
+    // 공유 플랫폼 라이브러리 (ApiResponse·CustomException·GlobalExceptionHandler·@DistributedLock·RedissonConfig)
+    // redisson·aspectjweaver 등은 common의 전이 런타임 의존으로 따라온다
+    implementation 'com.territorial:common:0.1.0'
+
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    runtimeOnly 'org.postgresql:postgresql'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+    // auth 관련(security·oauth2·jjwt·totp)은 user-service 소유 — auction은 인증하지 않음
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+    finalizedBy jacocoTestReport
+}
+
+// 리포트-온리 (backend와 동일 정책 — 강제 임계는 베이스라인 후)
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+spotless {
+    java {
+        googleJavaFormat('1.22.0').aosp()
+        importOrder()
+        removeUnusedImports()
+        toggleOffOn()
+    }
+}

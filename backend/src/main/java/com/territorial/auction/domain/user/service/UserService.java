@@ -1,10 +1,10 @@
 package com.territorial.auction.domain.user.service;
 
-import com.territorial.auction.domain.auction.AuctionPolicy;
 import com.territorial.auction.domain.building.entity.GlobalVault;
 import com.territorial.auction.domain.building.entity.HomeIsland;
 import com.territorial.auction.domain.building.repository.GlobalVaultRepository;
 import com.territorial.auction.domain.building.repository.HomeIslandRepository;
+import com.territorial.auction.domain.map.TerritoryPolicy;
 import com.territorial.auction.domain.map.entity.Territory;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
 import com.territorial.auction.domain.military.repository.UnitInstanceRepository;
@@ -229,7 +229,7 @@ public class UserService {
 
     private LocalDateTime deriveOccupiedAt(Territory t) {
         if (t.getOccupiedUntil() == null) return null;
-        return t.getOccupiedUntil().minusDays(AuctionPolicy.OCCUPATION_DURATION_DAYS);
+        return t.getOccupiedUntil().minusDays(TerritoryPolicy.OCCUPATION_DURATION_DAYS);
     }
 
     private Map<Long, Long> buildUnitCountMap(List<Long> territoryIds) {

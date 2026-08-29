@@ -1,4 +1,7 @@
-baseUrl = http://localhost:8080
+# MSA: 경매는 auction-service가 담당. 게이트웨이(8090)가 /api/v1/auctions/** 를
+# auction-service로 라우팅하고, Bearer JWT의 subject를 X-User-Id로 주입한다.
+# (auction-service 직접 호출은 8082, 단 인증 엔드포인트는 X-User-Id 헤더 필요)
+baseUrl = http://localhost:8090
 
 ### 경매 목록 조회 (필터 없음)
 GET {{baseUrl}}/api/v1/auctions?page=0&size=20

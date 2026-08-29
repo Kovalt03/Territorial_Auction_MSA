@@ -1,0 +1,155 @@
+# MSA 풀스택 로컬 구동 (Strangler 전환 상태 전체).
+#   docker compose -f docker-compose.msa.yml up -d --build
+#
+# 구성:
+#   - DB 분리: 모놀리식(territorial-postgres) / auction-service(auction-postgres) 각자 소유
+#   - 공유 redis: 서비스 간 이벤트 버스(auction.* pub/sub) + 캐시. 이벤트가 오가려면 반드시 동일 인스턴스.
+#   - 게이트웨이: /api/v1/auctions/** → auction-service, /ws·그 외 → 모놀리식. JWT→X-User-Id 주입.
+#   - 프론트: 게이트웨이로 프록시.
+# 모놀리식 단독(전환 이전) 구동은 docker-compose.yml 사용.
+services:
+  # ── 공유 이벤트 버스 / 캐시 ────────────────────────────────
+  redis:
+    build:
+      context: ./backend/docker/redis
+      dockerfile: Dockerfile
+    container_name: msa-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - msa-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── 모놀리식 DB ───────────────────────────────────────────
+  postgres:
+    build:
+      context: ./backend/docker/postgres
+      dockerfile: Dockerfile
+    container_name: msa-postgres
+    environment:
+      POSTGRES_DB: territorial_auction
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - msa-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── auction-service 전용 DB (분리) ────────────────────────
+  auction-postgres:
+    image: postgres:16-alpine
+    container_name: msa-auction-postgres
+    environment:
+      POSTGRES_DB: auction
+      POSTGRES_USER: auction
+      POSTGRES_PASSWORD: auction
+    ports:
+      - "5433:5432"
+    volumes:
+      - msa-auction-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auction -d auction"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── 모놀리식 ──────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: msa-backend
+    env_file:
+      - ./backend/.env
+    environment:
+      TZ: Asia/Seoul
+      SPRING_PROFILES_ACTIVE: local
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: territorial_auction
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      AUCTION_SERVICE_BASE_URL: http://auction-service:8080
+      ADMIN_IP_ALLOWLIST: ""
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── auction-service ──────────────────────────────────────
+  auction-service:
+    build:
+      context: .
+      dockerfile: services/auction-service/Dockerfile
+    container_name: msa-auction-service
+    environment:
+      TZ: Asia/Seoul
+      DB_HOST: auction-postgres
+      DB_PORT: 5432
+      DB_NAME: auction
+      DB_USERNAME: auction
+      DB_PASSWORD: auction
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MONOLITH_BASE_URL: http://backend:8080
+    ports:
+      - "8082:8080"
+    depends_on:
+      auction-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── API 게이트웨이 ────────────────────────────────────────
+  gateway:
+    build:
+      context: ./services/gateway
+      dockerfile: Dockerfile
+    container_name: msa-gateway
+    env_file:
+      - ./backend/.env   # JWT_SECRET 공유 — 모놀리식과 동일 서명키로 검증
+    environment:
+      TZ: Asia/Seoul
+      AUCTION_SERVICE_URL: http://auction-service:8080
+      MONOLITH_URL: http://backend:8080
+      MONOLITH_WS_URL: ws://backend:8080
+    ports:
+      - "8090:8080"
+    depends_on:
+      - backend
+      - auction-service
+
+  # ── 프론트 (게이트웨이로 프록시) ──────────────────────────
+  frontend:
+    image: node:20-alpine
+    container_name: msa-frontend
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "3000:5173"
+    environment:
+      API_TARGET: http://gateway:8080
+      WS_TARGET: ws://gateway:8080
+    command: sh -c "npm install && npm run dev -- --host"
+    depends_on:
+      - gateway
+
+volumes:
+  msa-redis-data:
+  msa-postgres-data:
+  msa-auction-pg-data:

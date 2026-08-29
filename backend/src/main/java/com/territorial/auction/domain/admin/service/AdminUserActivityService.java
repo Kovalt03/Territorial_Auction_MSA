@@ -1,16 +1,13 @@
 package com.territorial.auction.domain.admin.service;
 
+import com.territorial.auction.domain.admin.client.AuctionQueryClient;
 import com.territorial.auction.domain.admin.dto.AdminBulkNotificationRequest;
 import com.territorial.auction.domain.admin.dto.AdminBulkResultResponse;
 import com.territorial.auction.domain.admin.dto.AdminSendNotificationRequest;
 import com.territorial.auction.domain.admin.dto.AdminUserActiveBidListResponse;
-import com.territorial.auction.domain.admin.dto.AdminUserActiveBidResponse;
 import com.territorial.auction.domain.admin.dto.AdminUserBidListResponse;
-import com.territorial.auction.domain.admin.dto.AdminUserBidResponse;
 import com.territorial.auction.domain.admin.dto.AdminUserTerritoryListResponse;
 import com.territorial.auction.domain.admin.dto.AdminUserTerritoryResponse;
-import com.territorial.auction.domain.auction.entity.AuctionBid;
-import com.territorial.auction.domain.auction.repository.AuctionBidRepository;
 import com.territorial.auction.domain.map.entity.Territory;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
 import com.territorial.auction.domain.notification.entity.NotificationLog.NotificationType;
@@ -18,7 +15,6 @@ import com.territorial.auction.domain.notification.service.NotificationService;
 import com.territorial.auction.domain.user.repository.UserRepository;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -33,33 +29,19 @@ import org.springframework.transaction.annotation.Transactional;
 public class AdminUserActivityService {
 
     private final UserRepository userRepository;
-    private final AuctionBidRepository auctionBidRepository;
+    private final AuctionQueryClient auctionQueryClient;
     private final TerritoryRepository territoryRepository;
     private final NotificationService notificationService;
     private final AdminAuditLogger adminAuditLogger;
 
     public AdminUserBidListResponse getBids(Long userId, Pageable pageable) {
         validateUserExists(userId);
-        LocalDateTime now = LocalDateTime.now();
-        Page<AuctionBid> page = auctionBidRepository.findAllByBidderIdWithAuction(userId, pageable);
-        List<AdminUserBidResponse> bids =
-                page.getContent().stream().map(b -> AdminUserBidResponse.from(b, now)).toList();
-        return new AdminUserBidListResponse(
-                page.getTotalElements(), page.getNumber(), page.getSize(), bids);
+        return auctionQueryClient.getBids(userId, pageable);
     }
 
     public AdminUserActiveBidListResponse getActiveBids(Long userId) {
         validateUserExists(userId);
-        LocalDateTime now = LocalDateTime.now();
-        List<AdminUserActiveBidResponse> activeBids =
-                auctionBidRepository.findLatestBidPerAuctionByBidder(userId).stream()
-                        .filter(
-                                b ->
-                                        !b.getAuction().isSettled()
-                                                && b.getAuction().getEndAt().isAfter(now))
-                        .map(AdminUserActiveBidResponse::from)
-                        .toList();
-        return new AdminUserActiveBidListResponse(activeBids);
+        return auctionQueryClient.getActiveBids(userId);
     }
 
     public AdminUserTerritoryListResponse getTerritories(Long userId, Pageable pageable) {

@@ -1,6 +1,5 @@
 package com.territorial.auction.domain.military.service;
 
-import com.territorial.auction.domain.auction.AuctionPolicy;
 import com.territorial.auction.domain.building.StoragePolicy;
 import com.territorial.auction.domain.building.entity.BuildingInstance;
 import com.territorial.auction.domain.building.entity.GlobalVault;
@@ -8,6 +7,7 @@ import com.territorial.auction.domain.building.entity.HomeIsland;
 import com.territorial.auction.domain.building.repository.BuildingInstanceRepository;
 import com.territorial.auction.domain.building.repository.GlobalVaultRepository;
 import com.territorial.auction.domain.building.repository.HomeIslandRepository;
+import com.territorial.auction.domain.map.TerritoryPolicy;
 import com.territorial.auction.domain.map.dto.MapUpdateBroadcast;
 import com.territorial.auction.domain.map.entity.Territory;
 import com.territorial.auction.domain.military.MilitaryPolicy;
@@ -501,8 +501,8 @@ public class SiegeService {
         LocalDateTime now = LocalDateTime.now();
         territory.occupy(
                 event.getAttacker(),
-                now.plusDays(AuctionPolicy.OCCUPATION_DURATION_DAYS),
-                now.plusHours(AuctionPolicy.PROTECTION_DURATION_HOURS));
+                now.plusDays(TerritoryPolicy.OCCUPATION_DURATION_DAYS),
+                now.plusHours(TerritoryPolicy.PROTECTION_DURATION_HOURS));
         broadcastTakeoverAfterCommit(territory, event.getAttacker());
         log.info(
                 "성 파괴로 영토 인계. territoryId={}, attackerId={}, recoveredGp={}",

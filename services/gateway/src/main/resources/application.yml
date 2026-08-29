@@ -1,0 +1,33 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  application:
+    name: gateway
+  cloud:
+    gateway:
+      routes:
+        # 경매 REST는 auction-service로
+        - id: auction-service
+          uri: ${AUCTION_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/v1/auctions/**
+        # WebSocket(실시간 허브)은 모놀리식
+        - id: monolith-ws
+          uri: ${MONOLITH_WS_URL:ws://localhost:8081}
+          predicates:
+            - Path=/ws/**
+        # 그 외 전부 모놀리식
+        - id: monolith
+          uri: ${MONOLITH_URL:http://localhost:8081}
+          predicates:
+            - Path=/**
+
+jwt:
+  secret: ${JWT_SECRET}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

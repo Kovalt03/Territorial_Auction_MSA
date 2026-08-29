@@ -1,12 +1,12 @@
 package com.territorial.auction.domain.map.service;
 
-import com.territorial.auction.domain.auction.AuctionPolicy;
 import com.territorial.auction.domain.building.StoragePolicy;
 import com.territorial.auction.domain.building.entity.BuildingInstance;
 import com.territorial.auction.domain.building.entity.GlobalVault;
 import com.territorial.auction.domain.building.repository.BuildingInstanceRepository;
 import com.territorial.auction.domain.building.repository.GlobalVaultRepository;
 import com.territorial.auction.domain.map.LandTaxPolicy;
+import com.territorial.auction.domain.map.TerritoryPolicy;
 import com.territorial.auction.domain.map.dto.TaxLogResponse;
 import com.territorial.auction.domain.map.dto.TaxStatusResponse;
 import com.territorial.auction.domain.map.entity.LandTaxLog;
@@ -265,8 +265,8 @@ public class LandTaxService {
             eventPublisher.publishEvent(new TerritoryLostEvent(territory.getId(), userId));
             territory.release(nextAuctionAt);
             int startPrice =
-                    AuctionPolicy.GRADE_START_PRICES.getOrDefault(
-                            territory.getGrade().getGrade(), AuctionPolicy.DEFAULT_START_PRICE);
+                    TerritoryPolicy.GRADE_BASE_PRICES.getOrDefault(
+                            territory.getGrade().getGrade(), TerritoryPolicy.DEFAULT_BASE_PRICE);
             remaining -= startPrice;
             evictedCount++;
         }

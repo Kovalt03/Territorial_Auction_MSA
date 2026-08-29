@@ -15,16 +15,17 @@
 redis · postgres · backend(단일) · frontend
 ```
 
-**단계 1 (auction-service 추출 후)** — `docker-compose.msa.yml`
+**단계 1 (auction-service 추출 후, 현재)** — `docker-compose.msa.yml`
 ```
-redis                     ← 공유 (Redisson 분산락 · 서비스 간 이벤트)
-monolith-postgres         ← 기존 backend 전용
-auction-postgres          ← auction-service 전용 (신규)
-backend(모놀리식)          ← auction 제외 전 도메인
-auction-service           ← auctions · bids 만
-frontend
-(gateway)                 ← 서비스 2개 이상부터 도입 검토
+redis                     ← 공유 (Redisson 분산락 · 서비스 간 이벤트 버스)
+postgres                  ← 모놀리식 전용 (호스트 5432)
+auction-postgres          ← auction-service 전용 (호스트 5433)
+backend(모놀리식)          ← auction 제외 전 도메인      (호스트 8080)
+auction-service           ← 경매·입찰·이력             (호스트 8082)
+gateway                   ← /api/v1/auctions→auction-service, 그 외→모놀리식 (호스트 8090)
+frontend                  ← 게이트웨이로 프록시          (호스트 3000)
 ```
+> 게이트웨이는 도입됨(1단계에 포함). 프론트 API/WS 프록시 대상은 **게이트웨이(8090)**다.
 
 핵심:
 - **DB는 서비스당 컨테이너**(결정 사항). `auction-service`는 `auction-postgres`에만 붙고, 모놀리식 DB를 절대 직접 조회하지 않는다.
@@ -50,83 +51,39 @@ frontend
 
 ---
 
-## 3. compose 파일 구성 (목표 스켈레톤)
+## 3. compose 파일 구성 (실제)
 
-> `docker-compose.msa.yml`은 **단계 1 착수 시 생성**한다. 아래는 그 목표 형태다. `auction-service/` 디렉토리와 Dockerfile이 만들어진 뒤 유효해진다.
+> `docker-compose.msa.yml`은 리포 루트에 **존재**한다. 아래는 실제 구성 요약 — 전체는 파일 참조.
 
-```yaml
-services:
-  redis:
-    image: redis:7-alpine
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-
-  monolith-postgres:
-    image: postgres:16
-    environment:
-      POSTGRES_DB: territorial_auction
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    volumes: [monolith-pg:/var/lib/postgresql/data]
-
-  auction-postgres:
-    image: postgres:16
-    environment:
-      POSTGRES_DB: auction
-      POSTGRES_USER: auction
-      POSTGRES_PASSWORD: auction
-    volumes: [auction-pg:/var/lib/postgresql/data]
-
-  backend:                      # 모놀리식 (auction 제외)
-    build: ./backend
-    environment:
-      SPRING_PROFILES_ACTIVE: local
-      DB_HOST: monolith-postgres
-      REDIS_HOST: redis
-    depends_on:
-      monolith-postgres: { condition: service_healthy }
-      redis: { condition: service_healthy }
-
-  auction-service:
-    build: ./services/auction-service
-    environment:
-      SPRING_PROFILES_ACTIVE: local
-      DB_HOST: auction-postgres
-      REDIS_HOST: redis
-      MONOLITH_BASE_URL: http://backend:8080   # AP 차감 등 동기 호출 대상
-    depends_on:
-      auction-postgres: { condition: service_healthy }
-      redis: { condition: service_healthy }
-      backend: { condition: service_started }
-
-  frontend:
-    build: ./frontend
-    ports: ["3000:80"]
-    depends_on: [backend, auction-service]
-
-volumes:
-  monolith-pg:
-  auction-pg:
-```
+| 서비스 | 이미지/빌드 | 호스트 포트 | 요점 |
+|---|---|---|---|
+| `redis` | redis 7 | 6379 | **공유** 이벤트 버스 + 캐시 |
+| `postgres` | 모놀리식 DB | 5432 | `territorial_auction` |
+| `auction-postgres` | auction DB(별도) | 5433 | `auction`(Flyway 소유) |
+| `backend` | `./backend` | 8080 | `AUCTION_SERVICE_BASE_URL`로 admin `/internal` 호출 |
+| `auction-service` | `context: .`(루트) | 8082 | `MONOLITH_BASE_URL=http://backend:8080` |
+| `gateway` | `./services/gateway` | 8090 | `JWT_SECRET`은 `backend/.env` 공유, 라우팅 |
+| `frontend` | node:20 | 3000 | `API_TARGET=http://gateway:8080` |
 
 **주의점**
-- 각 서비스는 **자기 Flyway 마이그레이션**을 자기 DB에 적용한다. 마이그레이션 경로가 서비스별로 분리돼야 한다.
-- 서비스별로 컨테이너 포트는 각자 `8080`이어도 무방하다(네트워크가 분리됨). 호스트로 노출할 필요가 있는 것만 `ports:` 매핑한다.
-- 개발 편의상 컨테이너 시각은 `TZ: Asia/Seoul`로 맞춘다(단일 타임존 운영 규칙).
+- **DB 분리**: `postgres`(모놀리식) / `auction-postgres`(auction-service) 별도 컨테이너·볼륨. auction-service는 모놀리식 DB를 직접 조회하지 않는다.
+- **공유 redis 단일 인스턴스**: 서비스 간 이벤트(auction.*)가 오가려면 **동일 인스턴스**여야 한다(분리 redis면 이벤트 유실).
+- 각 서비스는 **자기 Flyway 마이그레이션**을 자기 DB에 적용한다.
+- **auction-service 이미지는 self-contained 빌드**: 빌드 컨텍스트가 리포 루트(`context: .`)이고, Dockerfile이 이미지 안에서 공유 라이브러리 `common`을 `mavenLocal`에 발행한 뒤 빌드한다 → **GitHub Packages PAT 없이** 빌드된다. (`.dockerignore`로 컨텍스트 경량화)
+- 컨테이너 시각은 `TZ: Asia/Seoul`(단일 타임존).
 
 ---
 
-## 4. 프론트엔드 진입점 — gateway는 언제
+## 4. 프론트엔드 진입점 — gateway (도입됨)
 
-지금 프론트는 vite 프록시로 `/api`, `/ws`를 백엔드 하나로 보낸다. 서비스가 둘이 되면 "어떤 요청이 어느 서비스로 가나"를 정할 곳이 필요하다.
+게이트웨이(Spring Cloud Gateway)를 **도입 완료**했다. 프론트는 게이트웨이(8090) 하나로 프록시하고, 게이트웨이가 경로로 분기한다.
 
-| 서비스 수 | 진입점 | 방법 |
-|---|---|---|
-| 1 (현재) | 모놀리식 직결 | vite 프록시 그대로 |
-| 2~ | **경로 기반 라우팅** | 우선 **vite 프록시/nginx**로 `/api/v1/auctions/**` → auction-service, 나머지 → backend |
-| 다수 + 인증·레이트리밋 공통화 필요 | **API Gateway** | Spring Cloud Gateway 도입 검토 |
+| 경로 | 대상 |
+|---|---|
+| `/api/v1/auctions/**` | auction-service |
+| `/ws/**`, 그 외 | 모놀리식 |
 
-Gateway(Spring Cloud Gateway)는 학습 가치가 있으나 **처음부터 넣지 않는다** — 서비스 2개는 nginx/프록시 경로 분기로 충분하고, 컨테이너·복잡도만 늘어난다. "공통 인증·레이트리밋·집계가 여러 서비스에 반복될 때"를 도입 트리거로 잡는다.
+게이트웨이는 라우팅 외에 **인증 경계** 역할도 한다: 유입 `X-User-Id`를 제거(위조 방지)하고 유효 Bearer JWT의 subject를 `X-User-Id`로 주입 → 내부 서비스는 이 헤더를 신뢰한다(auction-service엔 Security 없음). 계약: [internal.md](../../api/internal.md) · [access-control-matrix](../access-control-matrix.md).
 
 ---
 
