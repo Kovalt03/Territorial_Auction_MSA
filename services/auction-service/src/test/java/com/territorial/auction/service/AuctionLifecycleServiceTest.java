@@ -175,7 +175,7 @@ class AuctionLifecycleServiceTest {
 
         lifecycleService.forceCancel(1L);
 
-        verify(walletClient).refundLocked(3L, 2000);
+        verify(walletClient).refundLocked(3L, 2000, 1L);
         verify(territoryClient).release(eq(1L), any());
         org.assertj.core.api.Assertions.assertThat(a.isSettled()).isTrue();
     }
@@ -191,6 +191,6 @@ class AuctionLifecycleServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.AUCTION_ALREADY_SETTLED);
-        verify(walletClient, never()).refundLocked(anyLong(), anyInt());
+        verify(walletClient, never()).refundLocked(anyLong(), anyInt(), anyLong());
     }
 }
