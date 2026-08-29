@@ -68,12 +68,11 @@ public class UserBootstrapService {
         Integer matches =
                 jdbcTemplate.queryForObject(
                         "SELECT COUNT(*) FROM users "
-                                + "WHERE id = ? AND username = ? AND email = ? AND nickname = ?",
+                                + "WHERE id = ? AND username = ? AND email = ?",
                         Integer.class,
                         userId,
                         username,
-                        email,
-                        nickname);
+                        email);
         if (matches == null || matches != 1) {
             throw new IllegalStateException("User projection ID collision: userId=" + userId);
         }

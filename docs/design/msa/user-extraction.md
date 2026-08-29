@@ -27,6 +27,7 @@ Auction 의존성 전환을 먼저 확보하는 기반 단계이며, 모놀리�
 
 신규 ID는 `1,000,000,000`부터 발급한다. 모놀리스 기존 identity 대역과 충돌을 막기 위한
 Strangler 임시 정책이며 서비스 간 관계는 DB FK가 아니라 ID로만 연결한다.
+재전달 충돌 검사는 변경 가능한 nickname이 아니라 ID·username·email로 source identity를 확인한다.
 
 ## 지갑 정합성
 
