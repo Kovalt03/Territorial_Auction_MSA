@@ -24,7 +24,9 @@ public class UserIdInjectionFilter implements GlobalFilter, Ordered {
     private final SecretKey key;
 
     public UserIdInjectionFilter(@Value("${jwt.secret}") String secret) {
-        this.key = io.jsonwebtoken.security.Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        this.key =
+                io.jsonwebtoken.security.Keys.hmacShaKeyFor(
+                        secret.getBytes(StandardCharsets.UTF_8));
     }
 
     @Override
