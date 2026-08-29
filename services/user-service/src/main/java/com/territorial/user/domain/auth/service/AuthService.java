@@ -11,6 +11,8 @@ import com.territorial.user.domain.user.entity.Wallet;
 import com.territorial.user.domain.user.repository.GlobalVaultRepository;
 import com.territorial.user.domain.user.repository.UserRepository;
 import com.territorial.user.domain.user.repository.WalletRepository;
+import com.territorial.user.event.UserCreatedEvent;
+import com.territorial.user.event.UserCreatedEventPublisher;
 import com.territorial.user.global.exception.ErrorCode;
 import com.territorial.user.global.security.JwtTokenProvider;
 import com.territorial.user.global.security.RefreshTokenService;
@@ -29,6 +31,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenService refreshTokenService;
+    private final UserCreatedEventPublisher userCreatedEventPublisher;
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
@@ -36,6 +39,9 @@ public class AuthService {
         User user = userRepository.save(newUser(request));
         walletRepository.save(Wallet.builder().user(user).build());
         globalVaultRepository.save(GlobalVault.builder().user(user).build());
+        userCreatedEventPublisher.publishAfterCommit(
+                new UserCreatedEvent(
+                        user.getId(), user.getUsername(), user.getEmail(), user.getNickname()));
         return SignupResponse.from(user);
     }
 
