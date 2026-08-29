@@ -2,9 +2,9 @@
 #   docker compose -f docker-compose.msa.yml up -d --build
 #
 # 구성:
-#   - DB 분리: 모놀리식(territorial-postgres) / auction-service(auction-postgres) 각자 소유
-#   - 공유 redis: 서비스 간 이벤트 버스(auction.* pub/sub) + 캐시. 이벤트가 오가려면 반드시 동일 인스턴스.
-#   - 게이트웨이: /api/v1/auctions/** → auction-service, /ws·그 외 → 모놀리식. JWT→X-User-Id 주입.
+#   - DB 분리: 모놀리식 / auction-service / user-service가 각각 자기 PostgreSQL을 소유.
+#   - 공유 redis: auction.* pub/sub, user.created Stream, 캐시. 이벤트가 오가려면 반드시 동일 인스턴스.
+#   - 게이트웨이: auction·auth·wallet 공개 경로를 분리 서비스로 라우팅하고 access JWT만 X-User-Id로 변환.
 #   - 프론트: 게이트웨이로 프록시.
 # 모놀리식 단독(전환 이전) 구동은 docker-compose.yml 사용.
 services:
