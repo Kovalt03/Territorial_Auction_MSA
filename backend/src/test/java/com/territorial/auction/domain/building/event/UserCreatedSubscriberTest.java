@@ -3,6 +3,7 @@ package com.territorial.auction.domain.building.event;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.RedisSystemException;
 import org.springframework.data.redis.connection.stream.Consumer;
 import org.springframework.data.redis.connection.stream.MapRecord;
 import org.springframework.data.redis.connection.stream.RecordId;
@@ -58,6 +60,30 @@ class UserCreatedSubscriberTest {
         verify(streamOperations)
                 .acknowledge(
                         eq("stream:user-events"), eq("backend-user-bootstrap"), eq(signup.getId()));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void existingConsumerGroupStillPollsPendingAndNewRecords() {
+        given(
+                        streamOperations.createGroup(
+                                eq("stream:user-events"), any(), eq("backend-user-bootstrap")))
+                .willThrow(
+                        new RedisSystemException(
+                                "Error in execution",
+                                new IllegalStateException(
+                                        "BUSYGROUP Consumer Group already exists")));
+        given(
+                        streamOperations.read(
+                                any(Consumer.class),
+                                any(StreamReadOptions.class),
+                                any(StreamOffset[].class)))
+                .willReturn(List.of());
+
+        subscriber.poll();
+
+        verify(streamOperations, times(2))
+                .read(any(Consumer.class), any(StreamReadOptions.class), any(StreamOffset[].class));
     }
 
     private MapRecord<String, Object, Object> record(String id, String payload) {
