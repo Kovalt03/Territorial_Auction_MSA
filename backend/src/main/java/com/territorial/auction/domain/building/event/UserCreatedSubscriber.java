@@ -62,8 +62,19 @@ public class UserCreatedSubscriber {
             redisTemplate.opsForStream().createGroup(STREAM_KEY, ReadOffset.from("0-0"), GROUP);
             return true;
         } catch (DataAccessException e) {
-            return e.getMessage() != null && e.getMessage().contains("BUSYGROUP");
+            return hasBusyGroupCause(e);
         }
+    }
+
+    private boolean hasBusyGroupCause(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            if (current.getMessage() != null && current.getMessage().contains("BUSYGROUP")) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private void handle(MapRecord<String, Object, Object> record) {
