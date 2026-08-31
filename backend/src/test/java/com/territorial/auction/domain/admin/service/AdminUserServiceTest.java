@@ -3,9 +3,11 @@ package com.territorial.auction.domain.admin.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.mockito.Mockito.never;
+import static org.mockito.BDDMockito.willThrow;
 
 import com.territorial.auction.domain.admin.dto.AdminAdjustWalletRequest;
 import com.territorial.auction.domain.admin.dto.AdminBulkAdjustWalletRequest;
@@ -15,12 +17,12 @@ import com.territorial.auction.domain.admin.dto.AdminChangeUserStatusRequest;
 import com.territorial.auction.domain.admin.dto.AdminUserDetailResponse;
 import com.territorial.auction.domain.admin.dto.AdminUserListResponse;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
+import com.territorial.auction.domain.user.client.WalletClient;
+import com.territorial.auction.domain.user.client.WalletSnapshot;
 import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.entity.UserRole;
 import com.territorial.auction.domain.user.entity.UserStatus;
-import com.territorial.auction.domain.user.entity.Wallet;
 import com.territorial.auction.domain.user.repository.UserRepository;
-import com.territorial.auction.domain.user.repository.WalletRepository;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import java.util.List;
@@ -42,7 +44,7 @@ class AdminUserServiceTest {
     @InjectMocks private AdminUserService adminUserService;
 
     @Mock private UserRepository userRepository;
-    @Mock private WalletRepository walletRepository;
+    @Mock private WalletClient walletClient;
 
     @Mock
     private com.territorial.auction.domain.building.repository.GlobalVaultRepository
@@ -78,13 +80,6 @@ class AdminUserServiceTest {
         return u;
     }
 
-    private Wallet wallet(User user, int ap, int gp) {
-        Wallet w = Wallet.builder().user(user).build();
-        ReflectionTestUtils.setField(w, "userId", user.getId());
-        ReflectionTestUtils.setField(w, "availableAp", ap);
-        return w;
-    }
-
     @Nested
     @DisplayName("getUsers()")
     class GetUsers {
@@ -115,7 +110,7 @@ class AdminUserServiceTest {
         void getUser_success() {
             User u = user(1L, UserStatus.ACTIVE, UserRole.USER);
             given(userRepository.findById(1L)).willReturn(Optional.of(u));
-            given(walletRepository.findById(1L)).willReturn(Optional.of(wallet(u, 500, 0)));
+            given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(500, 0));
             given(globalVaultRepository.findById(1L)).willReturn(Optional.of(vault(u, 30)));
             given(territoryRepository.countByOwnerId(1L)).willReturn(3L);
 
@@ -147,7 +142,7 @@ class AdminUserServiceTest {
         void suspend_success() {
             User u = user(1L, UserStatus.ACTIVE, UserRole.USER);
             given(userRepository.findById(1L)).willReturn(Optional.of(u));
-            given(walletRepository.findById(1L)).willReturn(Optional.of(wallet(u, 0, 0)));
+            given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(0, 0));
             given(territoryRepository.countByOwnerId(1L)).willReturn(0L);
 
             AdminUserDetailResponse res =
@@ -205,10 +200,10 @@ class AdminUserServiceTest {
         @DisplayName("AP 차감·GP 지급 성공")
         void adjust_success() {
             User u = user(1L, UserStatus.ACTIVE, UserRole.USER);
-            Wallet w = wallet(u, 1000, 0);
             com.territorial.auction.domain.building.entity.GlobalVault v = vault(u, 50);
             given(userRepository.findById(1L)).willReturn(Optional.of(u));
-            given(walletRepository.findByIdWithLock(1L)).willReturn(Optional.of(w));
+            given(walletClient.adjust(eq(1L), eq(-200), anyString()))
+                    .willReturn(new WalletSnapshot(800, 0));
             given(globalVaultRepository.findByIdWithLock(1L)).willReturn(Optional.of(v));
             given(globalVaultRepository.findById(1L)).willReturn(Optional.of(v));
             given(territoryRepository.countByOwnerId(1L)).willReturn(0L);
@@ -227,7 +222,9 @@ class AdminUserServiceTest {
         void adjust_insufficientAp() {
             User u = user(1L, UserStatus.ACTIVE, UserRole.USER);
             given(userRepository.findById(1L)).willReturn(Optional.of(u));
-            given(walletRepository.findByIdWithLock(1L)).willReturn(Optional.of(wallet(u, 100, 0)));
+            willThrow(new CustomException(ErrorCode.INSUFFICIENT_AP))
+                    .given(walletClient)
+                    .adjust(eq(1L), eq(-500), anyString());
 
             assertThatThrownBy(
                             () ->
@@ -253,7 +250,7 @@ class AdminUserServiceTest {
                     .isInstanceOf(CustomException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.INVALID_INPUT);
-            then(walletRepository).should(never()).findByIdWithLock(any());
+            then(walletClient).shouldHaveNoInteractions();
         }
     }
 
@@ -266,10 +263,6 @@ class AdminUserServiceTest {
         void bulkAdjustWallet_success() {
             User u1 = user(1L, UserStatus.ACTIVE, UserRole.USER);
             User u2 = user(2L, UserStatus.ACTIVE, UserRole.USER);
-            given(walletRepository.findByIdWithLock(1L))
-                    .willReturn(Optional.of(wallet(u1, 1000, 0)));
-            given(walletRepository.findByIdWithLock(2L))
-                    .willReturn(Optional.of(wallet(u2, 1000, 0)));
             given(userRepository.findById(1L)).willReturn(Optional.of(u1));
             given(userRepository.findById(2L)).willReturn(Optional.of(u2));
             given(globalVaultRepository.findByIdWithLock(1L)).willReturn(Optional.of(vault(u1, 0)));
@@ -288,9 +281,11 @@ class AdminUserServiceTest {
         void bulkAdjustWallet_oneInsufficient() {
             User u1 = user(1L, UserStatus.ACTIVE, UserRole.USER);
             User u2 = user(2L, UserStatus.ACTIVE, UserRole.USER);
-            given(walletRepository.findByIdWithLock(1L))
-                    .willReturn(Optional.of(wallet(u1, 1000, 0)));
-            given(walletRepository.findByIdWithLock(2L)).willReturn(Optional.of(wallet(u2, 50, 0)));
+            given(walletClient.adjust(eq(1L), eq(-100), anyString()))
+                    .willReturn(new WalletSnapshot(900, 0));
+            willThrow(new CustomException(ErrorCode.INSUFFICIENT_AP))
+                    .given(walletClient)
+                    .adjust(eq(2L), eq(-100), anyString());
 
             assertThatThrownBy(
                             () ->

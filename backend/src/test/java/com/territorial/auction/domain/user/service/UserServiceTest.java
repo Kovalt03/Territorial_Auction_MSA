@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 
@@ -19,6 +20,8 @@ import com.territorial.auction.domain.season.entity.UserSeasonPass;
 import com.territorial.auction.domain.season.entity.UserTrophy;
 import com.territorial.auction.domain.season.repository.UserSeasonPassRepository;
 import com.territorial.auction.domain.season.repository.UserTrophyRepository;
+import com.territorial.auction.domain.user.client.WalletClient;
+import com.territorial.auction.domain.user.client.WalletSnapshot;
 import com.territorial.auction.domain.user.dto.ChangeNicknameResponse;
 import com.territorial.auction.domain.user.dto.MyProfileResponse;
 import com.territorial.auction.domain.user.dto.MyTerritoryResponse;
@@ -30,11 +33,9 @@ import com.territorial.auction.domain.user.entity.NotificationSetting;
 import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.entity.UserProfile;
 import com.territorial.auction.domain.user.entity.UserStatus;
-import com.territorial.auction.domain.user.entity.Wallet;
 import com.territorial.auction.domain.user.repository.NotificationSettingRepository;
 import com.territorial.auction.domain.user.repository.UserProfileRepository;
 import com.territorial.auction.domain.user.repository.UserRepository;
-import com.territorial.auction.domain.user.repository.WalletRepository;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import com.territorial.auction.global.security.jwt.RefreshTokenService;
@@ -61,7 +62,7 @@ class UserServiceTest {
     @InjectMocks private UserService userService;
 
     @Mock private UserRepository userRepository;
-    @Mock private WalletRepository walletRepository;
+    @Mock private WalletClient walletClient;
 
     @Mock
     private com.territorial.auction.domain.building.repository.GlobalVaultRepository
@@ -95,13 +96,6 @@ class UserServiceTest {
         ReflectionTestUtils.setField(user, "id", 1L);
         ReflectionTestUtils.setField(user, "createdAt", LocalDateTime.of(2026, 1, 10, 0, 0));
         return user;
-    }
-
-    private Wallet sampleWallet(User user) {
-        Wallet wallet = Wallet.builder().user(user).build();
-        ReflectionTestUtils.setField(wallet, "availableAp", 300);
-        ReflectionTestUtils.setField(wallet, "lockedAp", 0);
-        return wallet;
     }
 
     // 지갑 화면의 GP 는 금고 잔액을 보여준다 — 금고에 1500 을 둔다.
@@ -156,7 +150,7 @@ class UserServiceTest {
         void getMyProfile_success() {
             User user = sampleUser();
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(walletRepository.findById(1L)).willReturn(Optional.of(sampleWallet(user)));
+            given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(300, 0));
             given(homeIslandRepository.findByUserId(1L))
                     .willReturn(Optional.of(sampleIsland(user)));
             given(userSeasonPassRepository.findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(1L))
@@ -188,7 +182,7 @@ class UserServiceTest {
                             .expiresAt(LocalDateTime.now().plusDays(30))
                             .build();
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(walletRepository.findById(1L)).willReturn(Optional.of(sampleWallet(user)));
+            given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(300, 0));
             given(homeIslandRepository.findByUserId(1L))
                     .willReturn(Optional.of(sampleIsland(user)));
             given(userSeasonPassRepository.findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(1L))
@@ -217,7 +211,7 @@ class UserServiceTest {
         void getMyProfile_islandNotFound() {
             User user = sampleUser();
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(walletRepository.findById(1L)).willReturn(Optional.of(sampleWallet(user)));
+            given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(300, 0));
             given(homeIslandRepository.findByUserId(1L)).willReturn(Optional.empty());
             given(userSeasonPassRepository.findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(1L))
                     .willReturn(Optional.empty());
@@ -498,9 +492,8 @@ class UserServiceTest {
         @DisplayName("정상 조회 시 MyWalletResponse 반환")
         void getMyWallet_success() {
             User user = sampleUser();
-            Wallet wallet = sampleWallet(user); // availableGp=1500, availableAp=300, lockedAp=0
 
-            given(walletRepository.findById(1L)).willReturn(Optional.of(wallet));
+            given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(300, 0));
 
             stubVaultGp(1L, 1500);
             MyWalletResponse response = userService.getMyWallet(1L);
@@ -513,7 +506,9 @@ class UserServiceTest {
         @Test
         @DisplayName("지갑 없으면 USER_NOT_FOUND 예외")
         void getMyWallet_notFound() {
-            given(walletRepository.findById(99L)).willReturn(Optional.empty());
+            willThrow(new CustomException(ErrorCode.USER_NOT_FOUND))
+                    .given(walletClient)
+                    .getWallet(99L);
 
             assertThatThrownBy(() -> userService.getMyWallet(99L))
                     .isInstanceOf(CustomException.class)

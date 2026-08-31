@@ -2,17 +2,20 @@ package com.territorial.auction.domain.user.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 
+import com.territorial.auction.domain.user.client.WalletClient;
+import com.territorial.auction.domain.user.client.WalletSnapshot;
 import com.territorial.auction.domain.user.dto.ChargeApRequest;
 import com.territorial.auction.domain.user.dto.ChargeApResponse;
 import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.entity.Wallet;
-import com.territorial.auction.domain.user.repository.WalletRepository;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
-import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -29,7 +32,7 @@ class PaymentServiceTest {
 
     @InjectMocks private PaymentService paymentService;
 
-    @Mock private WalletRepository walletRepository;
+    @Mock private WalletClient walletClient;
     @Mock private RedisTemplate<String, Object> redisTemplate;
     @Mock private ValueOperations<String, Object> valueOps;
 
@@ -61,10 +64,11 @@ class PaymentServiceTest {
         @DisplayName("AP 충전 성공 — 잔액 증가 확인")
         void success() {
             User user = sampleUser();
-            Wallet wallet = walletWithAp(user, 300); // 기존 300AP
+            // 기존 300AP + 1000 = 1300
 
             given(redisTemplate.hasKey("payment:order:order_123")).willReturn(false);
-            given(walletRepository.findById(1L)).willReturn(Optional.of(wallet));
+            given(walletClient.credit(eq(1L), eq(1000), anyString()))
+                    .willReturn(new WalletSnapshot(1300, 0));
             given(redisTemplate.opsForValue()).willReturn(valueOps);
 
             ChargeApRequest request = new ChargeApRequest(1000, "pg_key_abc", "order_123");
@@ -85,14 +89,16 @@ class PaymentServiceTest {
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.DUPLICATE_ORDER);
 
-            then(walletRepository).shouldHaveNoInteractions();
+            then(walletClient).shouldHaveNoInteractions();
         }
 
         @Test
         @DisplayName("유저 없음 → USER_NOT_FOUND")
         void user_not_found() {
             given(redisTemplate.hasKey("payment:order:order_xyz")).willReturn(false);
-            given(walletRepository.findById(99L)).willReturn(Optional.empty());
+            willThrow(new CustomException(ErrorCode.USER_NOT_FOUND))
+                    .given(walletClient)
+                    .credit(eq(99L), org.mockito.ArgumentMatchers.anyInt(), anyString());
 
             ChargeApRequest request = new ChargeApRequest(500, "pg_key", "order_xyz");
             assertThatThrownBy(() -> paymentService.chargeAp(99L, request))

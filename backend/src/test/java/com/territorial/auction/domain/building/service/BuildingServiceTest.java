@@ -3,9 +3,12 @@ package com.territorial.auction.domain.building.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.times;
 
 import com.territorial.auction.domain.building.dto.InventoryResponse;
@@ -34,6 +37,7 @@ import com.territorial.auction.domain.map.repository.TerritoryRepository;
 import com.territorial.auction.domain.season.entity.SeasonPass;
 import com.territorial.auction.domain.season.entity.UserSeasonPass;
 import com.territorial.auction.domain.season.repository.UserSeasonPassRepository;
+import com.territorial.auction.domain.user.client.WalletSnapshot;
 import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.repository.UserRepository;
 import com.territorial.auction.global.exception.CustomException;
@@ -69,7 +73,7 @@ class BuildingServiceTest {
     @Mock private IslandGradeRepository islandGradeRepository;
     @Mock private TerritoryRepository territoryRepository;
     @Mock private UserRepository userRepository;
-    @Mock private com.territorial.auction.domain.user.repository.WalletRepository walletRepository;
+    @Mock private com.territorial.auction.domain.user.client.WalletClient walletClient;
     @Mock private UserSeasonPassRepository userSeasonPassRepository;
 
     @Mock
@@ -1472,9 +1476,9 @@ class BuildingServiceTest {
             User user = sampleUser(1L);
             HomeIsland island = sampleIsland(user);
             BuildingInstance building = underConstruction(storage(), island, 50L); // 남은 ~10분
-            var wallet = walletWithAp(user, 500);
             given(buildingInstanceRepository.findById(50L)).willReturn(Optional.of(building));
-            given(walletRepository.findById(1L)).willReturn(Optional.of(wallet));
+            given(walletClient.spend(eq(1L), anyInt(), anyString()))
+                    .willReturn(new WalletSnapshot(400, 0));
 
             var res = buildingService.rushConstruction(1L, 50L);
 
@@ -1505,9 +1509,10 @@ class BuildingServiceTest {
             User user = sampleUser(1L);
             HomeIsland island = sampleIsland(user);
             BuildingInstance building = underConstruction(storage(), island, 52L);
-            var wallet = walletWithAp(user, 10); // 100 필요한데 10뿐
             given(buildingInstanceRepository.findById(52L)).willReturn(Optional.of(building));
-            given(walletRepository.findById(1L)).willReturn(Optional.of(wallet));
+            willThrow(new CustomException(ErrorCode.INSUFFICIENT_AP))
+                    .given(walletClient)
+                    .spend(eq(1L), anyInt(), anyString());
 
             assertThatThrownBy(() -> buildingService.rushConstruction(1L, 52L))
                     .isInstanceOf(CustomException.class)
@@ -1532,9 +1537,9 @@ class BuildingServiceTest {
         void boost_success() {
             User user = sampleUser(1L);
             HomeIsland island = sampleIsland(user);
-            var wallet = walletWithAp(user, 1000);
             given(homeIslandRepository.findByUserId(1L)).willReturn(Optional.of(island));
-            given(walletRepository.findById(1L)).willReturn(Optional.of(wallet));
+            given(walletClient.spend(eq(1L), anyInt(), anyString()))
+                    .willReturn(new WalletSnapshot(500, 0));
 
             var res = buildingService.activateProductionBoost(1L);
 
@@ -1563,9 +1568,10 @@ class BuildingServiceTest {
         void boost_insufficientAp() {
             User user = sampleUser(1L);
             HomeIsland island = sampleIsland(user);
-            var wallet = walletWithAp(user, 100);
             given(homeIslandRepository.findByUserId(1L)).willReturn(Optional.of(island));
-            given(walletRepository.findById(1L)).willReturn(Optional.of(wallet));
+            willThrow(new CustomException(ErrorCode.INSUFFICIENT_AP))
+                    .given(walletClient)
+                    .spend(eq(1L), anyInt(), anyString());
 
             assertThatThrownBy(() -> buildingService.activateProductionBoost(1L))
                     .isInstanceOf(CustomException.class)

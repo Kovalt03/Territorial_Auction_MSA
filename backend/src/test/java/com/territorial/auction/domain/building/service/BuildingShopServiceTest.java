@@ -3,8 +3,11 @@ package com.territorial.auction.domain.building.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 
 import com.territorial.auction.domain.building.dto.PurchaseDecorationResponse;
@@ -13,10 +16,10 @@ import com.territorial.auction.domain.building.entity.BuildingInstance;
 import com.territorial.auction.domain.building.entity.BuildingType;
 import com.territorial.auction.domain.building.repository.BuildingInstanceRepository;
 import com.territorial.auction.domain.building.repository.BuildingTypeRepository;
+import com.territorial.auction.domain.user.client.WalletClient;
+import com.territorial.auction.domain.user.client.WalletSnapshot;
 import com.territorial.auction.domain.user.entity.User;
-import com.territorial.auction.domain.user.entity.Wallet;
 import com.territorial.auction.domain.user.repository.UserRepository;
-import com.territorial.auction.domain.user.repository.WalletRepository;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import java.util.Optional;
@@ -36,7 +39,7 @@ class BuildingShopServiceTest {
     @Mock private BuildingTypeRepository buildingTypeRepository;
     @Mock private BuildingInstanceRepository buildingInstanceRepository;
     @Mock private UserRepository userRepository;
-    @Mock private WalletRepository walletRepository;
+    @Mock private WalletClient walletClient;
 
     private BuildingType decoration(Integer apCost) {
         BuildingType t =
@@ -53,12 +56,6 @@ class BuildingShopServiceTest {
         return t;
     }
 
-    private Wallet wallet(int ap) {
-        Wallet w = Wallet.builder().user(user()).build();
-        ReflectionTestUtils.setField(w, "availableAp", ap);
-        return w;
-    }
-
     private User user() {
         User u = User.builder().username("u").email("u@x").passwordHash("h").nickname("n").build();
         ReflectionTestUtils.setField(u, "id", 1L);
@@ -66,12 +63,10 @@ class BuildingShopServiceTest {
     }
 
     @Test
-    @DisplayName("장식 구매 성공 → AP 차감 + 인벤토리 생성")
+    @DisplayName("장식 구매 성공 → AP 차감(user-service) + 인벤토리 생성")
     void purchase_success() {
-        Wallet w = wallet(1000);
         given(buildingTypeRepository.findById(20L)).willReturn(Optional.of(decoration(300)));
         given(userRepository.findById(1L)).willReturn(Optional.of(user()));
-        given(walletRepository.findByIdWithLock(1L)).willReturn(Optional.of(w));
         given(buildingInstanceRepository.save(any()))
                 .willAnswer(
                         inv -> {
@@ -79,6 +74,8 @@ class BuildingShopServiceTest {
                             ReflectionTestUtils.setField(b, "id", 99L);
                             return b;
                         });
+        given(walletClient.spend(eq(1L), eq(300), anyString()))
+                .willReturn(new WalletSnapshot(700, 0));
 
         PurchaseDecorationResponse res = buildingShopService.purchase(1L, 20L);
 
@@ -100,16 +97,19 @@ class BuildingShopServiceTest {
     }
 
     @Test
-    @DisplayName("AP 부족 → INSUFFICIENT_AP")
+    @DisplayName("AP 부족(user-service 거부) → INSUFFICIENT_AP")
     void purchase_insufficientAp() {
         given(buildingTypeRepository.findById(20L)).willReturn(Optional.of(decoration(300)));
         given(userRepository.findById(1L)).willReturn(Optional.of(user()));
-        given(walletRepository.findByIdWithLock(1L)).willReturn(Optional.of(wallet(100)));
+        given(buildingInstanceRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+        willThrow(new CustomException(ErrorCode.INSUFFICIENT_AP))
+                .given(walletClient)
+                .spend(eq(1L), eq(300), anyString());
 
+        // 저장은 트랜잭션 안에서 일어나고 spend 실패 시 롤백된다(런타임 @Transactional). 단위테스트는 예외 전파만 검증.
         assertThatThrownBy(() -> buildingShopService.purchase(1L, 20L))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INSUFFICIENT_AP);
-        then(buildingInstanceRepository).should(never()).save(any());
     }
 }

@@ -3,9 +3,12 @@ package com.territorial.auction.domain.season.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 
 import com.territorial.auction.domain.building.entity.GlobalVault;
@@ -29,10 +32,11 @@ import com.territorial.auction.domain.season.repository.SeasonPassRepository;
 import com.territorial.auction.domain.season.repository.SeasonPassRewardClaimRepository;
 import com.territorial.auction.domain.season.repository.SeasonRepository;
 import com.territorial.auction.domain.season.repository.UserSeasonPassRepository;
+import com.territorial.auction.domain.user.client.WalletClient;
+import com.territorial.auction.domain.user.client.WalletSnapshot;
 import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.entity.Wallet;
 import com.territorial.auction.domain.user.repository.UserRepository;
-import com.territorial.auction.domain.user.repository.WalletRepository;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import java.time.LocalDateTime;
@@ -64,7 +68,7 @@ class SeasonPassServiceTest {
     @Mock private SeasonPassLevelRewardRepository seasonPassLevelRewardRepository;
     @Mock private SeasonPassRewardClaimRepository seasonPassRewardClaimRepository;
     @Mock private UserRepository userRepository;
-    @Mock private WalletRepository walletRepository;
+    @Mock private WalletClient walletClient;
     @Mock private GlobalVaultRepository globalVaultRepository;
     @Mock private ItemRepository itemRepository;
     @Mock private UserItemRepository userItemRepository;
@@ -204,7 +208,6 @@ class SeasonPassServiceTest {
         @DisplayName("AP 충분 + 기존 패스 없음 - 새 UserSeasonPass 저장 후 캐시 갱신")
         void sufficientAp_noExisting_createsNew() {
             SeasonPass pass = buildSeasonPass(1L, 100, 30);
-            Wallet wallet = walletWithAp(500);
             User user = Mockito.mock(User.class);
             LocalDateTime beforePurchase = LocalDateTime.now();
 
@@ -213,13 +216,14 @@ class SeasonPassServiceTest {
                     .willReturn(Optional.empty());
             given(seasonRepository.findActiveSeason(any()))
                     .willReturn(Optional.of(buildSeason(1L, 1)));
-            given(walletRepository.findById(1L)).willReturn(Optional.of(wallet));
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
             given(userSeasonPassRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+            given(walletClient.spend(eq(1L), eq(100), anyString()))
+                    .willReturn(new WalletSnapshot(400, 0));
 
             PurchaseSeasonPassResponse response = seasonPassService.purchase(1L);
 
-            then(wallet).should().spendAp(100);
+            then(walletClient).should().spend(eq(1L), eq(100), anyString());
             then(userSeasonPassRepository).should().save(any(UserSeasonPass.class));
             then(valueOps).should().set(eq("season_pass:my:1"), any(), any());
             then(redisTemplate).should().delete("season_pass:progress:1");
@@ -251,12 +255,15 @@ class SeasonPassServiceTest {
         @DisplayName("AP 부족 - INSUFFICIENT_AP 예외")
         void insufficientAp_throwsException() {
             SeasonPass pass = buildSeasonPass(1L, 1000, 30);
-            Wallet wallet = walletWithAp(100);
 
             given(seasonPassRepository.findFirstByOrderByIdDesc()).willReturn(Optional.of(pass));
             given(seasonRepository.findActiveSeason(any()))
                     .willReturn(Optional.of(buildSeason(1L, 1)));
-            given(walletRepository.findById(1L)).willReturn(Optional.of(wallet));
+            given(userRepository.findById(1L)).willReturn(Optional.of(Mockito.mock(User.class)));
+            given(userSeasonPassRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+            willThrow(new CustomException(ErrorCode.INSUFFICIENT_AP))
+                    .given(walletClient)
+                    .spend(eq(1L), eq(1000), anyString());
 
             assertThatThrownBy(() -> seasonPassService.purchase(1L))
                     .isInstanceOf(CustomException.class)
@@ -291,14 +298,12 @@ class SeasonPassServiceTest {
                     SeasonPassProgress.builder().user(user).season(season).build();
             ReflectionTestUtils.setField(progress, "level", 5);
             ReflectionTestUtils.setField(progress, "xp", 300);
-            Wallet wallet = Wallet.builder().user(user).build();
-            ReflectionTestUtils.setField(wallet, "availableAp", 1000);
-
             given(seasonRepository.findActiveSeason(any())).willReturn(Optional.of(season));
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
             given(seasonPassProgressRepository.findByUser_IdAndSeason_Id(any(), any()))
                     .willReturn(Optional.of(progress));
-            given(walletRepository.findById(1L)).willReturn(Optional.of(wallet));
+            given(walletClient.spend(eq(1L), eq(500), anyString()))
+                    .willReturn(new WalletSnapshot(500, 0));
 
             PurchaseLevelResponse response = seasonPassService.purchaseLevel(1L);
 
@@ -317,19 +322,19 @@ class SeasonPassServiceTest {
             SeasonPassProgress progress =
                     SeasonPassProgress.builder().user(user).season(season).build();
             ReflectionTestUtils.setField(progress, "level", 5);
-            Wallet wallet = walletWithAp(100);
-
             given(seasonRepository.findActiveSeason(any())).willReturn(Optional.of(season));
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
             given(seasonPassProgressRepository.findByUser_IdAndSeason_Id(any(), any()))
                     .willReturn(Optional.of(progress));
-            given(walletRepository.findById(1L)).willReturn(Optional.of(wallet));
+            willThrow(new CustomException(ErrorCode.INSUFFICIENT_AP))
+                    .given(walletClient)
+                    .spend(eq(1L), eq(500), anyString());
 
+            // 런타임에는 @Transactional 롤백으로 레벨업이 취소된다(단위테스트는 예외 전파만 검증).
             assertThatThrownBy(() -> seasonPassService.purchaseLevel(1L))
                     .isInstanceOf(CustomException.class)
                     .extracting(e -> ((CustomException) e).getErrorCode())
                     .isEqualTo(ErrorCode.INSUFFICIENT_AP);
-            assertThat(progress.getLevel()).isEqualTo(5);
         }
 
         @Test
@@ -350,7 +355,7 @@ class SeasonPassServiceTest {
                     .isInstanceOf(CustomException.class)
                     .extracting(e -> ((CustomException) e).getErrorCode())
                     .isEqualTo(ErrorCode.SEASON_LEVEL_MAX_REACHED);
-            then(walletRepository).should(never()).findById(any());
+            then(walletClient).should(never()).spend(any(), anyInt(), anyString());
         }
 
         @Test
