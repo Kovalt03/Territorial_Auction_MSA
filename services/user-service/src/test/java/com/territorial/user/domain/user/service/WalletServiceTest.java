@@ -93,6 +93,47 @@ class WalletServiceTest {
     }
 
     @Test
+    void compensateBidEscrowReversesLockAndRefund() {
+        // escrow 직후 상태: 새 입찰자(3) 1500 잠김, 이전 입찰자(1) 1500 환불받아 available
+        Wallet bidderWallet = wallet(3L, 3500, 1500);
+        Wallet previousWallet = wallet(1L, 1000, 0);
+        given(walletRepository.findByIdWithLock(1L)).willReturn(Optional.of(previousWallet));
+        given(walletRepository.findByIdWithLock(3L)).willReturn(Optional.of(bidderWallet));
+
+        walletService.compensateBidEscrow(10L, 3L, 1500, 1L, 1000);
+
+        // 새 입찰자: 잠금 해제 → available 복원
+        assertThat(bidderWallet.getAvailableAp()).isEqualTo(5000);
+        assertThat(bidderWallet.getLockedAp()).isZero();
+        // 이전 입찰자: 재잠금 → escrow 이전 상태로
+        assertThat(previousWallet.getAvailableAp()).isZero();
+        assertThat(previousWallet.getLockedAp()).isEqualTo(1000);
+    }
+
+    @Test
+    void compensateBidEscrowWithoutPreviousBidderOnlyUnlocksBidder() {
+        Wallet bidderWallet = wallet(3L, 3500, 1500);
+        given(walletRepository.findByIdWithLock(3L)).willReturn(Optional.of(bidderWallet));
+
+        walletService.compensateBidEscrow(10L, 3L, 1500, null, null);
+
+        assertThat(bidderWallet.getAvailableAp()).isEqualTo(5000);
+        assertThat(bidderWallet.getLockedAp()).isZero();
+    }
+
+    @Test
+    void duplicateCompensateCommandDoesNotChangeWalletAgain() {
+        given(walletCommandRepository.reserve("BID_COMPENSATE:10:3:1500", "3:1500:1:1000"))
+                .willReturn(0);
+        given(walletCommandRepository.matches("BID_COMPENSATE:10:3:1500", "3:1500:1:1000"))
+                .willReturn(true);
+
+        walletService.compensateBidEscrow(10L, 3L, 1500, 1L, 1000);
+
+        verify(walletRepository, never()).findByIdWithLock(3L);
+    }
+
+    @Test
     void consumeLockedRejectsAmountLargerThanLockedBalance() {
         given(walletRepository.findByIdWithLock(3L)).willReturn(Optional.of(wallet(3L, 0, 500)));
 
