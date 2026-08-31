@@ -7,10 +7,8 @@ spring:
   cloud:
     gateway:
       routes:
-        - id: user-service-wallet
-          uri: ${USER_SERVICE_URL:http://localhost:8083}
-          predicates:
-            - Path=/api/v1/users/me/wallet,/api/v1/users/me/ap/charge
+        # 지갑 표시/충전(/api/v1/users/me/wallet·/ap/charge)은 모놀리식이 서빙한다:
+        # AP는 user-service(walletClient), GP/금고는 모놀리식 소유 → 모놀리식이 합성. (/** 폴백)
         - id: user-service-auth
           uri: ${USER_SERVICE_URL:http://localhost:8083}
           predicates:

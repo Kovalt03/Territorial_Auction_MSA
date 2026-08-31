@@ -97,6 +97,8 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       AUCTION_SERVICE_BASE_URL: http://auction-service:8080
+      USER_SERVICE_BASE_URL: http://user-service:8080
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
       ADMIN_IP_ALLOWLIST: ""
     ports:
       - "8080:8080"
