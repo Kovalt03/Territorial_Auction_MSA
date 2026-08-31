@@ -150,9 +150,10 @@ class WalletServiceTest {
         Wallet w = wallet(3L, 5000, 0);
         given(walletRepository.findByIdWithLock(3L)).willReturn(Optional.of(w));
 
-        walletService.spend(3L, 1000, "BUILDING:1");
+        var snapshot = walletService.spend(3L, 1000, "BUILDING:1");
 
         assertThat(w.getAvailableAp()).isEqualTo(4000);
+        assertThat(snapshot.availableAp()).isEqualTo(4000);
     }
 
     @Test
@@ -169,12 +170,15 @@ class WalletServiceTest {
 
     @Test
     void spendIsIdempotentOnReplay() {
+        Wallet w = wallet(3L, 4000, 0); // 이미 차감된 상태
+        given(walletRepository.findByIdWithLock(3L)).willReturn(Optional.of(w));
         given(walletCommandRepository.reserve(anyString(), anyString())).willReturn(0);
         given(walletCommandRepository.matches(anyString(), anyString())).willReturn(true);
 
-        walletService.spend(3L, 1000, "BUILDING:1"); // 재전달 → 스킵
+        var snapshot = walletService.spend(3L, 1000, "BUILDING:1"); // 재전달 → 재차감 안 함
 
-        verify(walletRepository, never()).findByIdWithLock(3L);
+        assertThat(w.getAvailableAp()).isEqualTo(4000);
+        assertThat(snapshot.availableAp()).isEqualTo(4000);
     }
 
     @Test

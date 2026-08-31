@@ -1,8 +1,11 @@
 package com.territorial.user.domain.user.controller;
 
+import com.territorial.user.domain.user.dto.WalletSnapshot;
 import com.territorial.user.domain.user.service.WalletService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -43,21 +46,31 @@ public class WalletInternalController {
     // ── 일반 AP 명령 (건물·아이템·시즌·admin이 호출) ──────────────────────────
 
     @PostMapping("/spend")
-    public ResponseEntity<Void> spend(@RequestBody SpendRequest request) {
-        walletService.spend(request.userId(), request.amount(), request.commandKey());
-        return ResponseEntity.ok().build();
+    public ResponseEntity<WalletSnapshot> spend(@RequestBody SpendRequest request) {
+        return ResponseEntity.ok(
+                walletService.spend(request.userId(), request.amount(), request.commandKey()));
     }
 
     @PostMapping("/credit")
-    public ResponseEntity<Void> credit(@RequestBody CreditRequest request) {
-        walletService.credit(request.userId(), request.amount(), request.commandKey());
-        return ResponseEntity.ok().build();
+    public ResponseEntity<WalletSnapshot> credit(@RequestBody CreditRequest request) {
+        return ResponseEntity.ok(
+                walletService.credit(request.userId(), request.amount(), request.commandKey()));
     }
 
     @PostMapping("/adjust")
-    public ResponseEntity<Void> adjust(@RequestBody AdjustRequest request) {
-        walletService.adjust(request.userId(), request.delta(), request.commandKey());
-        return ResponseEntity.ok().build();
+    public ResponseEntity<WalletSnapshot> adjust(@RequestBody AdjustRequest request) {
+        return ResponseEntity.ok(
+                walletService.adjust(request.userId(), request.delta(), request.commandKey()));
+    }
+
+    @GetMapping("/{userId}")
+    public ResponseEntity<WalletSnapshot> getWallet(@PathVariable Long userId) {
+        return ResponseEntity.ok(walletService.getWallet(userId));
+    }
+
+    @GetMapping("/sum-available")
+    public ResponseEntity<Long> sumAvailable() {
+        return ResponseEntity.ok(walletService.sumAvailableAp());
     }
 
     public record SpendRequest(Long userId, int amount, String commandKey) {}

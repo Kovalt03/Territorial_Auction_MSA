@@ -1,6 +1,7 @@
 package com.territorial.user.domain.user.service;
 
 import com.territorial.auction.global.exception.CustomException;
+import com.territorial.user.domain.user.dto.WalletSnapshot;
 import com.territorial.user.domain.user.entity.User;
 import com.territorial.user.domain.user.entity.Wallet;
 import com.territorial.user.domain.user.repository.UserRepository;
@@ -70,40 +71,54 @@ public class WalletService {
         lockWalletOrThrow(bidderId).refundLockedAp(amount);
     }
 
-    /** 일반 AP 소비(건물·아이템·시즌 등). commandKey로 멱등. 잔액 부족 시 INSUFFICIENT_AP. */
+    /** 일반 AP 소비(건물·아이템·시즌 등). commandKey로 멱등. 잔액 부족 시 INSUFFICIENT_AP. 갱신 잔액 반환. */
     @Transactional
-    public void spend(Long userId, int amount, String commandKey) {
+    public WalletSnapshot spend(Long userId, int amount, String commandKey) {
         if (amount <= 0) {
             throw new CustomException(ErrorCode.INVALID_WALLET_AMOUNT);
         }
-        if (isReplay("SPEND:" + commandKey, userId + ":" + amount)) {
-            return;
+        Wallet wallet = lockWalletOrThrow(userId);
+        if (!isReplay("SPEND:" + commandKey, userId + ":" + amount)) {
+            wallet.spendAp(amount);
         }
-        lockWalletOrThrow(userId).spendAp(amount);
+        return WalletSnapshot.of(wallet);
     }
 
     /** 보상: 앞선 소비를 되돌린다(호출 측 로컬 트랜잭션 실패 시). commandKey로 멱등. */
     @Transactional
-    public void credit(Long userId, int amount, String commandKey) {
+    public WalletSnapshot credit(Long userId, int amount, String commandKey) {
         if (amount <= 0) {
             throw new CustomException(ErrorCode.INVALID_WALLET_AMOUNT);
         }
-        if (isReplay("CREDIT:" + commandKey, userId + ":" + amount)) {
-            return;
+        Wallet wallet = lockWalletOrThrow(userId);
+        if (!isReplay("CREDIT:" + commandKey, userId + ":" + amount)) {
+            wallet.addAp(amount);
         }
-        lockWalletOrThrow(userId).addAp(amount);
+        return WalletSnapshot.of(wallet);
     }
 
     /** 관리자 AP 조정(delta 증감). commandKey로 멱등. 결과 음수면 INSUFFICIENT_AP. */
     @Transactional
-    public void adjust(Long userId, int delta, String commandKey) {
-        if (delta == 0) {
-            return;
+    public WalletSnapshot adjust(Long userId, int delta, String commandKey) {
+        Wallet wallet = lockWalletOrThrow(userId);
+        if (delta != 0 && !isReplay("ADJUST:" + commandKey, userId + ":" + delta)) {
+            wallet.adjustAvailableAp(delta);
         }
-        if (isReplay("ADJUST:" + commandKey, userId + ":" + delta)) {
-            return;
-        }
-        lockWalletOrThrow(userId).adjustAvailableAp(delta);
+        return WalletSnapshot.of(wallet);
+    }
+
+    /** 조회: 특정 유저 지갑 상태 (admin·표시용). */
+    public WalletSnapshot getWallet(Long userId) {
+        Wallet wallet =
+                walletRepository
+                        .findById(userId)
+                        .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        return WalletSnapshot.of(wallet);
+    }
+
+    /** 조회: 전체 가용 AP 합(admin 대시보드). */
+    public long sumAvailableAp() {
+        return walletRepository.sumAvailableAp();
     }
 
     private void validateCommand(Long auctionId, int amount) {
