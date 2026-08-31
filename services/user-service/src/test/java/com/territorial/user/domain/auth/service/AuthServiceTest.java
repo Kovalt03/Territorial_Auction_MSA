@@ -9,7 +9,6 @@ import com.territorial.auction.global.exception.CustomException;
 import com.territorial.user.domain.auth.dto.LoginRequest;
 import com.territorial.user.domain.auth.dto.TokenPair;
 import com.territorial.user.domain.user.entity.User;
-import com.territorial.user.domain.user.repository.GlobalVaultRepository;
 import com.territorial.user.domain.user.repository.UserRepository;
 import com.territorial.user.domain.user.repository.WalletRepository;
 import com.territorial.user.event.UserCreatedEventPublisher;
@@ -31,7 +30,6 @@ class AuthServiceTest {
     @InjectMocks private AuthService authService;
     @Mock private UserRepository userRepository;
     @Mock private WalletRepository walletRepository;
-    @Mock private GlobalVaultRepository globalVaultRepository;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private JwtTokenProvider jwtTokenProvider;
     @Mock private RefreshTokenService refreshTokenService;
