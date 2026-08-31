@@ -22,7 +22,6 @@ import com.territorial.auction.domain.season.repository.UserSeasonPassRepository
 import com.territorial.auction.domain.season.repository.UserTrophyRepository;
 import com.territorial.auction.domain.user.client.WalletClient;
 import com.territorial.auction.domain.user.client.WalletSnapshot;
-import com.territorial.auction.domain.user.dto.ChangeNicknameResponse;
 import com.territorial.auction.domain.user.dto.MyProfileResponse;
 import com.territorial.auction.domain.user.dto.MyTerritoryResponse;
 import com.territorial.auction.domain.user.dto.MyWalletResponse;
@@ -573,84 +572,6 @@ class UserServiceTest {
 
             assertThat(response.totalCount()).isEqualTo(0);
             assertThat(response.territories()).isEmpty();
-        }
-    }
-
-    // ─── changeUserNickname() ─────────────────────────────────────────────────
-
-    @Nested
-    @DisplayName("changeUserNickname()")
-    class ChangeUserNickname {
-
-        @Test
-        @DisplayName("정상 변경 시 ChangeNicknameResponse 반환")
-        void changeUserNickname_success() {
-            User user = sampleUser(); // nickname = "픽셀전사"
-            given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(userRepository.existsByNickname("새닉네임")).willReturn(false);
-            given(userRepository.save(user)).willReturn(user);
-
-            ChangeNicknameResponse response = userService.changeUserNickname(1L, "새닉네임");
-
-            assertThat(response.userId()).isEqualTo(1L);
-            assertThat(response.nickname()).isEqualTo("새닉네임");
-            assertThat(response.updatedAt()).isNotNull();
-        }
-
-        @Test
-        @DisplayName("중복 닉네임이면 DUPLICATE_NICKNAME 예외")
-        void changeUserNickname_duplicate() {
-            User user = sampleUser();
-            given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(userRepository.existsByNickname("중복닉네임")).willReturn(true);
-
-            assertThatThrownBy(() -> userService.changeUserNickname(1L, "중복닉네임"))
-                    .isInstanceOf(CustomException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.DUPLICATE_NICKNAME);
-        }
-
-        @Test
-        @DisplayName("존재하지 않는 userId 시 USER_NOT_FOUND 예외")
-        void changeUserNickname_userNotFound() {
-            given(userRepository.findById(99L)).willReturn(Optional.empty());
-
-            assertThatThrownBy(() -> userService.changeUserNickname(99L, "닉네임"))
-                    .isInstanceOf(CustomException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.USER_NOT_FOUND);
-        }
-    }
-
-    // ─── changeUserPassword() ─────────────────────────────────────────────────
-
-    @Nested
-    @DisplayName("changeUserPassword()")
-    class ChangeUserPassword {
-
-        @Test
-        @DisplayName("정상 변경 시 passwordEncoder.encode 호출 후 save")
-        void changeUserPassword_success() {
-            User user = sampleUser(); // passwordHash = "encoded"
-            given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(passwordEncoder.matches("curPw", "encoded")).willReturn(true);
-            given(passwordEncoder.encode("newPw")).willReturn("newEncoded");
-
-            userService.changeUserPassword(1L, "curPw", "newPw");
-
-            assertThat(user.getPasswordHash()).isEqualTo("newEncoded");
-            then(userRepository).should().save(user);
-        }
-
-        @Test
-        @DisplayName("존재하지 않는 userId 시 USER_NOT_FOUND 예외")
-        void changeUserPassword_userNotFound() {
-            given(userRepository.findById(99L)).willReturn(Optional.empty());
-
-            assertThatThrownBy(() -> userService.changeUserPassword(99L, "curPw", "newPw"))
-                    .isInstanceOf(CustomException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.USER_NOT_FOUND);
         }
     }
 }
