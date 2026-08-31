@@ -10,22 +10,47 @@
 
 ---
 
-## 1. user-service `/internal/wallets/*` (auction-service가 호출)
+## 1. user-service `/internal/*` (다른 서비스가 호출)
 
-지갑(AP·GP)은 user-service가 소유한다.
+지갑 **AP**와 **신원**(User·Wallet)은 user-service가 소유한다. GP/금고(GlobalVault)는 building/모놀리식 소유.
 
-### 지갑 (user 도메인)
+### 1-1. 지갑 — 경매 escrow (auction-service가 호출)
 
 | Method | Path | Body | 응답 | 오류 |
 |---|---|---|---|---|
 | POST | `/internal/wallets/bid-escrow` | `{auctionId, bidderId, bidAmount, previousBidderId?, previousAmount?}` | `{bidderNickname}` | 400 INVALID_WALLET_AMOUNT · 404 USER_NOT_FOUND · 409 INSUFFICIENT_AP |
+| POST | `/internal/wallets/bid-escrow-compensate` | `{auctionId, bidderId, bidAmount, previousBidderId?, previousAmount?}` | 200 | 400 INVALID_WALLET_AMOUNT · 404 USER_NOT_FOUND · 409 INSUFFICIENT_AP / WALLET_COMMAND_CONFLICT |
 | POST | `/internal/wallets/consume-locked` | `{winnerId, finalPrice, auctionId}` | 200 | 400 INVALID_WALLET_AMOUNT · 404 USER_NOT_FOUND · 409 INSUFFICIENT_AP / WALLET_COMMAND_CONFLICT |
 | POST | `/internal/wallets/refund-locked` | `{bidderId, amount, auctionId}` | 200 | 400 INVALID_WALLET_AMOUNT · 404 USER_NOT_FOUND · 409 INSUFFICIENT_AP / WALLET_COMMAND_CONFLICT |
 
 - **bid-escrow**: 이전 최고 입찰자 잠금 AP **환불** + 신규 입찰자 AP **잠금**을 한 트랜잭션에서. 두 지갑을 **id 오름차순 비관적 락**(데드락 회피). 잔액 부족 시 이전 입찰자는 환불되지 않는다.
+- **bid-escrow-compensate**: bid-escrow의 **역전**(saga 보상). 신규 입찰자 잠금 해제 + 이전 입찰자 재잠금. auction-service 입찰 로컬 트랜잭션이 롤백되면(`afterCompletion(STATUS_ROLLED_BACK)`) 동일 요청으로 호출한다.
 - **consume-locked**: 낙찰자 잠금 AP 소비(정산). `auctionId`는 추적용.
 - **refund-locked**: 관리자 강제 취소 시 현재 입찰자 잠금 AP 환불.
-- 세 명령은 `auctionId` 기반 command key와 request fingerprint를 User DB에 기록한다. 동일 key·동일 payload 재시도는 200으로 멱등 처리하고, 동일 key·다른 payload는 409 `WALLET_COMMAND_CONFLICT`로 거절하며 금액은 양수여야 한다.
+- 이 명령들은 command key와 request fingerprint를 User DB에 기록한다. 동일 key·동일 payload 재시도는 멱등 처리하고, 동일 key·다른 payload는 409 `WALLET_COMMAND_CONFLICT`로 거절하며 금액은 양수여야 한다.
+
+### 1-2. 지갑 — 일반 AP 명령 (모놀리식이 호출)
+
+| Method | Path | Body | 응답 | 오류 |
+|---|---|---|---|---|
+| POST | `/internal/wallets/spend` | `{userId, amount, commandKey}` | `{availableAp, lockedAp}` | 400 INVALID_WALLET_AMOUNT · 404 USER_NOT_FOUND · 409 INSUFFICIENT_AP / WALLET_COMMAND_CONFLICT |
+| POST | `/internal/wallets/credit` | `{userId, amount, commandKey}` | `{availableAp, lockedAp}` | 400 · 404 · 409 WALLET_COMMAND_CONFLICT |
+| POST | `/internal/wallets/adjust` | `{userId, delta, commandKey}` | `{availableAp, lockedAp}` | 404 · 409 INSUFFICIENT_AP / WALLET_COMMAND_CONFLICT |
+| GET | `/internal/wallets/{userId}` | — | `{availableAp, lockedAp}` | 404 USER_NOT_FOUND |
+| GET | `/internal/wallets/sum-available` | — | `<long>` | — |
+
+- **spend**: 건물·아이템·시즌 등 일반 AP 소비. 모놀리식은 "로컬 작업 먼저 → spend 마지막" 순으로 호출해, spend 실패 시 로컬 `@Transactional`이 함께 롤백되게 한다.
+- **credit**: 앞선 소비를 되돌리는 보상(결제 충전 포함). `commandKey`로 멱등.
+- **adjust**: 관리자 AP 증감(delta). 결과가 음수면 409.
+
+### 1-3. 신원 — OAuth 프로비저닝 (모놀리식이 호출)
+
+| Method | Path | Body | 응답 | 오류 |
+|---|---|---|---|---|
+| POST | `/internal/users/provision-oauth` | `{username, email, nickname}` | `{userId, username, nickname, email}` | 409 DUPLICATE_* |
+
+- OAuth 신규 유저의 신원(User 무비번 + Wallet)을 user-service가 소유(**역전**)한다. 모놀리식 `CustomOAuth2UserService`가 동기 호출로 발급 ID를 받아 로컬 프로젝션(섬·성)을 만든다.
+- `username`(=`provider:providerId`) 기준 **멱등**. 생성 시 `UserCreatedEvent` outbox를 발행한다.
 
 ## 2. 모놀리식 `/internal/*` (auction-service가 호출)
 
