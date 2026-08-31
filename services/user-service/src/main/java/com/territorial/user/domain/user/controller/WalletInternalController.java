@@ -40,6 +40,32 @@ public class WalletInternalController {
         return ResponseEntity.ok().build();
     }
 
+    // ── 일반 AP 명령 (건물·아이템·시즌·admin이 호출) ──────────────────────────
+
+    @PostMapping("/spend")
+    public ResponseEntity<Void> spend(@RequestBody SpendRequest request) {
+        walletService.spend(request.userId(), request.amount(), request.commandKey());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/credit")
+    public ResponseEntity<Void> credit(@RequestBody CreditRequest request) {
+        walletService.credit(request.userId(), request.amount(), request.commandKey());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/adjust")
+    public ResponseEntity<Void> adjust(@RequestBody AdjustRequest request) {
+        walletService.adjust(request.userId(), request.delta(), request.commandKey());
+        return ResponseEntity.ok().build();
+    }
+
+    public record SpendRequest(Long userId, int amount, String commandKey) {}
+
+    public record CreditRequest(Long userId, int amount, String commandKey) {}
+
+    public record AdjustRequest(Long userId, int delta, String commandKey) {}
+
     public record BidEscrowRequest(
             Long auctionId,
             Long bidderId,

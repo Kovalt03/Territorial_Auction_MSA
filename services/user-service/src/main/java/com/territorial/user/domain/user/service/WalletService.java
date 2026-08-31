@@ -70,6 +70,42 @@ public class WalletService {
         lockWalletOrThrow(bidderId).refundLockedAp(amount);
     }
 
+    /** 일반 AP 소비(건물·아이템·시즌 등). commandKey로 멱등. 잔액 부족 시 INSUFFICIENT_AP. */
+    @Transactional
+    public void spend(Long userId, int amount, String commandKey) {
+        if (amount <= 0) {
+            throw new CustomException(ErrorCode.INVALID_WALLET_AMOUNT);
+        }
+        if (isReplay("SPEND:" + commandKey, userId + ":" + amount)) {
+            return;
+        }
+        lockWalletOrThrow(userId).spendAp(amount);
+    }
+
+    /** 보상: 앞선 소비를 되돌린다(호출 측 로컬 트랜잭션 실패 시). commandKey로 멱등. */
+    @Transactional
+    public void credit(Long userId, int amount, String commandKey) {
+        if (amount <= 0) {
+            throw new CustomException(ErrorCode.INVALID_WALLET_AMOUNT);
+        }
+        if (isReplay("CREDIT:" + commandKey, userId + ":" + amount)) {
+            return;
+        }
+        lockWalletOrThrow(userId).addAp(amount);
+    }
+
+    /** 관리자 AP 조정(delta 증감). commandKey로 멱등. 결과 음수면 INSUFFICIENT_AP. */
+    @Transactional
+    public void adjust(Long userId, int delta, String commandKey) {
+        if (delta == 0) {
+            return;
+        }
+        if (isReplay("ADJUST:" + commandKey, userId + ":" + delta)) {
+            return;
+        }
+        lockWalletOrThrow(userId).adjustAvailableAp(delta);
+    }
+
     private void validateCommand(Long auctionId, int amount) {
         if (auctionId == null || amount <= 0) {
             throw new CustomException(ErrorCode.INVALID_WALLET_AMOUNT);

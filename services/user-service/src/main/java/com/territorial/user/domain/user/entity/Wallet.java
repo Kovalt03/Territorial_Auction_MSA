@@ -67,6 +67,23 @@ public class Wallet {
         availableAp += amount;
     }
 
+    /** 가용 AP 차감(소비). 잔액 부족 시 거부. */
+    public void spendAp(int amount) {
+        validatePositive(amount);
+        if (availableAp < amount) {
+            throw new CustomException(ErrorCode.INSUFFICIENT_AP);
+        }
+        availableAp -= amount;
+    }
+
+    /** 관리자 재화 조정: delta는 증감 모두 허용, 결과가 음수면 거부. */
+    public void adjustAvailableAp(int delta) {
+        if (availableAp + delta < 0) {
+            throw new CustomException(ErrorCode.INSUFFICIENT_AP);
+        }
+        availableAp += delta;
+    }
+
     private void validateLockedAmount(int amount) {
         validatePositive(amount);
         if (lockedAp < amount) {

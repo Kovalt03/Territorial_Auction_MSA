@@ -145,6 +145,69 @@ class WalletServiceTest {
                 .isEqualTo(ErrorCode.INVALID_WALLET_AMOUNT);
     }
 
+    @Test
+    void spendDeductsAvailableAp() {
+        Wallet w = wallet(3L, 5000, 0);
+        given(walletRepository.findByIdWithLock(3L)).willReturn(Optional.of(w));
+
+        walletService.spend(3L, 1000, "BUILDING:1");
+
+        assertThat(w.getAvailableAp()).isEqualTo(4000);
+    }
+
+    @Test
+    void spendRejectsInsufficientBalance() {
+        Wallet w = wallet(3L, 500, 0);
+        given(walletRepository.findByIdWithLock(3L)).willReturn(Optional.of(w));
+
+        assertThatThrownBy(() -> walletService.spend(3L, 1000, "BUILDING:1"))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INSUFFICIENT_AP);
+        assertThat(w.getAvailableAp()).isEqualTo(500);
+    }
+
+    @Test
+    void spendIsIdempotentOnReplay() {
+        given(walletCommandRepository.reserve(anyString(), anyString())).willReturn(0);
+        given(walletCommandRepository.matches(anyString(), anyString())).willReturn(true);
+
+        walletService.spend(3L, 1000, "BUILDING:1"); // 재전달 → 스킵
+
+        verify(walletRepository, never()).findByIdWithLock(3L);
+    }
+
+    @Test
+    void creditAddsAvailableAp() {
+        Wallet w = wallet(3L, 0, 0);
+        given(walletRepository.findByIdWithLock(3L)).willReturn(Optional.of(w));
+
+        walletService.credit(3L, 1000, "BUILDING:1:compensate");
+
+        assertThat(w.getAvailableAp()).isEqualTo(1000);
+    }
+
+    @Test
+    void adjustAllowsNegativeDeltaAboveZero() {
+        Wallet w = wallet(3L, 1000, 0);
+        given(walletRepository.findByIdWithLock(3L)).willReturn(Optional.of(w));
+
+        walletService.adjust(3L, -400, "ADMIN:1");
+
+        assertThat(w.getAvailableAp()).isEqualTo(600);
+    }
+
+    @Test
+    void adjustRejectsWhenResultNegative() {
+        Wallet w = wallet(3L, 100, 0);
+        given(walletRepository.findByIdWithLock(3L)).willReturn(Optional.of(w));
+
+        assertThatThrownBy(() -> walletService.adjust(3L, -500, "ADMIN:1"))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INSUFFICIENT_AP);
+    }
+
     private User user(long id, String nickname) {
         User user =
                 User.builder()
