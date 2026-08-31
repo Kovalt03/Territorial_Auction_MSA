@@ -49,6 +49,26 @@ public class WalletClientImpl implements WalletClient {
     }
 
     @Override
+    public void compensateBidEscrow(BidEscrowRequest request) {
+        restClient
+                .post()
+                .uri("/internal/wallets/bid-escrow-compensate")
+                .body(request)
+                .retrieve()
+                .onStatus(
+                        status -> status.value() == 404,
+                        (req, res) -> {
+                            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+                        })
+                .onStatus(
+                        status -> status.value() == 409,
+                        (req, res) -> {
+                            throwWalletConflict(res);
+                        })
+                .toBodilessEntity();
+    }
+
+    @Override
     public void consumeLocked(Long winnerId, int finalPrice, Long auctionId) {
         restClient
                 .post()
