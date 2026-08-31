@@ -102,8 +102,10 @@ Auction 이벤트는 Redis pub/sub JSON 문자열로 발행한다. `user.created
 | `auction.settled` | auction-service | `{auctionId, territoryId, coordX, coordY, winnerId, winnerNickname, finalPrice, grade, runnerUpIds}` | realtime 허브(WIN/LOSE push+알림 · map OCCUPIED) · 랭킹·시즌 브리지 |
 | `auction.closed` | auction-service | `{auctionId, territoryId}` | 프로젝션 제거 (낙찰·무낙찰 공통) |
 | `user.created` | user-service outbox | `{userId, username, email, nickname}` | 모놀리식 User 읽기 프로젝션·NotificationSetting·UserProfile·HomeIsland·기본 성 생성 |
+| `user.updated` | user-service outbox | `{userId, nickname}` | 모놀리식 User 프로젝션 `nickname` 갱신(15개 도메인 표시 반영) |
 
-- `user.created`는 User DB transactional outbox에 가입과 함께 저장하고 발행 성공까지 재시도한다. 소비자는 `userId` 기준으로 멱등 처리한다.
+- `user.created`·`user.updated`는 User DB transactional outbox(`stream:user-events`)로 발행하고, 모놀리식 구독자가 `topic` 필드로 분기한다(created→프로젝션 부트스트랩, updated→닉네임 갱신). 소비자는 `userId` 기준으로 멱등 처리한다.
+- **프로필 쓰기 소유**: 신원 프로필(닉네임·비밀번호)은 user-service가 소유한다. 게이트웨이가 `PATCH /api/v1/users/me/{nickname,password}`만 user-service로 라우팅하고, 나머지 `/api/v1/users/**`(프로필·지갑 조회, AP 충전)는 모놀리식이 서빙한다. 닉네임 변경은 `user.updated`로 프로젝션에 전파한다.
 
 > 정산 시 `grade`는 랭킹이 쓰므로 `auction.settled`에 반드시 포함. 자세한 소비자별 동작은 [이관 추적 §1](../design/msa/auction-migration-tracking.md).
 
