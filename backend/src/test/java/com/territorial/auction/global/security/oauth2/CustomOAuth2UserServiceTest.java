@@ -2,24 +2,17 @@ package com.territorial.auction.global.security.oauth2;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 
-import com.territorial.auction.domain.building.entity.BuildingType;
-import com.territorial.auction.domain.building.entity.HomeIsland;
-import com.territorial.auction.domain.building.repository.BuildingInstanceRepository;
-import com.territorial.auction.domain.building.repository.BuildingTypeRepository;
-import com.territorial.auction.domain.building.repository.HomeIslandRepository;
-import com.territorial.auction.domain.building.repository.IslandGradeRepository;
-import com.territorial.auction.domain.user.entity.NotificationSetting;
+import com.territorial.auction.domain.building.service.UserBootstrapService;
+import com.territorial.auction.domain.user.client.OAuthProvisionResult;
+import com.territorial.auction.domain.user.client.UserProvisioningClient;
 import com.territorial.auction.domain.user.entity.User;
-import com.territorial.auction.domain.user.entity.UserProfile;
-import com.territorial.auction.domain.user.entity.Wallet;
-import com.territorial.auction.domain.user.repository.NotificationSettingRepository;
-import com.territorial.auction.domain.user.repository.UserProfileRepository;
 import com.territorial.auction.domain.user.repository.UserRepository;
-import com.territorial.auction.domain.user.repository.WalletRepository;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -37,13 +30,8 @@ class CustomOAuth2UserServiceTest {
     @InjectMocks private CustomOAuth2UserService customOAuth2UserService;
 
     @Mock private UserRepository userRepository;
-    @Mock private WalletRepository walletRepository;
-    @Mock private NotificationSettingRepository notificationSettingRepository;
-    @Mock private HomeIslandRepository homeIslandRepository;
-    @Mock private IslandGradeRepository islandGradeRepository;
-    @Mock private UserProfileRepository userProfileRepository;
-    @Mock private BuildingTypeRepository buildingTypeRepository;
-    @Mock private BuildingInstanceRepository buildingInstanceRepository;
+    @Mock private UserProvisioningClient userProvisioningClient;
+    @Mock private UserBootstrapService userBootstrapService;
 
     private OAuth2UserInfo userInfo;
 
@@ -83,57 +71,58 @@ class CustomOAuth2UserServiceTest {
     class SaveOrUpdate {
 
         @Test
-        @DisplayName("신규 가입 시 Wallet/NotificationSetting/HomeIsland/UserProfile 각 1회 저장")
-        void saveOrUpdate_newUser_createsDomainObjects() {
+        @DisplayName("신규 가입 → user-service 프로비저닝 위임 + 로컬 부트스트랩")
+        void saveOrUpdate_newUser_provisionsAndBootstraps() {
             // given
             given(userRepository.findByUsername("google:google-uid-999"))
                     .willReturn(Optional.empty());
-            given(buildingTypeRepository.findByName("CASTLE"))
+            given(
+                            userProvisioningClient.provisionOAuth(
+                                    eq("google:google-uid-999"),
+                                    eq("oauth@example.com"),
+                                    anyString()))
                     .willReturn(
-                            Optional.of(
-                                    BuildingType.builder()
-                                            .name("CASTLE")
-                                            .width(2)
-                                            .height(2)
-                                            .maxHp(1000)
-                                            .baseCostGp(0)
-                                            .build()));
-
-            User savedUser =
+                            new OAuthProvisionResult(
+                                    1000000001L,
+                                    "google:google-uid-999",
+                                    "테스트유저_1234",
+                                    "oauth@example.com"));
+            User projected =
                     User.builder()
                             .username("google:google-uid-999")
                             .email("oauth@example.com")
-                            .passwordHash("")
+                            .passwordHash("!")
                             .nickname("테스트유저_1234")
                             .build();
-            ReflectionTestUtils.setField(savedUser, "id", 1L);
-            given(userRepository.save(any(User.class))).willReturn(savedUser);
-            given(homeIslandRepository.save(any(HomeIsland.class)))
-                    .willAnswer(inv -> inv.getArgument(0));
+            ReflectionTestUtils.setField(projected, "id", 1000000001L);
+            given(userRepository.findById(1000000001L)).willReturn(Optional.of(projected));
 
             // when
             User result = customOAuth2UserService.saveOrUpdate(userInfo, "google");
 
             // then
-            assertThat(result.getId()).isEqualTo(1L);
-            then(walletRepository).should().save(any(Wallet.class));
-            then(notificationSettingRepository).should().save(any(NotificationSetting.class));
-            then(homeIslandRepository).should().save(any(HomeIsland.class));
-            then(userProfileRepository).should().save(any(UserProfile.class));
+            assertThat(result.getId()).isEqualTo(1000000001L);
+            then(userBootstrapService)
+                    .should()
+                    .bootstrap(
+                            eq(1000000001L),
+                            eq("google:google-uid-999"),
+                            eq("oauth@example.com"),
+                            eq("테스트유저_1234"));
         }
 
         @Test
-        @DisplayName("기존 유저 로그인 시 도메인 객체 추가 저장 없음")
-        void saveOrUpdate_existingUser_doesNotCreateDomainObjects() {
+        @DisplayName("기존 로컬 프로젝션 있으면 프로비저닝/부트스트랩 없음")
+        void saveOrUpdate_existingUser_noProvisioning() {
             // given
             User existingUser =
                     User.builder()
                             .username("google:google-uid-999")
                             .email("oauth@example.com")
-                            .passwordHash("")
+                            .passwordHash("!")
                             .nickname("기존유저_5678")
                             .build();
-            ReflectionTestUtils.setField(existingUser, "id", 2L);
+            ReflectionTestUtils.setField(existingUser, "id", 1000000002L);
             given(userRepository.findByUsername("google:google-uid-999"))
                     .willReturn(Optional.of(existingUser));
 
@@ -141,13 +130,13 @@ class CustomOAuth2UserServiceTest {
             User result = customOAuth2UserService.saveOrUpdate(userInfo, "google");
 
             // then
-            assertThat(result.getId()).isEqualTo(2L);
-            then(walletRepository).should(never()).save(any(Wallet.class));
-            then(notificationSettingRepository)
+            assertThat(result.getId()).isEqualTo(1000000002L);
+            then(userProvisioningClient)
                     .should(never())
-                    .save(any(NotificationSetting.class));
-            then(homeIslandRepository).should(never()).save(any(HomeIsland.class));
-            then(userProfileRepository).should(never()).save(any(UserProfile.class));
+                    .provisionOAuth(anyString(), anyString(), anyString());
+            then(userBootstrapService)
+                    .should(never())
+                    .bootstrap(any(), anyString(), anyString(), anyString());
         }
     }
 }
