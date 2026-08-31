@@ -11,7 +11,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
@@ -27,14 +26,6 @@ public class AuthController {
     private static final int REFRESH_TOKEN_MAX_AGE = 60 * 60 * 24 * 14; // 14일
 
     private final AuthService authService;
-
-    // POST /api/v1/auth/signup
-    @PostMapping("/signup")
-    public ResponseEntity<ApiResponse<SignupResponse>> signup(
-            @RequestBody @Valid SignupRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.ok(authService.signup(request)));
-    }
 
     // POST /api/v1/auth/login
     @PostMapping("/login")
