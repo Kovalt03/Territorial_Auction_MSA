@@ -24,6 +24,7 @@ public class UserCreatedSubscriber {
     private static final String STREAM_KEY = "stream:user-events";
     private static final String GROUP = "backend-user-bootstrap";
     private static final String CONSUMER = "backend-1";
+    private static final String UPDATED_TOPIC = "user.updated";
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
@@ -78,15 +79,22 @@ public class UserCreatedSubscriber {
     }
 
     private void handle(MapRecord<String, Object, Object> record) {
+        String topic = String.valueOf(record.getValue().get("topic"));
         String json = String.valueOf(record.getValue().get("payload"));
         try {
-            UserCreatedEvent event = objectMapper.readValue(json, UserCreatedEvent.class);
-            userBootstrapService.bootstrap(
-                    event.userId(), event.username(), event.email(), event.nickname());
+            if (UPDATED_TOPIC.equals(topic)) {
+                UserUpdatedEvent event = objectMapper.readValue(json, UserUpdatedEvent.class);
+                userBootstrapService.updateProjectedNickname(event.userId(), event.nickname());
+            } else {
+                UserCreatedEvent event = objectMapper.readValue(json, UserCreatedEvent.class);
+                userBootstrapService.bootstrap(
+                        event.userId(), event.username(), event.email(), event.nickname());
+            }
             redisTemplate.opsForStream().acknowledge(STREAM_KEY, GROUP, record.getId());
         } catch (Exception e) {
             log.error(
-                    "[UserCreatedSubscriber] 처리 실패: recordId={}, payload={}",
+                    "[UserCreatedSubscriber] 처리 실패: topic={}, recordId={}, payload={}",
+                    topic,
                     record.getId(),
                     json,
                     e);
@@ -94,4 +102,6 @@ public class UserCreatedSubscriber {
     }
 
     private record UserCreatedEvent(Long userId, String username, String email, String nickname) {}
+
+    private record UserUpdatedEvent(Long userId, String nickname) {}
 }

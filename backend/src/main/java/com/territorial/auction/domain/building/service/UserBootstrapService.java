@@ -48,6 +48,11 @@ public class UserBootstrapService {
         createDefaultCastle(island);
     }
 
+    @Transactional
+    public void updateProjectedNickname(Long userId, String nickname) {
+        jdbcTemplate.update("UPDATE users SET nickname = ? WHERE id = ?", nickname, userId);
+    }
+
     private void createUserProjections(User user) {
         if (!notificationSettingRepository.existsById(user.getId())) {
             notificationSettingRepository.save(NotificationSetting.builder().user(user).build());
