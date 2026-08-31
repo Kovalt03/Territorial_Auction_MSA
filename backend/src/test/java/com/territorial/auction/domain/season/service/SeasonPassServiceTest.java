@@ -35,7 +35,6 @@ import com.territorial.auction.domain.season.repository.UserSeasonPassRepository
 import com.territorial.auction.domain.user.client.WalletClient;
 import com.territorial.auction.domain.user.client.WalletSnapshot;
 import com.territorial.auction.domain.user.entity.User;
-import com.territorial.auction.domain.user.entity.Wallet;
 import com.territorial.auction.domain.user.repository.UserRepository;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
@@ -106,12 +105,6 @@ class SeasonPassServiceTest {
                         .build();
         ReflectionTestUtils.setField(season, "id", id);
         return season;
-    }
-
-    private Wallet walletWithAp(int availableAp) {
-        Wallet wallet = Mockito.mock(Wallet.class);
-        given(wallet.getAvailableAp()).willReturn(availableAp);
-        return wallet;
     }
 
     // ─── getMyPass() ──────────────────────────────────────────────────────────

@@ -13,7 +13,6 @@ import com.territorial.auction.domain.user.client.WalletSnapshot;
 import com.territorial.auction.domain.user.dto.ChargeApRequest;
 import com.territorial.auction.domain.user.dto.ChargeApResponse;
 import com.territorial.auction.domain.user.entity.User;
-import com.territorial.auction.domain.user.entity.Wallet;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
@@ -46,12 +45,6 @@ class PaymentServiceTest {
                         .build();
         ReflectionTestUtils.setField(user, "id", 1L);
         return user;
-    }
-
-    private Wallet walletWithAp(User user, int ap) {
-        Wallet wallet = Wallet.builder().user(user).build();
-        ReflectionTestUtils.setField(wallet, "availableAp", ap);
-        return wallet;
     }
 
     // ─── chargeAp() ───────────────────────────────────────────────────────────

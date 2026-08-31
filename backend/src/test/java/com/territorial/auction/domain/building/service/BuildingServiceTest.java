@@ -1463,13 +1463,6 @@ class BuildingServiceTest {
     @DisplayName("rushConstruction()")
     class RushConstruction {
 
-        private com.territorial.auction.domain.user.entity.Wallet walletWithAp(User user, int ap) {
-            var wallet =
-                    com.territorial.auction.domain.user.entity.Wallet.builder().user(user).build();
-            ReflectionTestUtils.setField(wallet, "availableAp", ap);
-            return wallet;
-        }
-
         @Test
         @DisplayName("건설 중 건물 즉시 완료 → 남은 시간 비례 AP 차감 + 건설 완료")
         void rush_success() {
@@ -1524,13 +1517,6 @@ class BuildingServiceTest {
     @Nested
     @DisplayName("activateProductionBoost()")
     class ActivateProductionBoost {
-
-        private com.territorial.auction.domain.user.entity.Wallet walletWithAp(User user, int ap) {
-            var wallet =
-                    com.territorial.auction.domain.user.entity.Wallet.builder().user(user).build();
-            ReflectionTestUtils.setField(wallet, "availableAp", ap);
-            return wallet;
-        }
 
         @Test
         @DisplayName("부스터 발동 → 500 AP 차감 + 종료 시각 설정")

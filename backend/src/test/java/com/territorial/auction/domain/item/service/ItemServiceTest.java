@@ -19,7 +19,6 @@ import com.territorial.auction.domain.military.entity.AttackToken;
 import com.territorial.auction.domain.military.repository.AttackTokenRepository;
 import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.repository.UserRepository;
-import com.territorial.auction.domain.user.repository.WalletRepository;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import java.time.LocalDateTime;
@@ -45,7 +44,6 @@ class ItemServiceTest {
     @Mock private ItemPurchaseRepository itemPurchaseRepository;
     @Mock private UserItemRepository userItemRepository;
     @Mock private UserRepository userRepository;
-    @Mock private WalletRepository walletRepository;
     @Mock private TerritoryRepository territoryRepository;
     @Mock private AttackTokenRepository attackTokenRepository;
     @Mock private RedisTemplate<String, Object> redisTemplate;
