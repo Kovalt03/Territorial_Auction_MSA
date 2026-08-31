@@ -46,4 +46,12 @@ public class User {
         this.passwordHash = passwordHash;
         this.nickname = nickname;
     }
+
+    public void updateNickname(String nickname) {
+        this.nickname = nickname;
+    }
+
+    public void updatePassword(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
 }
