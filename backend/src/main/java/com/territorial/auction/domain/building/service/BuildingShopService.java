@@ -6,10 +6,10 @@ import com.territorial.auction.domain.building.entity.BuildingInstance;
 import com.territorial.auction.domain.building.entity.BuildingType;
 import com.territorial.auction.domain.building.repository.BuildingInstanceRepository;
 import com.territorial.auction.domain.building.repository.BuildingTypeRepository;
+import com.territorial.auction.domain.user.client.WalletClient;
+import com.territorial.auction.domain.user.client.WalletSnapshot;
 import com.territorial.auction.domain.user.entity.User;
-import com.territorial.auction.domain.user.entity.Wallet;
 import com.territorial.auction.domain.user.repository.UserRepository;
-import com.territorial.auction.domain.user.repository.WalletRepository;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +27,7 @@ public class BuildingShopService {
     private final BuildingTypeRepository buildingTypeRepository;
     private final BuildingInstanceRepository buildingInstanceRepository;
     private final UserRepository userRepository;
-    private final WalletRepository walletRepository;
+    private final WalletClient walletClient;
 
     private static final int INVENTORY_POS = -1;
 
@@ -52,15 +52,8 @@ public class BuildingShopService {
                 userRepository
                         .findById(userId)
                         .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        Wallet wallet =
-                walletRepository
-                        .findByIdWithLock(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.WALLET_NOT_FOUND));
-        if (wallet.getAvailableAp() < type.getApCost()) {
-            throw new CustomException(ErrorCode.INSUFFICIENT_AP);
-        }
-        wallet.spendAp(type.getApCost());
 
+        // 로컬 저장 먼저 → AP 소비를 마지막에. spend 실패(잔액부족 등)면 이 트랜잭션이 롤백돼 건물 저장도 취소된다(정합).
         BuildingInstance stored =
                 buildingInstanceRepository.save(
                         BuildingInstance.builder()
@@ -72,8 +65,12 @@ public class BuildingShopService {
                                 .zone(0)
                                 .build());
 
+        WalletSnapshot wallet =
+                walletClient.spend(
+                        userId, type.getApCost(), "BUILDING_SHOP:" + userId + ":" + stored.getId());
+
         log.info("장식 구매. userId={}, type={}, apCost={}", userId, type.getName(), type.getApCost());
         return new PurchaseDecorationResponse(
-                stored.getId(), type.getName(), type.getDisplayName(), wallet.getAvailableAp());
+                stored.getId(), type.getName(), type.getDisplayName(), wallet.availableAp());
     }
 }
