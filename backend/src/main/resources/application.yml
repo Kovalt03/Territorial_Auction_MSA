@@ -79,3 +79,9 @@ app:
 # 분리된 auction-service — admin 조회가 /internal로 직접 호출
 auction-service:
   base-url: ${AUCTION_SERVICE_BASE_URL:http://localhost:8082}
+
+# 분리된 user-service — 지갑(AP) 명령·조회를 /internal로 호출
+user-service:
+  base-url: ${USER_SERVICE_BASE_URL:http://localhost:8083}
+internal-api:
+  secret: ${INTERNAL_API_SECRET:local-internal-secret}
