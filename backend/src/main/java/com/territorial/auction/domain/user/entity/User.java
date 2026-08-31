@@ -72,12 +72,4 @@ public class User {
     public boolean isAdmin() {
         return this.role == UserRole.ADMIN;
     }
-
-    public void updateNickname(String nickname) {
-        this.nickname = nickname;
-    }
-
-    public void updatePassword(String passwordHash) {
-        this.passwordHash = passwordHash;
-    }
 }

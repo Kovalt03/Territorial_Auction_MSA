@@ -15,7 +15,6 @@ import com.territorial.auction.domain.season.repository.UserTrophyRepository;
 import com.territorial.auction.domain.user.client.WalletClient;
 import com.territorial.auction.domain.user.client.WalletSnapshot;
 import com.territorial.auction.domain.user.dto.*;
-import com.territorial.auction.domain.user.dto.ChangeNicknameResponse;
 import com.territorial.auction.domain.user.dto.MyWalletResponse;
 import com.territorial.auction.domain.user.entity.*;
 import com.territorial.auction.domain.user.repository.NotificationSettingRepository;
@@ -253,37 +252,5 @@ public class UserService {
 
     private int vaultGp(Long userId) {
         return globalVaultRepository.findById(userId).map(GlobalVault::getStoredGp).orElse(0);
-    }
-
-    @Transactional
-    public ChangeNicknameResponse changeUserNickname(Long userId, String nickname) {
-        User user =
-                userRepository
-                        .findById(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-        if (userRepository.existsByNickname(nickname)) {
-            throw new CustomException(ErrorCode.DUPLICATE_NICKNAME);
-        }
-
-        user.updateNickname(nickname);
-        userRepository.save(user);
-        // TODO: LocalDateTime.now()는 실제 DB 저장 시각과 미세하게 다를 수 있음
-        //       User 엔티티에 @LastModifiedDate updatedAt 필드 추가 후 해당 값으로 교체 권장
-        return new ChangeNicknameResponse(user.getId(), user.getNickname(), LocalDateTime.now());
-    }
-
-    @Transactional
-    public void changeUserPassword(Long userId, String currentPassword, String newPassword) {
-        User user =
-                userRepository
-                        .findById(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash()))
-            throw new CustomException(ErrorCode.INVALID_PASSWORD);
-
-        user.updatePassword(passwordEncoder.encode(newPassword));
-        userRepository.save(user);
     }
 }

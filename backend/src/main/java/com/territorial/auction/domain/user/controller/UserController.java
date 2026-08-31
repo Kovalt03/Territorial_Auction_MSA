@@ -80,20 +80,6 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.ok(userService.getMyWallet(userId)));
     }
 
-    @PatchMapping("/me/nickname")
-    public ResponseEntity<ApiResponse<ChangeNicknameResponse>> changeUserNickname(
-            @AuthenticationPrincipal Long userId, @RequestBody ChangeNicknameRequest request) {
-        return ResponseEntity.ok(
-                ApiResponse.ok(userService.changeUserNickname(userId, request.nickname())));
-    }
-
-    @PatchMapping("/me/password")
-    public ResponseEntity<ApiResponse<Void>> changeUserPassword(
-            @AuthenticationPrincipal Long userId, @RequestBody ChangePasswordRequest request) {
-        userService.changeUserPassword(userId, request.currentPassword(), request.newPassword());
-        return ResponseEntity.ok(ApiResponse.ok("비밀번호가 성공적으로 변경되었습니다.", null));
-    }
-
     @PostMapping("/me/ap/charge")
     public ResponseEntity<ApiResponse<ChargeApResponse>> chargeAp(
             @AuthenticationPrincipal Long userId, @RequestBody @Valid ChargeApRequest request) {
