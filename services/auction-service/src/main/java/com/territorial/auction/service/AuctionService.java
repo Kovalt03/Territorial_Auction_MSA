@@ -126,14 +126,12 @@ public class AuctionService {
 
         Long previousBidderId = auction.getCurrentBidderId();
         Integer previousAmount = previousBidderId != null ? auction.getCurrentPrice() : null;
-        BidEscrowResult escrow =
-                walletClient.bidEscrow(
-                        new BidEscrowRequest(
-                                auctionId,
-                                userId,
-                                request.bidAmount(),
-                                previousBidderId,
-                                previousAmount));
+        BidEscrowRequest escrowRequest =
+                new BidEscrowRequest(
+                        auctionId, userId, request.bidAmount(), previousBidderId, previousAmount);
+        BidEscrowResult escrow = walletClient.bidEscrow(escrowRequest);
+        // escrow는 user-service에서 이미 커밋됐다. 이 로컬 트랜잭션이 롤백되면 escrow가 고아가 되므로 보상으로 역전한다.
+        registerEscrowCompensation(escrowRequest);
 
         auction.updateBid(userId, escrow.bidderNickname(), request.bidAmount());
 
@@ -239,6 +237,28 @@ public class AuctionService {
         if (bidAmount < Math.max(minByPercent, minByFlat)) {
             throw new CustomException(ErrorCode.BID_AMOUNT_TOO_LOW);
         }
+    }
+
+    // 입찰 로컬 트랜잭션이 롤백되면(예외·커밋 실패 모두) 이미 커밋된 escrow를 역전한다.
+    private void registerEscrowCompensation(BidEscrowRequest escrowRequest) {
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCompletion(int status) {
+                        if (status != STATUS_ROLLED_BACK) {
+                            return;
+                        }
+                        try {
+                            walletClient.compensateBidEscrow(escrowRequest);
+                        } catch (RuntimeException e) {
+                            log.error(
+                                    "escrow 보상 실패 — 수동 정합성 확인 필요. auctionId={}, bidderId={}",
+                                    escrowRequest.auctionId(),
+                                    escrowRequest.bidderId(),
+                                    e);
+                        }
+                    }
+                });
     }
 
     // 이전 최고 입찰자에게만 입찰 밀림을 알린다. 시작가 레코드(bidder=null)엔 알림 대상이 없다.
