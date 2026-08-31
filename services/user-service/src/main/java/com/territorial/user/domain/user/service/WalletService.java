@@ -53,6 +53,39 @@ public class WalletService {
         return bidder.getNickname();
     }
 
+    /**
+     * escrow 보상: 앞선 {@link #bidEscrow}를 역전한다(호출 측 로컬 트랜잭션 롤백 시). 새 입찰자 잠금 해제 + 이전 입찰자 재잠금. commandKey로
+     * 멱등. 데드락 방지를 위해 escrow와 동일한 오름차순 userId 순으로 락을 잡는다.
+     */
+    @Transactional
+    public void compensateBidEscrow(
+            Long auctionId,
+            Long bidderId,
+            int bidAmount,
+            Long previousBidderId,
+            Integer previousAmount) {
+        validateCommand(auctionId, bidAmount);
+        String commandKey = "BID_COMPENSATE:" + auctionId + ":" + bidderId + ":" + bidAmount;
+        String fingerprint =
+                bidderId + ":" + bidAmount + ":" + previousBidderId + ":" + previousAmount;
+        if (isReplay(commandKey, fingerprint)) {
+            return;
+        }
+        Wallet bidderWallet;
+        Wallet previousWallet = null;
+        if (previousBidderId == null) {
+            bidderWallet = lockWalletOrThrow(bidderId);
+        } else if (previousBidderId < bidderId) {
+            previousWallet = lockWalletOrThrow(previousBidderId);
+            bidderWallet = lockWalletOrThrow(bidderId);
+        } else {
+            bidderWallet = lockWalletOrThrow(bidderId);
+            previousWallet = lockWalletOrThrow(previousBidderId);
+        }
+        bidderWallet.refundLockedAp(bidAmount); // escrow의 lockAp 역전
+        relockPreviousBid(previousWallet, previousAmount); // escrow의 refundLockedAp 역전
+    }
+
     @Transactional
     public void consumeLocked(Long winnerId, int finalPrice, Long auctionId) {
         validateCommand(auctionId, finalPrice);
@@ -158,6 +191,12 @@ public class WalletService {
     private void refundPreviousBid(Wallet previousWallet, Integer previousAmount) {
         if (previousWallet != null && previousAmount != null) {
             previousWallet.refundLockedAp(previousAmount);
+        }
+    }
+
+    private void relockPreviousBid(Wallet previousWallet, Integer previousAmount) {
+        if (previousWallet != null && previousAmount != null) {
+            previousWallet.lockAp(previousAmount);
         }
     }
 }
