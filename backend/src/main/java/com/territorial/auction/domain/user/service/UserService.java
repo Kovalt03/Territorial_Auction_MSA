@@ -12,6 +12,8 @@ import com.territorial.auction.domain.season.entity.UserSeasonPass;
 import com.territorial.auction.domain.season.entity.UserTrophy;
 import com.territorial.auction.domain.season.repository.UserSeasonPassRepository;
 import com.territorial.auction.domain.season.repository.UserTrophyRepository;
+import com.territorial.auction.domain.user.client.WalletClient;
+import com.territorial.auction.domain.user.client.WalletSnapshot;
 import com.territorial.auction.domain.user.dto.*;
 import com.territorial.auction.domain.user.dto.ChangeNicknameResponse;
 import com.territorial.auction.domain.user.dto.MyWalletResponse;
@@ -19,7 +21,6 @@ import com.territorial.auction.domain.user.entity.*;
 import com.territorial.auction.domain.user.repository.NotificationSettingRepository;
 import com.territorial.auction.domain.user.repository.UserProfileRepository;
 import com.territorial.auction.domain.user.repository.UserRepository;
-import com.territorial.auction.domain.user.repository.WalletRepository;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import com.territorial.auction.global.security.jwt.JwtAuthenticationFilter;
@@ -47,7 +48,7 @@ import org.springframework.util.StringUtils;
 public class UserService {
 
     private final UserRepository userRepository;
-    private final WalletRepository walletRepository;
+    private final WalletClient walletClient;
     private final GlobalVaultRepository globalVaultRepository;
     private final HomeIslandRepository homeIslandRepository;
     private final UserSeasonPassRepository userSeasonPassRepository;
@@ -79,10 +80,7 @@ public class UserService {
                         .findById(userId)
                         .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        Wallet wallet =
-                walletRepository
-                        .findById(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        WalletSnapshot wallet = walletClient.getWallet(userId);
 
         Optional<HomeIsland> islandOpt = homeIslandRepository.findByUserId(userId);
 
@@ -110,7 +108,7 @@ public class UserService {
                 user.getId(),
                 user.getNickname(),
                 new MyProfileResponse.WalletInfo(
-                        vaultGp(user.getId()), wallet.getAvailableAp(), wallet.getLockedAp()),
+                        vaultGp(user.getId()), wallet.availableAp(), wallet.lockedAp()),
                 islandInfo,
                 activePass
                         .map(
@@ -248,12 +246,9 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public MyWalletResponse getMyWallet(Long userId) {
-        Wallet wallet =
-                walletRepository
-                        .findById(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        WalletSnapshot wallet = walletClient.getWallet(userId);
         // GP 는 위치별 저장소·금고로 이관됐다 — 지갑 화면의 GP 는 금고 잔액을 보여준다.
-        return new MyWalletResponse(vaultGp(userId), wallet.getAvailableAp(), wallet.getLockedAp());
+        return new MyWalletResponse(vaultGp(userId), wallet.availableAp(), wallet.lockedAp());
     }
 
     private int vaultGp(Long userId) {

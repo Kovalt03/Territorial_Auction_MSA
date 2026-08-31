@@ -1,9 +1,8 @@
 package com.territorial.auction.domain.user.service;
 
+import com.territorial.auction.domain.user.client.WalletClient;
 import com.territorial.auction.domain.user.dto.ChargeApRequest;
 import com.territorial.auction.domain.user.dto.ChargeApResponse;
-import com.territorial.auction.domain.user.entity.Wallet;
-import com.territorial.auction.domain.user.repository.WalletRepository;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import java.time.Duration;
@@ -22,7 +21,7 @@ public class PaymentService {
     private static final String ORDER_KEY_PREFIX = "payment:order:";
     private static final Duration ORDER_TTL = Duration.ofDays(1);
 
-    private final WalletRepository walletRepository;
+    private final WalletClient walletClient;
     private final RedisTemplate<String, Object> redisTemplate;
 
     @Transactional
@@ -32,17 +31,12 @@ public class PaymentService {
         // PG 검증은 실제 운영 환경에서 외부 API 호출로 교체 (현재 stub)
         validatePayment(request.paymentKey(), request.amount());
 
-        Wallet wallet =
-                walletRepository
-                        .findById(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-        wallet.addAp(request.amount());
-
+        // AP 소유는 user-service — 충전(가산)을 명령으로. orderId로 멱등(중복/재시도 안전).
+        var wallet = walletClient.credit(userId, request.amount(), "CHARGE:" + request.orderId());
         markOrderProcessed(request.orderId());
 
         return new ChargeApResponse(
-                wallet.getAvailableAp(), request.amount(), wallet.getUpdatedAt());
+                wallet.availableAp(), request.amount(), java.time.LocalDateTime.now());
     }
 
     private void checkDuplicateOrder(String orderId) {

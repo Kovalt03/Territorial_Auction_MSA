@@ -12,11 +12,11 @@ import com.territorial.auction.domain.building.entity.GlobalVault;
 import com.territorial.auction.domain.building.repository.BuildingInstanceRepository;
 import com.territorial.auction.domain.building.repository.GlobalVaultRepository;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
+import com.territorial.auction.domain.user.client.WalletClient;
+import com.territorial.auction.domain.user.client.WalletSnapshot;
 import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.entity.UserStatus;
-import com.territorial.auction.domain.user.entity.Wallet;
 import com.territorial.auction.domain.user.repository.UserRepository;
-import com.territorial.auction.domain.user.repository.WalletRepository;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import java.util.HashMap;
@@ -34,7 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AdminUserService {
 
     private final UserRepository userRepository;
-    private final WalletRepository walletRepository;
+    private final WalletClient walletClient;
     private final GlobalVaultRepository globalVaultRepository;
     private final BuildingInstanceRepository buildingInstanceRepository;
     private final TerritoryRepository territoryRepository;
@@ -51,7 +51,7 @@ public class AdminUserService {
 
     public AdminUserDetailResponse getUser(Long userId) {
         User user = findUserOrThrow(userId);
-        return toDetail(user, findWalletOrThrow(userId));
+        return toDetail(user, findWallet(userId));
     }
 
     @Transactional
@@ -69,7 +69,7 @@ public class AdminUserService {
                 "USER",
                 userId,
                 Map.of("before", before, "after", request.status(), "reason", request.reason()));
-        return toDetail(user, findWalletOrThrow(userId));
+        return toDetail(user, findWallet(userId));
     }
 
     @Transactional
@@ -82,11 +82,11 @@ public class AdminUserService {
             throw new CustomException(ErrorCode.INVALID_INPUT);
         }
 
-        Wallet wallet =
-                walletRepository
-                        .findByIdWithLock(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.WALLET_NOT_FOUND));
-        if (apDelta != 0) wallet.adjustAvailableAp(apDelta);
+        WalletSnapshot wallet =
+                apDelta != 0
+                        ? walletClient.adjust(
+                                userId, apDelta, "ADMIN_ADJUST:" + java.util.UUID.randomUUID())
+                        : walletClient.getWallet(userId);
         if (gpDelta != 0) adjustVaultGp(user, gpDelta);
 
         Map<String, Object> detail = new HashMap<>();
@@ -108,11 +108,10 @@ public class AdminUserService {
         }
         List<Long> userIds = request.userIds().stream().distinct().toList();
         for (Long userId : userIds) {
-            Wallet wallet =
-                    walletRepository
-                            .findByIdWithLock(userId)
-                            .orElseThrow(() -> new CustomException(ErrorCode.WALLET_NOT_FOUND));
-            if (apDelta != 0) wallet.adjustAvailableAp(apDelta);
+            if (apDelta != 0) {
+                walletClient.adjust(
+                        userId, apDelta, "ADMIN_BULK_ADJUST:" + java.util.UUID.randomUUID());
+            }
             if (gpDelta != 0) adjustVaultGp(findUserOrThrow(userId), gpDelta);
 
             Map<String, Object> detail = new HashMap<>();
@@ -166,10 +165,8 @@ public class AdminUserService {
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
     }
 
-    private Wallet findWalletOrThrow(Long userId) {
-        return walletRepository
-                .findById(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.WALLET_NOT_FOUND));
+    private WalletSnapshot findWallet(Long userId) {
+        return walletClient.getWallet(userId);
     }
 
     // GP 는 금고에서 관리되므로 관리자 GP 지급/차감도 금고에 반영한다.
@@ -184,7 +181,7 @@ public class AdminUserService {
         vault.receiveGp(gpDelta);
     }
 
-    private AdminUserDetailResponse toDetail(User user, Wallet wallet) {
+    private AdminUserDetailResponse toDetail(User user, WalletSnapshot wallet) {
         long territoryCount = territoryRepository.countByOwnerId(user.getId());
         return new AdminUserDetailResponse(
                 user.getId(),
@@ -194,8 +191,8 @@ public class AdminUserService {
                 user.getStatus().name(),
                 user.getRole().name(),
                 user.getCreatedAt(),
-                wallet.getAvailableAp(),
-                wallet.getLockedAp(),
+                wallet.availableAp(),
+                wallet.lockedAp(),
                 globalVaultRepository
                         .findById(user.getId())
                         .map(GlobalVault::getStoredGp)

@@ -22,10 +22,9 @@ import com.territorial.auction.domain.map.entity.Territory;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
 import com.territorial.auction.domain.military.entity.AttackToken;
 import com.territorial.auction.domain.military.repository.AttackTokenRepository;
+import com.territorial.auction.domain.user.client.WalletClient;
 import com.territorial.auction.domain.user.entity.User;
-import com.territorial.auction.domain.user.entity.Wallet;
 import com.territorial.auction.domain.user.repository.UserRepository;
-import com.territorial.auction.domain.user.repository.WalletRepository;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import java.time.Duration;
@@ -56,7 +55,7 @@ public class ItemService {
     private final ItemPurchaseRepository itemPurchaseRepository;
     private final UserItemRepository userItemRepository;
     private final UserRepository userRepository;
-    private final WalletRepository walletRepository;
+    private final WalletClient walletClient;
     private final GlobalVaultRepository globalVaultRepository;
     private final TerritoryRepository territoryRepository;
     private final AttackTokenRepository attackTokenRepository;
@@ -83,17 +82,7 @@ public class ItemService {
 
         validateDailyLimit(userId, item, request.quantity());
 
-        Wallet wallet =
-                walletRepository
-                        .findById(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
         int totalCost = item.getCostAp() * request.quantity();
-        if (wallet.getAvailableAp() < totalCost) {
-            throw new CustomException(ErrorCode.INSUFFICIENT_AP);
-        }
-
-        wallet.spendAp(totalCost);
 
         int totalOwned = 0;
         if (item.getItemType() == ItemType.GP_PURCHASE) {
@@ -106,13 +95,16 @@ public class ItemService {
         saveItemPurchaseLog(userId, item, request.quantity());
         invalidateItemCache(userId);
 
+        // 로컬 지급 후 마지막에 AP 소비 — 실패 시 트랜잭션 롤백으로 지급도 취소(정합)
+        var wallet = walletClient.spend(userId, totalCost, "ITEM:" + java.util.UUID.randomUUID());
+
         return new PurchaseItemResponse(
                 item.getId(),
                 item.getItemType().name(),
                 request.quantity(),
                 totalOwned,
                 totalCost,
-                wallet.getAvailableAp());
+                wallet.availableAp());
     }
 
     @Transactional
