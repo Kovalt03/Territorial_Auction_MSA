@@ -31,6 +31,18 @@ public class WalletInternalController {
                                 request.previousAmount())));
     }
 
+    @PostMapping("/bid-escrow-compensate")
+    public ResponseEntity<Void> compensateBidEscrow(
+            @RequestBody BidEscrowCompensateRequest request) {
+        walletService.compensateBidEscrow(
+                request.auctionId(),
+                request.bidderId(),
+                request.bidAmount(),
+                request.previousBidderId(),
+                request.previousAmount());
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping("/consume-locked")
     public ResponseEntity<Void> consumeLocked(@RequestBody ConsumeLockedRequest request) {
         walletService.consumeLocked(request.winnerId(), request.finalPrice(), request.auctionId());
@@ -87,6 +99,13 @@ public class WalletInternalController {
             Integer previousAmount) {}
 
     public record BidEscrowResponse(String bidderNickname) {}
+
+    public record BidEscrowCompensateRequest(
+            Long auctionId,
+            Long bidderId,
+            int bidAmount,
+            Long previousBidderId,
+            Integer previousAmount) {}
 
     public record ConsumeLockedRequest(Long winnerId, int finalPrice, Long auctionId) {}
 
