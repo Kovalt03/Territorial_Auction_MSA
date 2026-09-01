@@ -49,6 +49,16 @@ public class JwtTokenProvider {
                 .compact();
     }
 
+    /** 블랙리스트 TTL 계산용 — 토큰 잔여 수명(ms). 만료·무효 시 0. */
+    public long getRemainingMs(String token) {
+        try {
+            long remaining = claims(token).getExpiration().getTime() - System.currentTimeMillis();
+            return Math.max(remaining, 0);
+        } catch (RuntimeException e) {
+            return 0;
+        }
+    }
+
     private Long getUserId(String token, String expectedType) {
         Claims claims = claims(token);
         if (!expectedType.equals(claims.get(TOKEN_TYPE_CLAIM, String.class))) {

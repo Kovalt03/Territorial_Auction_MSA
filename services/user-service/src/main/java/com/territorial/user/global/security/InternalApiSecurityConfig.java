@@ -20,6 +20,7 @@ public class InternalApiSecurityConfig {
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             JwtTokenProvider jwtTokenProvider,
+            org.springframework.data.redis.core.StringRedisTemplate redisTemplate,
             @Value("${internal-api.secret}") String secret)
             throws Exception {
         http.csrf(csrf -> csrf.disable())
@@ -56,7 +57,7 @@ public class InternalApiSecurityConfig {
                         new InternalApiSecretFilter(secret),
                         UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(
-                        new JwtAuthenticationFilter(jwtTokenProvider),
+                        new JwtAuthenticationFilter(jwtTokenProvider, redisTemplate),
                         AnonymousAuthenticationFilter.class);
         return http.build();
     }

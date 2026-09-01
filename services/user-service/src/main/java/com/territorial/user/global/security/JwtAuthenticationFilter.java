@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
@@ -13,10 +14,15 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 final class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final JwtTokenProvider jwtTokenProvider;
+    // 모놀리식과 공유하는 블랙리스트 키 — 탈퇴 시 두 서비스가 같은 키를 쓰고 확인한다.
+    static final String BLACKLIST_KEY_PREFIX = "jwt:blacklist:";
 
-    JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider) {
+    private final JwtTokenProvider jwtTokenProvider;
+    private final StringRedisTemplate redisTemplate;
+
+    JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider, StringRedisTemplate redisTemplate) {
         this.jwtTokenProvider = jwtTokenProvider;
+        this.redisTemplate = redisTemplate;
     }
 
     @Override
@@ -24,7 +30,7 @@ final class JwtAuthenticationFilter extends OncePerRequestFilter {
             HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         String token = resolveToken(request);
-        if (token != null) {
+        if (token != null && !isBlacklisted(token)) {
             try {
                 Long userId = jwtTokenProvider.getAccessTokenUserId(token);
                 SecurityContextHolder.getContext()
@@ -35,6 +41,10 @@ final class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         }
         chain.doFilter(request, response);
+    }
+
+    private boolean isBlacklisted(String token) {
+        return Boolean.TRUE.equals(redisTemplate.hasKey(BLACKLIST_KEY_PREFIX + token));
     }
 
     private String resolveToken(HttpServletRequest request) {
