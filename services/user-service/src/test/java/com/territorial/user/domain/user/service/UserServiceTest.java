@@ -16,6 +16,8 @@ import com.territorial.user.domain.user.entity.User;
 import com.territorial.user.domain.user.repository.NotificationSettingRepository;
 import com.territorial.user.domain.user.repository.UserRepository;
 import com.territorial.user.event.UserUpdatedEvent;
+import com.territorial.user.event.UserStatusChangedEvent;
+import com.territorial.user.event.UserStatusChangedEventPublisher;
 import com.territorial.user.event.UserUpdatedEventPublisher;
 import com.territorial.user.global.exception.ErrorCode;
 import java.util.Optional;
@@ -34,7 +36,11 @@ class UserServiceTest {
     @Mock private UserRepository userRepository;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private UserUpdatedEventPublisher userUpdatedEventPublisher;
+    @Mock private UserStatusChangedEventPublisher userStatusChangedEventPublisher;
     @Mock private NotificationSettingRepository notificationSettingRepository;
+    @Mock private com.territorial.user.global.security.RefreshTokenService refreshTokenService;
+    @Mock private com.territorial.user.global.security.JwtTokenProvider jwtTokenProvider;
+    @Mock private org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
 
     private User user(long id, String passwordHash) {
         User user =
@@ -118,5 +124,42 @@ class UserServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.NOTIFICATION_NOT_FOUND);
+    }
+
+    @Test
+    void deleteMeWithdrawsAndPublishesStatus() {
+        User user = user(1L, "hash");
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+        given(passwordEncoder.matches("pw", "hash")).willReturn(true);
+
+        userService.deleteMe(1L, "pw", null); // accessToken null → 블랙리스트 스킵
+
+        assertThat(user.getStatus()).isEqualTo("WITHDRAWN");
+        verify(refreshTokenService).delete(1L);
+        verify(userStatusChangedEventPublisher).enqueue(any(UserStatusChangedEvent.class));
+    }
+
+    @Test
+    void deleteMeRejectsWrongPassword() {
+        given(userRepository.findById(1L)).willReturn(Optional.of(user(1L, "hash")));
+        given(passwordEncoder.matches("wrong", "hash")).willReturn(false);
+
+        assertThatThrownBy(() -> userService.deleteMe(1L, "wrong", null))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_PASSWORD);
+        verify(refreshTokenService, never()).delete(any());
+    }
+
+    @Test
+    void changeStatusAppliesAndPublishes() {
+        User user = user(1L, "hash");
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+
+        userService.changeStatus(1L, "SUSPENDED");
+
+        assertThat(user.getStatus()).isEqualTo("SUSPENDED");
+        verify(refreshTokenService).delete(1L);
+        verify(userStatusChangedEventPublisher).enqueue(any(UserStatusChangedEvent.class));
     }
 }
