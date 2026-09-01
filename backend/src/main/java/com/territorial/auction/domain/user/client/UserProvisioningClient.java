@@ -1,7 +1,10 @@
 package com.territorial.auction.domain.user.client;
 
-/** OAuth 신원 프로비저닝을 user-service에 위임(소유 역전). username 기준 멱등. */
+/** user-service 신원 계약(소유 역전) — OAuth 프로비저닝·상태 변경. */
 public interface UserProvisioningClient {
 
     OAuthProvisionResult provisionOAuth(String username, String email, String nickname);
+
+    /** 관리자 상태 변경을 user-service(status 소유자)에 반영 — 로그인 차단이 실제로 먹히게 한다. */
+    void changeStatus(Long userId, String status);
 }

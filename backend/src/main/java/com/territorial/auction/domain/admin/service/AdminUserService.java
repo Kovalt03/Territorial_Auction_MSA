@@ -13,6 +13,7 @@ import com.territorial.auction.domain.building.repository.BuildingInstanceReposi
 import com.territorial.auction.domain.building.repository.GlobalVaultRepository;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
 import com.territorial.auction.domain.user.client.WalletClient;
+import com.territorial.auction.domain.user.client.UserProvisioningClient;
 import com.territorial.auction.domain.user.client.WalletSnapshot;
 import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.entity.UserStatus;
@@ -35,6 +36,7 @@ public class AdminUserService {
 
     private final UserRepository userRepository;
     private final WalletClient walletClient;
+    private final UserProvisioningClient userProvisioningClient;
     private final GlobalVaultRepository globalVaultRepository;
     private final BuildingInstanceRepository buildingInstanceRepository;
     private final TerritoryRepository territoryRepository;
@@ -61,7 +63,9 @@ public class AdminUserService {
         validateStatusChange(user, request.status());
 
         UserStatus before = user.getStatus();
-        user.updateStatus(request.status());
+        user.updateStatus(request.status()); // 프로젝션 즉시 반영(admin 표시)
+        // status 소유자(user-service)에 반영해야 로그인 차단이 실제로 먹힌다.
+        userProvisioningClient.changeStatus(userId, request.status().name());
 
         adminAuditLogger.record(
                 adminUserId,
@@ -133,7 +137,8 @@ public class AdminUserService {
             validateStatusChange(user, request.status());
 
             UserStatus before = user.getStatus();
-            user.updateStatus(request.status());
+            user.updateStatus(request.status()); // 프로젝션 즉시 반영
+            userProvisioningClient.changeStatus(userId, request.status().name());
             adminAuditLogger.record(
                     adminUserId,
                     "USER_STATUS_CHANGE_BULK",

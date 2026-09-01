@@ -21,10 +21,6 @@ import com.territorial.auction.domain.user.repository.UserProfileRepository;
 import com.territorial.auction.domain.user.repository.UserRepository;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
-import com.territorial.auction.global.security.jwt.JwtAuthenticationFilter;
-import com.territorial.auction.global.security.jwt.JwtTokenProvider;
-import com.territorial.auction.global.security.jwt.RefreshTokenService;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -35,10 +31,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -53,9 +47,6 @@ public class UserService {
     private final TerritoryRepository territoryRepository;
     private final UserProfileRepository userProfileRepository;
     private final UserTrophyRepository userTrophyRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final RefreshTokenService refreshTokenService;
-    private final JwtTokenProvider jwtTokenProvider;
     private final StringRedisTemplate stringRedisTemplate;
     private final UnitInstanceRepository unitInstanceRepository;
 
@@ -144,34 +135,6 @@ public class UserService {
                 territoryCount,
                 null,
                 user.getCreatedAt());
-    }
-
-    @Transactional
-    public void deleteMe(Long userId, String password, String accessToken) {
-        User user =
-                userRepository
-                        .findById(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        if (!user.getPasswordHash().isEmpty()
-                && !passwordEncoder.matches(password, user.getPasswordHash()))
-            throw new CustomException(ErrorCode.INVALID_PASSWORD);
-
-        user.updateStatus(UserStatus.WITHDRAWN);
-        userRepository.save(user);
-        refreshTokenService.delete(userId);
-        blacklistAccessToken(accessToken);
-    }
-
-    private void blacklistAccessToken(String accessToken) {
-        if (!StringUtils.hasText(accessToken)) return;
-        long remainingMs = jwtTokenProvider.getRemainingMs(accessToken);
-        if (remainingMs <= 0) return;
-        stringRedisTemplate
-                .opsForValue()
-                .set(
-                        JwtAuthenticationFilter.BLACKLIST_KEY_PREFIX + accessToken,
-                        "1",
-                        Duration.ofMillis(remainingMs));
     }
 
     @Transactional(readOnly = true)

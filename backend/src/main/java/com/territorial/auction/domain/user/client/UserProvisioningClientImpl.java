@@ -29,5 +29,17 @@ public class UserProvisioningClientImpl implements UserProvisioningClient {
                 .body(OAuthProvisionResult.class);
     }
 
+    @Override
+    public void changeStatus(Long userId, String status) {
+        restClient
+                .post()
+                .uri("/internal/users/{userId}/status", userId)
+                .body(new ChangeStatusRequest(status))
+                .retrieve()
+                .toBodilessEntity();
+    }
+
     private record ProvisionOAuthRequest(String username, String email, String nickname) {}
+
+    private record ChangeStatusRequest(String status) {}
 }
