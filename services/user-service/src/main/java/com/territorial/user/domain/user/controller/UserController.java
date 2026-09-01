@@ -4,10 +4,13 @@ import com.territorial.auction.global.common.ApiResponse;
 import com.territorial.user.domain.user.dto.ChangeNicknameRequest;
 import com.territorial.user.domain.user.dto.ChangeNicknameResponse;
 import com.territorial.user.domain.user.dto.ChangePasswordRequest;
+import com.territorial.user.domain.user.dto.NotificationSettingResponse;
+import com.territorial.user.domain.user.dto.UpdateNotificationSettingRequest;
 import com.territorial.user.domain.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,5 +36,19 @@ public class UserController {
             @AuthenticationPrincipal Long userId, @RequestBody ChangePasswordRequest request) {
         userService.changePassword(userId, request.currentPassword(), request.newPassword());
         return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    @GetMapping("/me/settings")
+    public ResponseEntity<ApiResponse<NotificationSettingResponse>> getNotificationSetting(
+            @AuthenticationPrincipal Long userId) {
+        return ResponseEntity.ok(ApiResponse.ok(userService.getNotificationSetting(userId)));
+    }
+
+    @PatchMapping("/me/settings")
+    public ResponseEntity<ApiResponse<NotificationSettingResponse>> updateNotificationSetting(
+            @AuthenticationPrincipal Long userId,
+            @RequestBody UpdateNotificationSettingRequest request) {
+        return ResponseEntity.ok(
+                ApiResponse.ok(userService.updateNotificationSetting(userId, request)));
     }
 }

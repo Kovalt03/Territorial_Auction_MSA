@@ -1,16 +1,24 @@
-package com.territorial.auction.domain.user.entity;
+package com.territorial.user.domain.user.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.MapsId;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
 import java.time.LocalDateTime;
-import lombok.*;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
 @Table(name = "notification_settings")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@EntityListeners(AuditingEntityListener.class)
 public class NotificationSetting {
 
     @Id private Long userId;
@@ -29,7 +37,7 @@ public class NotificationSetting {
     @Column(nullable = false)
     private boolean isMarketingEnabled = false;
 
-    @LastModifiedDate
+    @UpdateTimestamp
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
@@ -43,6 +51,5 @@ public class NotificationSetting {
         if (isOutbidEnabled != null) this.isOutbidEnabled = isOutbidEnabled;
         if (isAuctionStartEnabled != null) this.isAuctionStartEnabled = isAuctionStartEnabled;
         if (isMarketingEnabled != null) this.isMarketingEnabled = isMarketingEnabled;
-        this.updatedAt = LocalDateTime.now();
     }
 }

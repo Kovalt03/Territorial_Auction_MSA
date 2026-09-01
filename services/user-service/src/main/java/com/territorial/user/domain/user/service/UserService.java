@@ -2,7 +2,11 @@ package com.territorial.user.domain.user.service;
 
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.user.domain.user.dto.ChangeNicknameResponse;
+import com.territorial.user.domain.user.dto.NotificationSettingResponse;
+import com.territorial.user.domain.user.dto.UpdateNotificationSettingRequest;
+import com.territorial.user.domain.user.entity.NotificationSetting;
 import com.territorial.user.domain.user.entity.User;
+import com.territorial.user.domain.user.repository.NotificationSettingRepository;
 import com.territorial.user.domain.user.repository.UserRepository;
 import com.territorial.user.event.UserUpdatedEvent;
 import com.territorial.user.event.UserUpdatedEventPublisher;
@@ -13,7 +17,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** 신원 프로필 쓰기(닉네임·비밀번호). user-service가 User를 소유한다. */
+/** 신원 프로필 쓰기(닉네임·비밀번호) + 알림 설정. user-service가 User·설정을 소유한다. */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -22,6 +26,28 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserUpdatedEventPublisher userUpdatedEventPublisher;
+    private final NotificationSettingRepository notificationSettingRepository;
+
+    public NotificationSettingResponse getNotificationSetting(Long userId) {
+        return NotificationSettingResponse.from(findSettingOrThrow(userId));
+    }
+
+    @Transactional
+    public NotificationSettingResponse updateNotificationSetting(
+            Long userId, UpdateNotificationSettingRequest request) {
+        NotificationSetting setting = findSettingOrThrow(userId);
+        setting.update(
+                request.isOutbidEnabled(),
+                request.isAuctionStartEnabled(),
+                request.isMarketingEnabled());
+        return NotificationSettingResponse.from(setting);
+    }
+
+    private NotificationSetting findSettingOrThrow(Long userId) {
+        return notificationSettingRepository
+                .findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND));
+    }
 
     @Transactional
     public ChangeNicknameResponse changeNickname(Long userId, String nickname) {

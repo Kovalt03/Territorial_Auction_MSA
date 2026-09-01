@@ -1,8 +1,10 @@
 package com.territorial.user.domain.user.service;
 
 import com.territorial.user.domain.user.dto.OAuthProvisionResult;
+import com.territorial.user.domain.user.entity.NotificationSetting;
 import com.territorial.user.domain.user.entity.User;
 import com.territorial.user.domain.user.entity.Wallet;
+import com.territorial.user.domain.user.repository.NotificationSettingRepository;
 import com.territorial.user.domain.user.repository.UserRepository;
 import com.territorial.user.domain.user.repository.WalletRepository;
 import com.territorial.user.event.UserCreatedEvent;
@@ -22,6 +24,7 @@ public class UserProvisioningService {
 
     private final UserRepository userRepository;
     private final WalletRepository walletRepository;
+    private final NotificationSettingRepository notificationSettingRepository;
     private final UserCreatedEventPublisher userCreatedEventPublisher;
 
     @Transactional
@@ -42,6 +45,7 @@ public class UserProvisioningService {
                                 .nickname(nickname)
                                 .build());
         walletRepository.save(Wallet.builder().user(user).build());
+        notificationSettingRepository.save(NotificationSetting.builder().user(user).build());
         userCreatedEventPublisher.enqueue(
                 new UserCreatedEvent(user.getId(), username, email, nickname));
         return OAuthProvisionResult.from(user);

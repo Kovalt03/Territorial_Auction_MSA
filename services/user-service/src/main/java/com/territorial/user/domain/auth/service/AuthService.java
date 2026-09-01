@@ -5,8 +5,10 @@ import com.territorial.user.domain.auth.dto.LoginRequest;
 import com.territorial.user.domain.auth.dto.SignupRequest;
 import com.territorial.user.domain.auth.dto.SignupResponse;
 import com.territorial.user.domain.auth.dto.TokenPair;
+import com.territorial.user.domain.user.entity.NotificationSetting;
 import com.territorial.user.domain.user.entity.User;
 import com.territorial.user.domain.user.entity.Wallet;
+import com.territorial.user.domain.user.repository.NotificationSettingRepository;
 import com.territorial.user.domain.user.repository.UserRepository;
 import com.territorial.user.domain.user.repository.WalletRepository;
 import com.territorial.user.event.UserCreatedEvent;
@@ -25,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthService {
     private final UserRepository userRepository;
     private final WalletRepository walletRepository;
+    private final NotificationSettingRepository notificationSettingRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenService refreshTokenService;
@@ -35,6 +38,7 @@ public class AuthService {
         validateUnique(request);
         User user = userRepository.save(newUser(request));
         walletRepository.save(Wallet.builder().user(user).build());
+        notificationSettingRepository.save(NotificationSetting.builder().user(user).build());
         userCreatedEventPublisher.enqueue(
                 new UserCreatedEvent(
                         user.getId(), user.getUsername(), user.getEmail(), user.getNickname()));

@@ -1,6 +1,6 @@
-package com.territorial.auction.domain.user.dto;
+package com.territorial.user.domain.user.dto;
 
-import com.territorial.auction.domain.user.entity.NotificationSetting;
+import com.territorial.user.domain.user.entity.NotificationSetting;
 import java.time.LocalDateTime;
 
 public record NotificationSettingResponse(
