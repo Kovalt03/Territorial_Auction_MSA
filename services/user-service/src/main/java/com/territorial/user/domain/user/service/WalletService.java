@@ -54,8 +54,8 @@ public class WalletService {
     }
 
     /**
-     * escrow 보상: 앞선 {@link #bidEscrow}를 역전한다(호출 측 로컬 트랜잭션 롤백 시). 새 입찰자 잠금 해제 + 이전 입찰자 재잠금. commandKey로
-     * 멱등. 데드락 방지를 위해 escrow와 동일한 오름차순 userId 순으로 락을 잡는다.
+     * escrow 보상: 앞선 {@link #bidEscrow}를 역전한다(호출 측 로컬 트랜잭션 롤백 시). 새 입찰자 잠금 해제 + 이전 입찰자 재잠금.
+     * commandKey로 멱등. 데드락 방지를 위해 escrow와 동일한 오름차순 userId 순으로 락을 잡는다.
      */
     @Transactional
     public void compensateBidEscrow(

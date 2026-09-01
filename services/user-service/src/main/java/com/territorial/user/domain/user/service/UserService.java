@@ -66,8 +66,7 @@ public class UserService {
     private void applyStatus(User user, String status) {
         user.updateStatus(status);
         // 프로젝션(admin 목록/표시)과 로그인 차단 정합을 위해 전파.
-        userStatusChangedEventPublisher.enqueue(
-                new UserStatusChangedEvent(user.getId(), status));
+        userStatusChangedEventPublisher.enqueue(new UserStatusChangedEvent(user.getId(), status));
     }
 
     private void blacklistAccessToken(String accessToken) {
