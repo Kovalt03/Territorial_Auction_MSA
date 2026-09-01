@@ -244,14 +244,15 @@ Gatling 실행은 별도 워크플로우로 분리한다:
 
 ## 7. 브랜치·머지·시크릿 정책
 
-### 7.1 브랜치 전략 (현행 유지)
+### 7.1 브랜치 전략
 
-`feature/*` → `dev` → `main`. PR은 항상 `--base dev`. 상세는 [git.md](../../.claude/rules/git.md).
+서비스 추출은 `feature/*` → `msa/{service}` → `dev` → `main` 순서로 진행한다. 단계 PR은 해당 서비스 통합 브랜치를 base로 하고, 서비스 전체가 완성된 뒤 `msa/{service}`에서 `dev`로 PR한다. 순수 문서·정책 단발 변경은 `feature/*` → `dev` 직접 PR을 허용한다. 상세는 [git.md](../../.claude/rules/git.md).
 
 ### 7.2 Required Checks (브랜치 보호)
 
 | 브랜치 | 필수 통과 체크 |
 |---|---|
+| `msa/*` | 변경된 서비스의 CI + `check-commit-message` + `check-pr-title` |
 | `dev` | 변경된 서비스의 CI + `check-commit-message` + `check-pr-title` |
 | `main` | dev와 동일 + (CD 승인은 머지 후 별도 게이트) |
 
