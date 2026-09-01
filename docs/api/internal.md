@@ -48,9 +48,12 @@
 | Method | Path | Body | 응답 | 오류 |
 |---|---|---|---|---|
 | POST | `/internal/users/provision-oauth` | `{username, email, nickname}` | `{userId, username, nickname, email}` | 409 DUPLICATE_* |
+| POST | `/internal/users/{userId}/status` | `{status}` | 200 | 404 USER_NOT_FOUND |
 
 - OAuth 신규 유저의 신원(User 무비번 + Wallet)을 user-service가 소유(**역전**)한다. 모놀리식 `CustomOAuth2UserService`가 동기 호출로 발급 ID를 받아 로컬 프로젝션(섬·성)을 만든다.
 - `username`(=`provider:providerId`) 기준 **멱등**. 생성 시 `UserCreatedEvent` outbox를 발행한다.
+- **status 소유**: 유저 상태(ACTIVE/SUSPENDED/WITHDRAWN)는 user-service가 소유한다(로그인 차단이 여기서 먹힌다). 셀프 탈퇴는 `DELETE /api/v1/users/me`(게이트웨이→user-service), admin 정지/탈퇴는 모놀리식 admin이 이 `status` 엔드포인트를 호출한다. 변경은 `user.status-changed`로 프로젝션에 전파.
+- **토큰 무효화**: 탈퇴 시 access token을 공유 Redis 블랙리스트(`jwt:blacklist:<token>`)에 넣고, 모놀리식·user-service JWT 필터가 모두 확인해 즉시 무효화한다.
 
 ## 2. 모놀리식 `/internal/*` (auction-service가 호출)
 
@@ -103,6 +106,7 @@ Auction 이벤트는 Redis pub/sub JSON 문자열로 발행한다. `user.created
 | `auction.closed` | auction-service | `{auctionId, territoryId}` | 프로젝션 제거 (낙찰·무낙찰 공통) |
 | `user.created` | user-service outbox | `{userId, username, email, nickname}` | 모놀리식 User 읽기 프로젝션·NotificationSetting·UserProfile·HomeIsland·기본 성 생성 |
 | `user.updated` | user-service outbox | `{userId, nickname}` | 모놀리식 User 프로젝션 `nickname` 갱신(15개 도메인 표시 반영) |
+| `user.status-changed` | user-service outbox | `{userId, status}` | 모놀리식 User 프로젝션 `status` 갱신(admin 목록/표시) |
 
 - `user.created`·`user.updated`는 User DB transactional outbox(`stream:user-events`)로 발행하고, 모놀리식 구독자가 `topic` 필드로 분기한다(created→프로젝션 부트스트랩, updated→닉네임 갱신). 소비자는 `userId` 기준으로 멱등 처리한다.
 - **프로필 쓰기 소유**: 신원 프로필(닉네임·비밀번호)은 user-service가 소유한다. 게이트웨이가 `PATCH /api/v1/users/me/{nickname,password}`만 user-service로 라우팅하고, 나머지 `/api/v1/users/**`(프로필·지갑 조회, AP 충전)는 모놀리식이 서빙한다. 닉네임 변경은 `user.updated`로 프로젝션에 전파한다.
