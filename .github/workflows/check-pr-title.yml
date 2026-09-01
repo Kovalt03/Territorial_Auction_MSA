@@ -2,7 +2,7 @@ name: Check PR Title
 
 on:
   pull_request:
-    branches: [dev, main]
+    branches: [dev, main, 'msa/**']
     types: [opened, edited, synchronize, reopened]
 
 concurrency:

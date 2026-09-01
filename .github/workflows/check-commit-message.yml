@@ -2,7 +2,7 @@ name: Check Commit Message
 
 on:
   pull_request:
-    branches: [dev, main]
+    branches: [dev, main, 'msa/**']
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
