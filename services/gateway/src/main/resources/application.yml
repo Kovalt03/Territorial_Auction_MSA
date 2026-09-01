@@ -24,6 +24,12 @@ spring:
           uri: ${USER_SERVICE_URL:http://localhost:8083}
           predicates:
             - Path=/api/v1/users/me/settings
+        # 셀프 탈퇴(DELETE)는 user-service 소유. GET /me(프로필)는 모놀리식 유지.
+        - id: user-service-withdrawal
+          uri: ${USER_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/v1/users/me
+            - Method=DELETE
         # 경매 REST는 auction-service로
         - id: auction-service
           uri: ${AUCTION_SERVICE_URL:http://localhost:8082}
