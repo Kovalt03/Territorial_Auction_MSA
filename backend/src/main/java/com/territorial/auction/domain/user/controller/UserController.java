@@ -4,7 +4,6 @@ import com.territorial.auction.domain.user.dto.*;
 import com.territorial.auction.domain.user.service.PaymentService;
 import com.territorial.auction.domain.user.service.UserService;
 import com.territorial.auction.global.common.ApiResponse;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -12,7 +11,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -34,38 +32,6 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.ok(userService.getMyProfile(userId)));
     }
 
-    @DeleteMapping("/me")
-    public ResponseEntity<ApiResponse<Void>> deleteMe(
-            @AuthenticationPrincipal Long userId,
-            @RequestBody DeleteMeRequest request,
-            HttpServletRequest httpRequest) {
-        String accessToken = resolveToken(httpRequest);
-        userService.deleteMe(userId, request.password(), accessToken);
-        return ResponseEntity.ok(ApiResponse.ok("회원 탈퇴가 완료되었습니다.", null));
-    }
-
-    private String resolveToken(HttpServletRequest request) {
-        String bearer = request.getHeader("Authorization");
-        if (StringUtils.hasText(bearer) && bearer.startsWith("Bearer ")) {
-            return bearer.substring(7);
-        }
-        return null;
-    }
-
-    @GetMapping("/me/settings")
-    public ResponseEntity<ApiResponse<NotificationSettingResponse>> getNotificationSetting(
-            @AuthenticationPrincipal Long userId) {
-        return ResponseEntity.ok(ApiResponse.ok(userService.getNotificationSetting(userId)));
-    }
-
-    @PatchMapping("/me/settings")
-    public ResponseEntity<ApiResponse<NotificationSettingResponse>> updateNotificationSetting(
-            @AuthenticationPrincipal Long userId,
-            @RequestBody UpdateNotificationSettingRequest request) {
-        return ResponseEntity.ok(
-                ApiResponse.ok(userService.updateNotificationSetting(userId, request)));
-    }
-
     @GetMapping("/me/territories")
     public ResponseEntity<ApiResponse<MyTerritoryResponse>> getMyTerritories(
             @AuthenticationPrincipal Long userId,
@@ -78,20 +44,6 @@ public class UserController {
     public ResponseEntity<ApiResponse<MyWalletResponse>> getMyWallet(
             @AuthenticationPrincipal Long userId) {
         return ResponseEntity.ok(ApiResponse.ok(userService.getMyWallet(userId)));
-    }
-
-    @PatchMapping("/me/nickname")
-    public ResponseEntity<ApiResponse<ChangeNicknameResponse>> changeUserNickname(
-            @AuthenticationPrincipal Long userId, @RequestBody ChangeNicknameRequest request) {
-        return ResponseEntity.ok(
-                ApiResponse.ok(userService.changeUserNickname(userId, request.nickname())));
-    }
-
-    @PatchMapping("/me/password")
-    public ResponseEntity<ApiResponse<Void>> changeUserPassword(
-            @AuthenticationPrincipal Long userId, @RequestBody ChangePasswordRequest request) {
-        userService.changeUserPassword(userId, request.currentPassword(), request.newPassword());
-        return ResponseEntity.ok(ApiResponse.ok("비밀번호가 성공적으로 변경되었습니다.", null));
     }
 
     @PostMapping("/me/ap/charge")

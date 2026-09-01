@@ -34,6 +34,12 @@ server:
 monolith:
   base-url: ${MONOLITH_BASE_URL:http://localhost:8080}
 
+user-service:
+  base-url: ${USER_SERVICE_BASE_URL:http://localhost:8083}
+
+internal-api:
+  secret: ${INTERNAL_API_SECRET}
+
 # 스캐폴드 단계: health만 노출
 management:
   endpoints:

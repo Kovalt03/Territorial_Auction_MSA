@@ -56,7 +56,7 @@ class StompChannelInterceptorTest {
         @DisplayName("유효하지 않은 토큰 → IllegalArgumentException")
         void connect_invalidToken_throwException() {
             Message<byte[]> message = buildMessage(StompCommand.CONNECT, "Bearer invalid.token");
-            given(jwtTokenProvider.validate("invalid.token")).willReturn(false);
+            given(jwtTokenProvider.validateAccessToken("invalid.token")).willReturn(false);
 
             assertThatThrownBy(() -> interceptor.preSend(message, channel))
                     .isInstanceOf(IllegalArgumentException.class)
@@ -67,8 +67,8 @@ class StompChannelInterceptorTest {
         @DisplayName("유효한 토큰 → Principal에 userId 주입")
         void connect_validToken_setUser() {
             Message<byte[]> message = buildMessage(StompCommand.CONNECT, "Bearer valid.token");
-            given(jwtTokenProvider.validate("valid.token")).willReturn(true);
-            given(jwtTokenProvider.getUserId("valid.token")).willReturn(1L);
+            given(jwtTokenProvider.validateAccessToken("valid.token")).willReturn(true);
+            given(jwtTokenProvider.getAccessTokenUserId("valid.token")).willReturn(1L);
 
             Message<?> result = interceptor.preSend(message, channel);
 

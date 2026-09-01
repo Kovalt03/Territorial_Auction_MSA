@@ -38,7 +38,7 @@
 |---|---|---|
 | 0 | 모놀리식 + CI/CD·검증 정책 확립 | ✅ 완료 |
 | 1 | **auction-service** (auction) | ✅ **완료** — 서비스 추출·게이트웨이·이벤트 프로젝션·모놀리식 auction 도메인 삭제 |
-| 2 | user-service (user, auth) | 예정 |
+| 2 | user-service (user, auth) | 🚧 진행 — 인증·Auction 지갑 계약·가입 outbox 기반 구현 |
 | 3 | combat-service (military, building) | 예정 |
 | 4 | economy-service (item, season) | 예정 |
 | 5 | social-service (social, guild) | 예정 |
@@ -54,7 +54,7 @@
 
 - **서비스 분리**: `services/auction-service` — 자체 DB(`auction-postgres`) 소유. 엔티티는 크로스도메인 관계 대신 ID+스냅샷.
 - **게이트웨이**: Spring Cloud Gateway — `/api/v1/auctions/**` → auction-service, JWT의 subject를 `X-User-Id`로 주입.
-- **동기 통신**: auction-service → 모놀리식 `/internal/*`(지갑 에스크로·영토 점유·성 생성). [계약: internal.md](../../api/internal.md)
+- **동기 통신**: auction-service → user-service(지갑 에스크로·정산), 모놀리식(영토 점유·성 생성) `/internal/*`. [계약: internal.md](../../api/internal.md)
 - **비동기 통신**: Redis pub/sub — 경매 생성/입찰/정산/종료 이벤트.
 - **읽기 프로젝션**: 맵 그리드 '경매중' 표시를 auction 테이블 조회 → 모놀리식 로컬 read-model(`territory_auction_status`)로 대체(이벤트 구독). 부하 실측: 경매 쓰기 경합 하 맵 그리드 조회 **p99 ~10배 개선**.
 - **실시간·랭킹·시즌**: 클라이언트 WS는 모놀리식 realtime 허브가 이벤트를 구독해 push. 랭킹·시즌 귀속은 이벤트 브리지로 인프로세스 재발행.
@@ -95,6 +95,7 @@ feature/{domain}-{n}-{step}  ─┘             (서비스 통합 브랜치)    
 | 서비스 | 가이드 | 위치 |
 |---|---|---|
 | auction | `auction-extraction.md` | `msa/auction-service` 브랜치 (작업 중 추가 예정) |
+| user | [user-extraction.md](./user-extraction.md) | 현재 `msa/user-service` 작업 기준 |
 
 ## 관련 (MSA 밖 공통 문서)
 

@@ -1,0 +1,113 @@
+package com.territorial.user.domain.user.controller;
+
+import com.territorial.user.domain.user.dto.WalletSnapshot;
+import com.territorial.user.domain.user.service.WalletService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+/** Gateway로 라우팅하지 않는 Auction 전용 지갑 계약. */
+@RestController
+@RequestMapping("/internal/wallets")
+@RequiredArgsConstructor
+public class WalletInternalController {
+
+    private final WalletService walletService;
+
+    @PostMapping("/bid-escrow")
+    public ResponseEntity<BidEscrowResponse> bidEscrow(@RequestBody BidEscrowRequest request) {
+        return ResponseEntity.ok(
+                new BidEscrowResponse(
+                        walletService.bidEscrow(
+                                request.auctionId(),
+                                request.bidderId(),
+                                request.bidAmount(),
+                                request.previousBidderId(),
+                                request.previousAmount())));
+    }
+
+    @PostMapping("/bid-escrow-compensate")
+    public ResponseEntity<Void> compensateBidEscrow(
+            @RequestBody BidEscrowCompensateRequest request) {
+        walletService.compensateBidEscrow(
+                request.auctionId(),
+                request.bidderId(),
+                request.bidAmount(),
+                request.previousBidderId(),
+                request.previousAmount());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/consume-locked")
+    public ResponseEntity<Void> consumeLocked(@RequestBody ConsumeLockedRequest request) {
+        walletService.consumeLocked(request.winnerId(), request.finalPrice(), request.auctionId());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/refund-locked")
+    public ResponseEntity<Void> refundLocked(@RequestBody RefundLockedRequest request) {
+        walletService.refundLocked(request.bidderId(), request.amount(), request.auctionId());
+        return ResponseEntity.ok().build();
+    }
+
+    // ── 일반 AP 명령 (건물·아이템·시즌·admin이 호출) ──────────────────────────
+
+    @PostMapping("/spend")
+    public ResponseEntity<WalletSnapshot> spend(@RequestBody SpendRequest request) {
+        return ResponseEntity.ok(
+                walletService.spend(request.userId(), request.amount(), request.commandKey()));
+    }
+
+    @PostMapping("/credit")
+    public ResponseEntity<WalletSnapshot> credit(@RequestBody CreditRequest request) {
+        return ResponseEntity.ok(
+                walletService.credit(request.userId(), request.amount(), request.commandKey()));
+    }
+
+    @PostMapping("/adjust")
+    public ResponseEntity<WalletSnapshot> adjust(@RequestBody AdjustRequest request) {
+        return ResponseEntity.ok(
+                walletService.adjust(request.userId(), request.delta(), request.commandKey()));
+    }
+
+    @GetMapping("/{userId}")
+    public ResponseEntity<WalletSnapshot> getWallet(@PathVariable Long userId) {
+        return ResponseEntity.ok(walletService.getWallet(userId));
+    }
+
+    @GetMapping("/sum-available")
+    public ResponseEntity<Long> sumAvailable() {
+        return ResponseEntity.ok(walletService.sumAvailableAp());
+    }
+
+    public record SpendRequest(Long userId, int amount, String commandKey) {}
+
+    public record CreditRequest(Long userId, int amount, String commandKey) {}
+
+    public record AdjustRequest(Long userId, int delta, String commandKey) {}
+
+    public record BidEscrowRequest(
+            Long auctionId,
+            Long bidderId,
+            int bidAmount,
+            Long previousBidderId,
+            Integer previousAmount) {}
+
+    public record BidEscrowResponse(String bidderNickname) {}
+
+    public record BidEscrowCompensateRequest(
+            Long auctionId,
+            Long bidderId,
+            int bidAmount,
+            Long previousBidderId,
+            Integer previousAmount) {}
+
+    public record ConsumeLockedRequest(Long winnerId, int finalPrice, Long auctionId) {}
+
+    public record RefundLockedRequest(Long bidderId, int amount, Long auctionId) {}
+}

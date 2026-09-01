@@ -2,11 +2,9 @@ package com.territorial.auction.domain.user.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 
 import com.territorial.auction.domain.building.entity.HomeIsland;
 import com.territorial.auction.domain.building.repository.HomeIslandRepository;
@@ -19,22 +17,16 @@ import com.territorial.auction.domain.season.entity.UserSeasonPass;
 import com.territorial.auction.domain.season.entity.UserTrophy;
 import com.territorial.auction.domain.season.repository.UserSeasonPassRepository;
 import com.territorial.auction.domain.season.repository.UserTrophyRepository;
-import com.territorial.auction.domain.user.dto.ChangeNicknameResponse;
+import com.territorial.auction.domain.user.client.WalletClient;
+import com.territorial.auction.domain.user.client.WalletSnapshot;
 import com.territorial.auction.domain.user.dto.MyProfileResponse;
 import com.territorial.auction.domain.user.dto.MyTerritoryResponse;
 import com.territorial.auction.domain.user.dto.MyWalletResponse;
-import com.territorial.auction.domain.user.dto.NotificationSettingResponse;
-import com.territorial.auction.domain.user.dto.UpdateNotificationSettingRequest;
 import com.territorial.auction.domain.user.dto.UserProfileResponse;
-import com.territorial.auction.domain.user.entity.NotificationSetting;
 import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.entity.UserProfile;
-import com.territorial.auction.domain.user.entity.UserStatus;
-import com.territorial.auction.domain.user.entity.Wallet;
-import com.territorial.auction.domain.user.repository.NotificationSettingRepository;
 import com.territorial.auction.domain.user.repository.UserProfileRepository;
 import com.territorial.auction.domain.user.repository.UserRepository;
-import com.territorial.auction.domain.user.repository.WalletRepository;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import com.territorial.auction.global.security.jwt.RefreshTokenService;
@@ -52,7 +44,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -61,7 +52,7 @@ class UserServiceTest {
     @InjectMocks private UserService userService;
 
     @Mock private UserRepository userRepository;
-    @Mock private WalletRepository walletRepository;
+    @Mock private WalletClient walletClient;
 
     @Mock
     private com.territorial.auction.domain.building.repository.GlobalVaultRepository
@@ -70,10 +61,8 @@ class UserServiceTest {
     @Mock private HomeIslandRepository homeIslandRepository;
     @Mock private UserSeasonPassRepository userSeasonPassRepository;
     @Mock private TerritoryRepository territoryRepository;
-    @Mock private NotificationSettingRepository notificationSettingRepository;
     @Mock private UserProfileRepository userProfileRepository;
     @Mock private UserTrophyRepository userTrophyRepository;
-    @Mock private PasswordEncoder passwordEncoder;
     @Mock private RefreshTokenService refreshTokenService;
     @Mock private com.territorial.auction.global.security.jwt.JwtTokenProvider jwtTokenProvider;
     @Mock private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
@@ -95,13 +84,6 @@ class UserServiceTest {
         ReflectionTestUtils.setField(user, "id", 1L);
         ReflectionTestUtils.setField(user, "createdAt", LocalDateTime.of(2026, 1, 10, 0, 0));
         return user;
-    }
-
-    private Wallet sampleWallet(User user) {
-        Wallet wallet = Wallet.builder().user(user).build();
-        ReflectionTestUtils.setField(wallet, "availableAp", 300);
-        ReflectionTestUtils.setField(wallet, "lockedAp", 0);
-        return wallet;
     }
 
     // 지갑 화면의 GP 는 금고 잔액을 보여준다 — 금고에 1500 을 둔다.
@@ -139,12 +121,6 @@ class UserServiceTest {
                 .build();
     }
 
-    private NotificationSetting sampleNotificationSetting(User user) {
-        NotificationSetting setting = NotificationSetting.builder().user(user).build();
-        ReflectionTestUtils.setField(setting, "updatedAt", LocalDateTime.of(2026, 4, 9, 10, 0));
-        return setting;
-    }
-
     // ─── getMyProfile() ───────────────────────────────────────────────────────
 
     @Nested
@@ -156,7 +132,7 @@ class UserServiceTest {
         void getMyProfile_success() {
             User user = sampleUser();
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(walletRepository.findById(1L)).willReturn(Optional.of(sampleWallet(user)));
+            given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(300, 0));
             given(homeIslandRepository.findByUserId(1L))
                     .willReturn(Optional.of(sampleIsland(user)));
             given(userSeasonPassRepository.findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(1L))
@@ -188,7 +164,7 @@ class UserServiceTest {
                             .expiresAt(LocalDateTime.now().plusDays(30))
                             .build();
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(walletRepository.findById(1L)).willReturn(Optional.of(sampleWallet(user)));
+            given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(300, 0));
             given(homeIslandRepository.findByUserId(1L))
                     .willReturn(Optional.of(sampleIsland(user)));
             given(userSeasonPassRepository.findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(1L))
@@ -217,7 +193,7 @@ class UserServiceTest {
         void getMyProfile_islandNotFound() {
             User user = sampleUser();
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(walletRepository.findById(1L)).willReturn(Optional.of(sampleWallet(user)));
+            given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(300, 0));
             given(homeIslandRepository.findByUserId(1L)).willReturn(Optional.empty());
             given(userSeasonPassRepository.findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(1L))
                     .willReturn(Optional.empty());
@@ -330,166 +306,6 @@ class UserServiceTest {
         }
     }
 
-    // ─── getNotificationSetting() ─────────────────────────────────────────────
-
-    @Nested
-    @DisplayName("getNotificationSetting()")
-    class GetNotificationSetting {
-
-        @Test
-        @DisplayName("정상 조회 시 NotificationSettingResponse 반환")
-        void getNotificationSetting_success() {
-            User user = sampleUser();
-            given(notificationSettingRepository.findById(1L))
-                    .willReturn(Optional.of(sampleNotificationSetting(user)));
-
-            NotificationSettingResponse response = userService.getNotificationSetting(1L);
-
-            assertThat(response.isOutbidEnabled()).isTrue();
-            assertThat(response.isAuctionStartEnabled()).isTrue();
-            assertThat(response.isMarketingEnabled()).isFalse();
-        }
-
-        @Test
-        @DisplayName("알림 설정이 없으면 NOTIFICATION_NOT_FOUND 예외")
-        void getNotificationSetting_notFound() {
-            given(notificationSettingRepository.findById(99L)).willReturn(Optional.empty());
-
-            assertThatThrownBy(() -> userService.getNotificationSetting(99L))
-                    .isInstanceOf(CustomException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.NOTIFICATION_NOT_FOUND);
-        }
-    }
-
-    // ─── updateNotificationSetting() ──────────────────────────────────────────
-
-    @Nested
-    @DisplayName("updateNotificationSetting()")
-    class UpdateNotificationSetting {
-
-        @Test
-        @DisplayName("전체 필드 업데이트 시 변경된 값 반환")
-        void updateNotificationSetting_allFields() {
-            User user = sampleUser();
-            NotificationSetting setting = sampleNotificationSetting(user);
-            given(notificationSettingRepository.findById(1L)).willReturn(Optional.of(setting));
-            given(notificationSettingRepository.save(any(NotificationSetting.class)))
-                    .willAnswer(inv -> inv.getArgument(0));
-
-            UpdateNotificationSettingRequest request =
-                    new UpdateNotificationSettingRequest(false, false, true);
-
-            NotificationSettingResponse response =
-                    userService.updateNotificationSetting(1L, request);
-
-            assertThat(response.isOutbidEnabled()).isFalse();
-            assertThat(response.isAuctionStartEnabled()).isFalse();
-            assertThat(response.isMarketingEnabled()).isTrue();
-        }
-
-        @Test
-        @DisplayName("null 필드는 기존 값 유지 (Partial Update)")
-        void updateNotificationSetting_partialUpdate() {
-            User user = sampleUser();
-            NotificationSetting setting = sampleNotificationSetting(user);
-            // 기본값: isOutbidEnabled=true, isAuctionStartEnabled=true, isMarketingEnabled=false
-            given(notificationSettingRepository.findById(1L)).willReturn(Optional.of(setting));
-            given(notificationSettingRepository.save(any(NotificationSetting.class)))
-                    .willAnswer(inv -> inv.getArgument(0));
-
-            UpdateNotificationSettingRequest request =
-                    new UpdateNotificationSettingRequest(false, null, null);
-            // isAuctionStartEnabled, isMarketingEnabled 는 null → 변경 없음
-
-            NotificationSettingResponse response =
-                    userService.updateNotificationSetting(1L, request);
-
-            assertThat(response.isOutbidEnabled()).isFalse();
-            assertThat(response.isAuctionStartEnabled()).isTrue(); // 기존 유지
-            assertThat(response.isMarketingEnabled()).isFalse(); // 기존 유지
-        }
-
-        @Test
-        @DisplayName("알림 설정이 없으면 NOTIFICATION_NOT_FOUND 예외")
-        void updateNotificationSetting_notFound() {
-            given(notificationSettingRepository.findById(99L)).willReturn(Optional.empty());
-
-            UpdateNotificationSettingRequest request =
-                    new UpdateNotificationSettingRequest(null, null, null);
-
-            assertThatThrownBy(() -> userService.updateNotificationSetting(99L, request))
-                    .isInstanceOf(CustomException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.NOTIFICATION_NOT_FOUND);
-        }
-
-        @Test
-        @DisplayName("save 호출 여부 검증")
-        void updateNotificationSetting_callsSave() {
-            User user = sampleUser();
-            NotificationSetting setting = sampleNotificationSetting(user);
-            given(notificationSettingRepository.findById(1L)).willReturn(Optional.of(setting));
-            given(notificationSettingRepository.save(any(NotificationSetting.class)))
-                    .willAnswer(inv -> inv.getArgument(0));
-
-            UpdateNotificationSettingRequest request =
-                    new UpdateNotificationSettingRequest(null, null, true);
-
-            userService.updateNotificationSetting(1L, request);
-
-            then(notificationSettingRepository).should().save(setting);
-        }
-    }
-
-    // ─── deleteMe() ───────────────────────────────────────────────────────────
-
-    @Nested
-    @DisplayName("deleteMe()")
-    class DeleteMe {
-
-        @Test
-        @DisplayName("존재하지 않는 userId 시 USER_NOT_FOUND 예외")
-        void deleteMe_userNotFound() {
-            given(userRepository.findById(99L)).willReturn(Optional.empty());
-
-            assertThatThrownBy(() -> userService.deleteMe(99L, "any", null))
-                    .isInstanceOf(CustomException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.USER_NOT_FOUND);
-        }
-
-        @Test
-        @DisplayName("비밀번호 불일치 시 INVALID_PASSWORD 예외 — passwordEncoder.matches() 사용 전제")
-        void deleteMe_wrongPassword_throwsInvalidPassword() {
-            User user = sampleUser(); // passwordHash = "encoded"
-            given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(passwordEncoder.matches("wrongPw", "encoded")).willReturn(false);
-
-            assertThatThrownBy(() -> userService.deleteMe(1L, "wrongPw", null))
-                    .isInstanceOf(CustomException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.INVALID_PASSWORD);
-        }
-
-        @Test
-        @DisplayName("정상 탈퇴 시 소프트 삭제 — status=WITHDRAWN, userRepository.delete() 미호출")
-        void deleteMe_success_softDelete() {
-            User user = sampleUser(); // passwordHash = "encoded"
-            given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(passwordEncoder.matches("rawPw", "encoded")).willReturn(true);
-
-            userService.deleteMe(1L, "rawPw", null);
-
-            // 소프트 삭제 검증: 하드 삭제 금지, status=WITHDRAWN 이어야 함
-            then(userRepository).should(never()).delete(user);
-            assertThat(user.getStatus()).isEqualTo(UserStatus.WITHDRAWN);
-            then(refreshTokenService).should().delete(1L);
-        }
-    }
-
-    // ─── getMyWallet() ────────────────────────────────────────────────────────
-
     @Nested
     @DisplayName("getMyWallet()")
     class GetMyWallet {
@@ -498,9 +314,8 @@ class UserServiceTest {
         @DisplayName("정상 조회 시 MyWalletResponse 반환")
         void getMyWallet_success() {
             User user = sampleUser();
-            Wallet wallet = sampleWallet(user); // availableGp=1500, availableAp=300, lockedAp=0
 
-            given(walletRepository.findById(1L)).willReturn(Optional.of(wallet));
+            given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(300, 0));
 
             stubVaultGp(1L, 1500);
             MyWalletResponse response = userService.getMyWallet(1L);
@@ -513,7 +328,9 @@ class UserServiceTest {
         @Test
         @DisplayName("지갑 없으면 USER_NOT_FOUND 예외")
         void getMyWallet_notFound() {
-            given(walletRepository.findById(99L)).willReturn(Optional.empty());
+            willThrow(new CustomException(ErrorCode.USER_NOT_FOUND))
+                    .given(walletClient)
+                    .getWallet(99L);
 
             assertThatThrownBy(() -> userService.getMyWallet(99L))
                     .isInstanceOf(CustomException.class)
@@ -578,84 +395,6 @@ class UserServiceTest {
 
             assertThat(response.totalCount()).isEqualTo(0);
             assertThat(response.territories()).isEmpty();
-        }
-    }
-
-    // ─── changeUserNickname() ─────────────────────────────────────────────────
-
-    @Nested
-    @DisplayName("changeUserNickname()")
-    class ChangeUserNickname {
-
-        @Test
-        @DisplayName("정상 변경 시 ChangeNicknameResponse 반환")
-        void changeUserNickname_success() {
-            User user = sampleUser(); // nickname = "픽셀전사"
-            given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(userRepository.existsByNickname("새닉네임")).willReturn(false);
-            given(userRepository.save(user)).willReturn(user);
-
-            ChangeNicknameResponse response = userService.changeUserNickname(1L, "새닉네임");
-
-            assertThat(response.userId()).isEqualTo(1L);
-            assertThat(response.nickname()).isEqualTo("새닉네임");
-            assertThat(response.updatedAt()).isNotNull();
-        }
-
-        @Test
-        @DisplayName("중복 닉네임이면 DUPLICATE_NICKNAME 예외")
-        void changeUserNickname_duplicate() {
-            User user = sampleUser();
-            given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(userRepository.existsByNickname("중복닉네임")).willReturn(true);
-
-            assertThatThrownBy(() -> userService.changeUserNickname(1L, "중복닉네임"))
-                    .isInstanceOf(CustomException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.DUPLICATE_NICKNAME);
-        }
-
-        @Test
-        @DisplayName("존재하지 않는 userId 시 USER_NOT_FOUND 예외")
-        void changeUserNickname_userNotFound() {
-            given(userRepository.findById(99L)).willReturn(Optional.empty());
-
-            assertThatThrownBy(() -> userService.changeUserNickname(99L, "닉네임"))
-                    .isInstanceOf(CustomException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.USER_NOT_FOUND);
-        }
-    }
-
-    // ─── changeUserPassword() ─────────────────────────────────────────────────
-
-    @Nested
-    @DisplayName("changeUserPassword()")
-    class ChangeUserPassword {
-
-        @Test
-        @DisplayName("정상 변경 시 passwordEncoder.encode 호출 후 save")
-        void changeUserPassword_success() {
-            User user = sampleUser(); // passwordHash = "encoded"
-            given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(passwordEncoder.matches("curPw", "encoded")).willReturn(true);
-            given(passwordEncoder.encode("newPw")).willReturn("newEncoded");
-
-            userService.changeUserPassword(1L, "curPw", "newPw");
-
-            assertThat(user.getPasswordHash()).isEqualTo("newEncoded");
-            then(userRepository).should().save(user);
-        }
-
-        @Test
-        @DisplayName("존재하지 않는 userId 시 USER_NOT_FOUND 예외")
-        void changeUserPassword_userNotFound() {
-            given(userRepository.findById(99L)).willReturn(Optional.empty());
-
-            assertThatThrownBy(() -> userService.changeUserPassword(99L, "curPw", "newPw"))
-                    .isInstanceOf(CustomException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.USER_NOT_FOUND);
         }
     }
 }

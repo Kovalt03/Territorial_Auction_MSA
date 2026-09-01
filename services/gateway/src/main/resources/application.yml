@@ -7,6 +7,29 @@ spring:
   cloud:
     gateway:
       routes:
+        # 지갑 표시/충전(/api/v1/users/me/wallet·/ap/charge)은 모놀리식이 서빙한다:
+        # AP는 user-service(walletClient), GP/금고는 모놀리식 소유 → 모놀리식이 합성. (/** 폴백)
+        - id: user-service-auth
+          uri: ${USER_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/v1/auth/**
+        # 신원 프로필 쓰기(닉네임·비밀번호)는 user-service 소유. 나머지 /api/v1/users는 모놀리식(/** 폴백).
+        - id: user-service-profile
+          uri: ${USER_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/v1/users/me/nickname,/api/v1/users/me/password
+            - Method=PATCH
+        # 알림 설정(조회·수정)은 user-service 소유.
+        - id: user-service-settings
+          uri: ${USER_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/v1/users/me/settings
+        # 셀프 탈퇴(DELETE)는 user-service 소유. GET /me(프로필)는 모놀리식 유지.
+        - id: user-service-withdrawal
+          uri: ${USER_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/v1/users/me
+            - Method=DELETE
         # 경매 REST는 auction-service로
         - id: auction-service
           uri: ${AUCTION_SERVICE_URL:http://localhost:8082}

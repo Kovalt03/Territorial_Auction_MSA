@@ -66,7 +66,7 @@ public class BuildingService {
     private final IslandGradeRepository islandGradeRepository;
     private final TerritoryRepository territoryRepository;
     private final UserRepository userRepository;
-    private final com.territorial.auction.domain.user.repository.WalletRepository walletRepository;
+    private final com.territorial.auction.domain.user.client.WalletClient walletClient;
     private final UserSeasonPassRepository userSeasonPassRepository;
     private final NotificationService notificationService;
     private final com.territorial.auction.domain.building.repository.BuildingCastleLimitRepository
@@ -177,17 +177,10 @@ public class BuildingService {
         }
         long remainingSeconds = ChronoUnit.SECONDS.between(now, building.getBuildCompleteAt());
         int apCost = BuildingPolicy.rushApCost(remainingSeconds);
-        com.territorial.auction.domain.user.entity.Wallet wallet =
-                walletRepository
-                        .findById(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.WALLET_NOT_FOUND));
-        if (wallet.getAvailableAp() < apCost) {
-            throw new CustomException(ErrorCode.INSUFFICIENT_AP);
-        }
-        wallet.spendAp(apCost);
         finishConstruction(building);
+        var wallet = walletClient.spend(userId, apCost, "RUSH:" + userId + ":" + buildingId);
         log.info("건축 AP 즉시 완료. userId={}, buildingId={}, apCost={}", userId, buildingId, apCost);
-        return new RushConstructionResponse(building.getId(), apCost, wallet.getAvailableAp());
+        return new RushConstructionResponse(building.getId(), apCost, wallet.availableAp());
     }
 
     // 대기가 끝난 건물을 정리한다 — 업그레이드였다면 레벨·HP를 올리고, 성이면 섬을 확장한다.
@@ -673,22 +666,19 @@ public class BuildingService {
         if (island.isProductionBoostActive(now)) {
             throw new CustomException(ErrorCode.PRODUCTION_BOOST_ALREADY_ACTIVE);
         }
-        com.territorial.auction.domain.user.entity.Wallet wallet =
-                walletRepository
-                        .findById(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.WALLET_NOT_FOUND));
-        if (wallet.getAvailableAp() < BuildingPolicy.PRODUCTION_BOOST_AP_COST) {
-            throw new CustomException(ErrorCode.INSUFFICIENT_AP);
-        }
-        wallet.spendAp(BuildingPolicy.PRODUCTION_BOOST_AP_COST);
         LocalDateTime until = now.plusHours(BuildingPolicy.PRODUCTION_BOOST_DURATION_HOURS);
         island.activateProductionBoost(until);
+        var wallet =
+                walletClient.spend(
+                        userId,
+                        BuildingPolicy.PRODUCTION_BOOST_AP_COST,
+                        "PROD_BOOST:" + userId + ":" + until);
         log.info("생산 부스터 발동. userId={}, until={}", userId, until);
         return new ProductionBoostResponse(
                 until,
                 BuildingPolicy.PRODUCTION_BOOST_MULTIPLIER,
                 BuildingPolicy.PRODUCTION_BOOST_AP_COST,
-                wallet.getAvailableAp());
+                wallet.availableAp());
     }
 
     private LocalDateTime resolveLastHarvest(HomeIsland island) {

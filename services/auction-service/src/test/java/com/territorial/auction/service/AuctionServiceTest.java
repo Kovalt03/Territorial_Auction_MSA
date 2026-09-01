@@ -44,6 +44,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @ExtendWith(MockitoExtension.class)
@@ -212,6 +213,42 @@ class AuctionServiceTest {
             verify(walletClient).bidEscrow(captor.capture());
             assertThat(captor.getValue().previousBidderId()).isEqualTo(2L);
             assertThat(captor.getValue().previousAmount()).isEqualTo(1000);
+        }
+
+        @Test
+        @DisplayName("입찰 로컬 롤백 시 escrow 보상 호출 (동일 요청으로 역전)")
+        void placeBid_rollback_compensatesEscrow() {
+            Auction a = activeAuction(1000);
+            given(auctionRepository.findById(1L)).willReturn(Optional.of(a));
+            given(walletClient.bidEscrow(any())).willReturn(new BidEscrowResult("입찰왕"));
+
+            auctionService.placeBid(3L, 1L, new PlaceBidRequest(1100));
+            fireCompletion(TransactionSynchronization.STATUS_ROLLED_BACK);
+
+            ArgumentCaptor<com.territorial.auction.client.BidEscrowRequest> captor =
+                    ArgumentCaptor.forClass(com.territorial.auction.client.BidEscrowRequest.class);
+            verify(walletClient).compensateBidEscrow(captor.capture());
+            assertThat(captor.getValue().bidderId()).isEqualTo(3L);
+            assertThat(captor.getValue().bidAmount()).isEqualTo(1100);
+        }
+
+        @Test
+        @DisplayName("입찰 커밋 성공 시 escrow 보상 호출 안 함")
+        void placeBid_commit_noCompensation() {
+            Auction a = activeAuction(1000);
+            given(auctionRepository.findById(1L)).willReturn(Optional.of(a));
+            given(walletClient.bidEscrow(any())).willReturn(new BidEscrowResult("입찰왕"));
+
+            auctionService.placeBid(3L, 1L, new PlaceBidRequest(1100));
+            fireCompletion(TransactionSynchronization.STATUS_COMMITTED);
+
+            verify(walletClient, never()).compensateBidEscrow(any());
+        }
+
+        private void fireCompletion(int status) {
+            List<TransactionSynchronization> syncs =
+                    TransactionSynchronizationManager.getSynchronizations();
+            syncs.forEach(s -> s.afterCompletion(status));
         }
 
         @Test

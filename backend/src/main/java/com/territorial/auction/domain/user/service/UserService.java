@@ -12,20 +12,15 @@ import com.territorial.auction.domain.season.entity.UserSeasonPass;
 import com.territorial.auction.domain.season.entity.UserTrophy;
 import com.territorial.auction.domain.season.repository.UserSeasonPassRepository;
 import com.territorial.auction.domain.season.repository.UserTrophyRepository;
+import com.territorial.auction.domain.user.client.WalletClient;
+import com.territorial.auction.domain.user.client.WalletSnapshot;
 import com.territorial.auction.domain.user.dto.*;
-import com.territorial.auction.domain.user.dto.ChangeNicknameResponse;
 import com.territorial.auction.domain.user.dto.MyWalletResponse;
 import com.territorial.auction.domain.user.entity.*;
-import com.territorial.auction.domain.user.repository.NotificationSettingRepository;
 import com.territorial.auction.domain.user.repository.UserProfileRepository;
 import com.territorial.auction.domain.user.repository.UserRepository;
-import com.territorial.auction.domain.user.repository.WalletRepository;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
-import com.territorial.auction.global.security.jwt.JwtAuthenticationFilter;
-import com.territorial.auction.global.security.jwt.JwtTokenProvider;
-import com.territorial.auction.global.security.jwt.RefreshTokenService;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -36,10 +31,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -47,17 +40,13 @@ import org.springframework.util.StringUtils;
 public class UserService {
 
     private final UserRepository userRepository;
-    private final WalletRepository walletRepository;
+    private final WalletClient walletClient;
     private final GlobalVaultRepository globalVaultRepository;
     private final HomeIslandRepository homeIslandRepository;
     private final UserSeasonPassRepository userSeasonPassRepository;
     private final TerritoryRepository territoryRepository;
     private final UserProfileRepository userProfileRepository;
     private final UserTrophyRepository userTrophyRepository;
-    private final NotificationSettingRepository notificationSettingRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final RefreshTokenService refreshTokenService;
-    private final JwtTokenProvider jwtTokenProvider;
     private final StringRedisTemplate stringRedisTemplate;
     private final UnitInstanceRepository unitInstanceRepository;
 
@@ -79,10 +68,7 @@ public class UserService {
                         .findById(userId)
                         .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        Wallet wallet =
-                walletRepository
-                        .findById(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        WalletSnapshot wallet = walletClient.getWallet(userId);
 
         Optional<HomeIsland> islandOpt = homeIslandRepository.findByUserId(userId);
 
@@ -110,7 +96,7 @@ public class UserService {
                 user.getId(),
                 user.getNickname(),
                 new MyProfileResponse.WalletInfo(
-                        vaultGp(user.getId()), wallet.getAvailableAp(), wallet.getLockedAp()),
+                        vaultGp(user.getId()), wallet.availableAp(), wallet.lockedAp()),
                 islandInfo,
                 activePass
                         .map(
@@ -149,57 +135,6 @@ public class UserService {
                 territoryCount,
                 null,
                 user.getCreatedAt());
-    }
-
-    @Transactional
-    public void deleteMe(Long userId, String password, String accessToken) {
-        User user =
-                userRepository
-                        .findById(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        if (!user.getPasswordHash().isEmpty()
-                && !passwordEncoder.matches(password, user.getPasswordHash()))
-            throw new CustomException(ErrorCode.INVALID_PASSWORD);
-
-        user.updateStatus(UserStatus.WITHDRAWN);
-        userRepository.save(user);
-        refreshTokenService.delete(userId);
-        blacklistAccessToken(accessToken);
-    }
-
-    private void blacklistAccessToken(String accessToken) {
-        if (!StringUtils.hasText(accessToken)) return;
-        long remainingMs = jwtTokenProvider.getRemainingMs(accessToken);
-        if (remainingMs <= 0) return;
-        stringRedisTemplate
-                .opsForValue()
-                .set(
-                        JwtAuthenticationFilter.BLACKLIST_KEY_PREFIX + accessToken,
-                        "1",
-                        Duration.ofMillis(remainingMs));
-    }
-
-    public NotificationSettingResponse getNotificationSetting(Long userId) {
-        NotificationSetting setting =
-                notificationSettingRepository
-                        .findById(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND));
-        return NotificationSettingResponse.from(setting);
-    }
-
-    @Transactional
-    public NotificationSettingResponse updateNotificationSetting(
-            Long userId, UpdateNotificationSettingRequest request) {
-        NotificationSetting setting =
-                notificationSettingRepository
-                        .findById(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND));
-        setting.update(
-                request.isOutbidEnabled(),
-                request.isAuctionStartEnabled(),
-                request.isMarketingEnabled());
-        notificationSettingRepository.save(setting);
-        return NotificationSettingResponse.from(setting);
     }
 
     @Transactional(readOnly = true)
@@ -248,47 +183,12 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public MyWalletResponse getMyWallet(Long userId) {
-        Wallet wallet =
-                walletRepository
-                        .findById(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        WalletSnapshot wallet = walletClient.getWallet(userId);
         // GP 는 위치별 저장소·금고로 이관됐다 — 지갑 화면의 GP 는 금고 잔액을 보여준다.
-        return new MyWalletResponse(vaultGp(userId), wallet.getAvailableAp(), wallet.getLockedAp());
+        return new MyWalletResponse(vaultGp(userId), wallet.availableAp(), wallet.lockedAp());
     }
 
     private int vaultGp(Long userId) {
         return globalVaultRepository.findById(userId).map(GlobalVault::getStoredGp).orElse(0);
-    }
-
-    @Transactional
-    public ChangeNicknameResponse changeUserNickname(Long userId, String nickname) {
-        User user =
-                userRepository
-                        .findById(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-        if (userRepository.existsByNickname(nickname)) {
-            throw new CustomException(ErrorCode.DUPLICATE_NICKNAME);
-        }
-
-        user.updateNickname(nickname);
-        userRepository.save(user);
-        // TODO: LocalDateTime.now()는 실제 DB 저장 시각과 미세하게 다를 수 있음
-        //       User 엔티티에 @LastModifiedDate updatedAt 필드 추가 후 해당 값으로 교체 권장
-        return new ChangeNicknameResponse(user.getId(), user.getNickname(), LocalDateTime.now());
-    }
-
-    @Transactional
-    public void changeUserPassword(Long userId, String currentPassword, String newPassword) {
-        User user =
-                userRepository
-                        .findById(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash()))
-            throw new CustomException(ErrorCode.INVALID_PASSWORD);
-
-        user.updatePassword(passwordEncoder.encode(newPassword));
-        userRepository.save(user);
     }
 }

@@ -2,9 +2,9 @@
 #   docker compose -f docker-compose.msa.yml up -d --build
 #
 # 구성:
-#   - DB 분리: 모놀리식(territorial-postgres) / auction-service(auction-postgres) 각자 소유
-#   - 공유 redis: 서비스 간 이벤트 버스(auction.* pub/sub) + 캐시. 이벤트가 오가려면 반드시 동일 인스턴스.
-#   - 게이트웨이: /api/v1/auctions/** → auction-service, /ws·그 외 → 모놀리식. JWT→X-User-Id 주입.
+#   - DB 분리: 모놀리식 / auction-service / user-service가 각각 자기 PostgreSQL을 소유.
+#   - 공유 redis: auction.* pub/sub, user.created Stream, 캐시. 이벤트가 오가려면 반드시 동일 인스턴스.
+#   - 게이트웨이: auction·auth·wallet 공개 경로를 분리 서비스로 라우팅하고 access JWT만 X-User-Id로 변환.
 #   - 프론트: 게이트웨이로 프록시.
 # 모놀리식 단독(전환 이전) 구동은 docker-compose.yml 사용.
 services:
@@ -62,6 +62,22 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── user-service 전용 DB (분리) ───────────────────────────
+  user-postgres:
+    image: postgres:16-alpine
+    container_name: msa-user-postgres
+    environment:
+      POSTGRES_DB: user
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: user
+    volumes:
+      - msa-user-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # ── 모놀리식 ──────────────────────────────────────────────
   backend:
     build:
@@ -81,6 +97,8 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       AUCTION_SERVICE_BASE_URL: http://auction-service:8080
+      USER_SERVICE_BASE_URL: http://user-service:8080
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
       ADMIN_IP_ALLOWLIST: ""
     ports:
       - "8080:8080"
@@ -106,10 +124,36 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       MONOLITH_BASE_URL: http://backend:8080
+      USER_SERVICE_BASE_URL: http://user-service:8080
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
     ports:
       - "8082:8080"
     depends_on:
       auction-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── user-service ─────────────────────────────────────────
+  user-service:
+    build:
+      context: .
+      dockerfile: services/user-service/Dockerfile
+    container_name: msa-user-service
+    env_file:
+      - ./backend/.env
+    environment:
+      TZ: Asia/Seoul
+      DB_HOST: user-postgres
+      DB_PORT: 5432
+      DB_NAME: user
+      DB_USERNAME: user
+      DB_PASSWORD: user
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
+    depends_on:
+      user-postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -125,6 +169,7 @@ services:
     environment:
       TZ: Asia/Seoul
       AUCTION_SERVICE_URL: http://auction-service:8080
+      USER_SERVICE_URL: http://user-service:8080
       MONOLITH_URL: http://backend:8080
       MONOLITH_WS_URL: ws://backend:8080
     ports:
@@ -132,6 +177,7 @@ services:
     depends_on:
       - backend
       - auction-service
+      - user-service
 
   # ── 프론트 (게이트웨이로 프록시) ──────────────────────────
   frontend:
@@ -153,3 +199,4 @@ volumes:
   msa-redis-data:
   msa-postgres-data:
   msa-auction-pg-data:
+  msa-user-pg-data:

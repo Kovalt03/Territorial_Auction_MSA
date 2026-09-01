@@ -20,6 +20,8 @@ import reactor.core.publisher.Mono;
 public class UserIdInjectionFilter implements GlobalFilter, Ordered {
 
     private static final String USER_ID_HEADER = "X-User-Id";
+    private static final String TOKEN_TYPE_CLAIM = "type";
+    private static final String ACCESS_TOKEN_TYPE = "access";
 
     private final SecretKey key;
 
@@ -48,12 +50,16 @@ public class UserIdInjectionFilter implements GlobalFilter, Ordered {
             return null;
         }
         try {
-            return Jwts.parser()
-                    .verifyWith(key)
-                    .build()
-                    .parseSignedClaims(auth.substring(7))
-                    .getPayload()
-                    .getSubject();
+            var claims =
+                    Jwts.parser()
+                            .verifyWith(key)
+                            .build()
+                            .parseSignedClaims(auth.substring(7))
+                            .getPayload();
+            if (!ACCESS_TOKEN_TYPE.equals(claims.get(TOKEN_TYPE_CLAIM, String.class))) {
+                return null;
+            }
+            return claims.getSubject();
         } catch (Exception e) {
             return null; // 유효하지 않은 토큰 → X-User-Id 미주입(보호 엔드포인트는 서비스가 거부)
         }

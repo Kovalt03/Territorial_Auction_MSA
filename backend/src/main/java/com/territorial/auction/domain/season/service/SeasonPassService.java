@@ -24,10 +24,9 @@ import com.territorial.auction.domain.season.repository.SeasonPassRepository;
 import com.territorial.auction.domain.season.repository.SeasonPassRewardClaimRepository;
 import com.territorial.auction.domain.season.repository.SeasonRepository;
 import com.territorial.auction.domain.season.repository.UserSeasonPassRepository;
+import com.territorial.auction.domain.user.client.WalletClient;
 import com.territorial.auction.domain.user.entity.User;
-import com.territorial.auction.domain.user.entity.Wallet;
 import com.territorial.auction.domain.user.repository.UserRepository;
-import com.territorial.auction.domain.user.repository.WalletRepository;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import java.time.Duration;
@@ -58,7 +57,7 @@ public class SeasonPassService {
     private final SeasonPassLevelRewardRepository seasonPassLevelRewardRepository;
     private final SeasonPassRewardClaimRepository seasonPassRewardClaimRepository;
     private final UserRepository userRepository;
-    private final WalletRepository walletRepository;
+    private final WalletClient walletClient;
     private final GlobalVaultRepository globalVaultRepository;
     private final ItemRepository itemRepository;
     private final UserItemRepository userItemRepository;
@@ -193,19 +192,10 @@ public class SeasonPassService {
                 seasonRepository
                         .findActiveSeason(LocalDateTime.now())
                         .orElseThrow(() -> new CustomException(ErrorCode.SEASON_NOT_FOUND));
-        Wallet wallet =
-                walletRepository
-                        .findById(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        if (wallet.getAvailableAp() < pass.getCostAp()) {
-            throw new CustomException(ErrorCode.INSUFFICIENT_AP);
-        }
         User user =
                 userRepository
                         .findById(userId)
                         .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-        wallet.spendAp(pass.getCostAp());
 
         LocalDateTime now = LocalDateTime.now();
         // 패스는 현재 시즌에 종속 — 만료는 시즌 종료 시각. 시즌 종료 배치가 일괄 비활성화한다.
@@ -220,6 +210,11 @@ public class SeasonPassService {
                                 .expiresAt(expiresAt)
                                 .build());
 
+        // 로컬 저장 후 마지막에 AP 소비 — 실패 시 롤백으로 패스 지급도 취소(정합)
+        var wallet =
+                walletClient.spend(
+                        userId, pass.getCostAp(), "SEASON_PASS:" + userId + ":" + season.getId());
+
         try {
             redisTemplate
                     .opsForValue()
@@ -231,7 +226,7 @@ public class SeasonPassService {
             redisTemplate.delete(CACHE_PROGRESS + userId);
         }
 
-        return PurchaseSeasonPassResponse.of(userPass, wallet.getAvailableAp());
+        return PurchaseSeasonPassResponse.of(userPass, wallet.availableAp());
     }
 
     @Transactional
@@ -249,18 +244,12 @@ public class SeasonPassService {
             throw new CustomException(ErrorCode.SEASON_LEVEL_MAX_REACHED);
         }
 
-        Wallet wallet =
-                walletRepository
-                        .findById(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         int cost = SeasonPassPolicy.LEVEL_UP_COST_AP;
-        if (wallet.getAvailableAp() < cost) {
-            throw new CustomException(ErrorCode.INSUFFICIENT_AP);
-        }
-
-        wallet.spendAp(cost);
         progress.levelUpByPurchase();
         invalidateProgressCache(userId);
+        var wallet =
+                walletClient.spend(
+                        userId, cost, "SEASON_LEVEL:" + userId + ":" + progress.getLevel());
 
         log.info(
                 "시즌 패스 레벨 구매. userId={}, newLevel={}, costAp={}",
@@ -268,7 +257,7 @@ public class SeasonPassService {
                 progress.getLevel(),
                 cost);
         return new PurchaseLevelResponse(
-                progress.getLevel(), progress.getXp(), cost, wallet.getAvailableAp());
+                progress.getLevel(), progress.getXp(), cost, wallet.availableAp());
     }
 
     private SeasonPassProgress findOrCreateProgress(User user, Season season) {
