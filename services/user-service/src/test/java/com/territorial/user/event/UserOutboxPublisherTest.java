@@ -40,7 +40,8 @@ class UserOutboxPublisherTest {
         given(outboxEventRepository.findTop100ByPublishedAtIsNullOrderByCreatedAtAsc())
                 .willReturn(List.of(event));
         given(kafkaTemplate.send(any(ProducerRecord.class)))
-                .willReturn(CompletableFuture.failedFuture(new IllegalStateException("kafka down")));
+                .willReturn(
+                        CompletableFuture.failedFuture(new IllegalStateException("kafka down")));
 
         userOutboxPublisher.publishPending();
 
