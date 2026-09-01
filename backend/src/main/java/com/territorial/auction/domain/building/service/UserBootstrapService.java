@@ -50,6 +50,11 @@ public class UserBootstrapService {
         jdbcTemplate.update("UPDATE users SET nickname = ? WHERE id = ?", nickname, userId);
     }
 
+    @Transactional
+    public void updateProjectedStatus(Long userId, String status) {
+        jdbcTemplate.update("UPDATE users SET status = ? WHERE id = ?", status, userId);
+    }
+
     private void createUserProjections(User user) {
         if (!userProfileRepository.existsById(user.getId())) {
             userProfileRepository.save(UserProfile.builder().user(user).build());

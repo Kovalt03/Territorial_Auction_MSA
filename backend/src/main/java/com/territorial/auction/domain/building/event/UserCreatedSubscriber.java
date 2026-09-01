@@ -25,6 +25,7 @@ public class UserCreatedSubscriber {
     private static final String GROUP = "backend-user-bootstrap";
     private static final String CONSUMER = "backend-1";
     private static final String UPDATED_TOPIC = "user.updated";
+    private static final String STATUS_CHANGED_TOPIC = "user.status-changed";
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
@@ -85,6 +86,10 @@ public class UserCreatedSubscriber {
             if (UPDATED_TOPIC.equals(topic)) {
                 UserUpdatedEvent event = objectMapper.readValue(json, UserUpdatedEvent.class);
                 userBootstrapService.updateProjectedNickname(event.userId(), event.nickname());
+            } else if (STATUS_CHANGED_TOPIC.equals(topic)) {
+                UserStatusChangedEvent event =
+                        objectMapper.readValue(json, UserStatusChangedEvent.class);
+                userBootstrapService.updateProjectedStatus(event.userId(), event.status());
             } else {
                 UserCreatedEvent event = objectMapper.readValue(json, UserCreatedEvent.class);
                 userBootstrapService.bootstrap(
@@ -104,4 +109,6 @@ public class UserCreatedSubscriber {
     private record UserCreatedEvent(Long userId, String username, String email, String nickname) {}
 
     private record UserUpdatedEvent(Long userId, String nickname) {}
+
+    private record UserStatusChangedEvent(Long userId, String status) {}
 }
