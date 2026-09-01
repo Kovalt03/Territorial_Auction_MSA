@@ -1,6 +1,8 @@
 # Combat Service 추출 가이드
 
 > 기준: `origin/dev` `5bfd88c` · 대상: `building` + `military`
+>
+> 단계별 진행 상태와 리뷰 명령은 [combat-migration-tracking.md](./combat-migration-tracking.md)를 따른다.
 
 ## 목표
 
@@ -71,4 +73,3 @@ combat 도메인은 broker port와 outbox까지만 소유한다. 별도 Kafka �
 - 가입 → 섬/성 → 건물/자원 → 유닛/연구 → 공성 full-stack smoke 통과
 - gateway 공개 URL과 response shape 회귀 없음
 - monolith building/military 코드와 직접 Repository 의존 제거
-

@@ -17,6 +17,7 @@
 - [주요 화면과 플레이 흐름](#주요-화면과-플레이-흐름)
 - [핵심 기능](#핵심-기능)
 - [시스템 아키텍처](#시스템-아키텍처)
+- [MSA 전환 현황](#msa-전환-현황)
 - [기술 스택](#기술-스택)
 - [빠른 시작](#빠른-시작)
 - [테스트와 품질 검증](#테스트와-품질-검증)
@@ -27,10 +28,10 @@
 | 항목 | 내용 |
 |---|---|
 | 개발 형태 | 개인 프로젝트 |
-| 개발 기간 | 2026.04 – 2026.08 (모놀리식 구현·검증 단계) |
+| 개발 기간 | 2026.04 – 현재 (모놀리식 구현·검증 후 MSA 전환) |
 | 핵심 경험 | 실시간 영토 경매, 그리드 건설, 자원 경제, 공성전, 길드·알림 |
-| 현재 구조 | Spring Boot 모놀리식 + React SPA |
-| 실행 기준 | 로컬 Docker Compose |
+| 현재 구조 | Spring Cloud Gateway + auction/user 서비스 + 잔여 Spring Boot 모놀리식 + React SPA |
+| 실행 기준 | 로컬 MSA Docker Compose |
 
 ## 주요 화면과 플레이 흐름
 
@@ -60,13 +61,28 @@
 
 ## 시스템 아키텍처
 
+아래 그림은 MSA 전환의 기준점인 모놀리식 계층 구조이며, 현재 런타임 변화는 바로 다음 절과 [MSA 전환 현황](#msa-전환-현황)에 정리되어 있습니다.
+
 ![Territorial Auction 시스템 아키텍처](docs/assets/architecture.svg)
 
 - 프론트엔드는 REST와 STOMP/SockJS로 백엔드와 통신합니다.
-- 백엔드는 도메인 경계를 패키지로 분리한 모놀리식이며, PostgreSQL·Redis를 사용합니다.
-- 향후 MSA 전환은 현재 도메인 경계를 기반으로 검토합니다.
+- 공개 REST 요청은 Spring Cloud Gateway를 거칩니다.
+- auction-service와 user-service는 각각 독립 PostgreSQL을 소유하며, 나머지 도메인은 Strangler 전환 중인 모놀리식에 남아 있습니다.
+- 서비스 간 상태 변경은 내부 HTTP 계약과 비동기 이벤트로 전달하며 다른 서비스 DB를 직접 참조하지 않습니다.
 
-자세한 구조와 도메인 간 의존 규칙은 [시스템 아키텍처](docs/design/architecture.md), [도메인 설계](docs/design/domain-design.md), [WebSocket 문서](docs/api/websocket/README.md)에 정리했습니다.
+자세한 구조와 도메인 간 의존 규칙은 [시스템 아키텍처](docs/design/architecture.md), [MSA 전환 허브](docs/design/msa/README.md), [내부 서비스 계약](docs/api/internal.md), [WebSocket 문서](docs/api/websocket/README.md)에 정리했습니다.
+
+## MSA 전환 현황
+
+도메인을 한 번에 모두 옮기지 않고, 서비스 하나가 완성될 때까지 모놀리식이 계속 요청을 처리하는 Strangler 방식으로 전환하고 있습니다.
+
+| 단계 | 서비스 | 상태 | 상세 |
+|---|---|---|---|
+| 1 | auction-service | 완료 | [추출 설계](docs/design/msa/auction-extraction.md) · [이관 기록](docs/design/msa/auction-migration-tracking.md) |
+| 2 | user-service | 완료 | [추출 설계](docs/design/msa/user-extraction.md) |
+| 3 | combat-service | 설계·이관 진행 | [추출 설계](docs/design/msa/combat-extraction.md) · [이관 기록](docs/design/msa/combat-migration-tracking.md) |
+
+전체 목표 토폴로지와 이후 economy, social, notification, map 분리 순서는 [MSA 전환 로드맵](docs/design/msa/README.md)을 참고하세요.
 
 ## 기술 스택
 
@@ -75,7 +91,7 @@
 | 구분 | 기술 스택 |
 |---|---|
 | Languages | ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white) ![Java](https://img.shields.io/badge/Java%2017-ED8B00?style=flat-square&logo=openjdk&logoColor=white) |
-| Frameworks | ![React](https://img.shields.io/badge/React%2018-61DAFB?style=flat-square&logo=react&logoColor=black) ![Spring Boot](https://img.shields.io/badge/Spring%20Boot%203.4-6DB33F?style=flat-square&logo=springboot&logoColor=white) |
+| Frameworks | ![React](https://img.shields.io/badge/React%2018-61DAFB?style=flat-square&logo=react&logoColor=black) ![Spring Boot](https://img.shields.io/badge/Spring%20Boot%203.4-6DB33F?style=flat-square&logo=springboot&logoColor=white) ![Spring Cloud Gateway](https://img.shields.io/badge/Spring%20Cloud-Gateway-6DB33F?style=flat-square) |
 | UI & Build | ![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS%204-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white) ![Vite](https://img.shields.io/badge/Vite%206-646CFF?style=flat-square&logo=vite&logoColor=white) ![Gradle](https://img.shields.io/badge/Gradle-02303A?style=flat-square&logo=gradle&logoColor=white) |
 | Auth & Realtime | ![JWT](https://img.shields.io/badge/JWT-000000?style=flat-square&logo=jsonwebtokens&logoColor=white) ![STOMP](https://img.shields.io/badge/STOMP%20%2F%20SockJS-6D28D9?style=flat-square) |
 | Data | ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white) ![Redis](https://img.shields.io/badge/Redis-DC382D?style=flat-square&logo=redis&logoColor=white) ![Flyway](https://img.shields.io/badge/Flyway-CC0200?style=flat-square&logo=flyway&logoColor=white) |
@@ -91,18 +107,19 @@
 
 ## 빠른 시작
 
-실제 실행 기준은 로컬 Docker Compose입니다.
+현재 Strangler 구조 전체를 확인할 때는 MSA Compose를 사용합니다.
 
 ```bash
-cp backend/.env.production.example backend/.env.production
-# .env.production의 JWT_SECRET과 DB 비밀번호를 안전한 값으로 변경
-docker compose -f docker-compose.production.yml up -d --build
+cp backend/.env.example backend/.env
+# backend/.env의 JWT_SECRET 등을 로컬 값으로 설정
+INTERNAL_API_SECRET=local-internal-secret docker compose -f docker-compose.msa.yml up -d --build
 ```
 
 - 사용자 화면: `http://localhost:3000`
-- API health: `http://localhost:8080/actuator/health`
+- Gateway: `http://localhost:8090`
+- Monolith health: `http://localhost:8080/actuator/health`
 
-개별 개발 서버를 실행하거나 관리자 초기화·백업·복구를 수행하려면 [로컬 운영 실행 가이드](docs/operations/local-production.md)를 따르세요.
+서비스별 선택 기동은 [로컬 MSA 실행 가이드](docs/design/msa/local-run.md), 모놀리식 운영·관리자 초기화·백업·복구는 [로컬 운영 실행 가이드](docs/operations/local-production.md)를 따르세요.
 
 ## 테스트와 품질 검증
 
@@ -114,7 +131,7 @@ docker compose -f docker-compose.production.yml up -d --build
 | STOMP fan-out | 구독자 100명, 메시지 1건 | 100/100 수신, p95 70ms, 실패 0 | [상세](docs/testing/README.md#부하-테스트-요약) |
 | 단일 경매 집중 Stress | 50→400 VU | 438.09 RPS, 지속 경합 p95 1,582ms | [한계 분석](report/perf/2026-08-20-all-priority1-3-comparison.md) |
 
-ETag 조건부 조회로 전체 맵 재전송 병목을 해소했다. 단일 인기 경매의 지속 경합 한계는 향후 MSA 검토에서 Auction을 첫 분리 후보로 판단한 근거다.
+ETag 조건부 조회로 전체 맵 재전송 병목을 해소했다. 단일 인기 경매의 지속 경합 한계는 Auction을 첫 MSA 분리 대상으로 선택한 근거가 됐다.
 
 ### API와 단위 테스트
 
@@ -138,14 +155,16 @@ ETag 조건부 조회로 전체 맵 재전송 병목을 해소했다. 단일 인
 |---|---|
 | 플레이어 | [인터랙티브 사용자 가이드](https://claude.ai/code/artifact/366effa3-8970-4353-a97c-aa4a4fabe49f?via=auto_preview) · [텍스트 사용자 가이드](docs/guides/user-guide.md) |
 | 관리자 | [관리자 운영 가이드](docs/guides/admin-guide.md) · [관리자 API](docs/api/admin.md) |
-| 개발자 | [문서 인덱스](docs/README.md) · [API 공통 규칙](docs/api/README.md) · [코드 컨벤션](docs/design/code-conventions.md) |
+| 개발자 | [문서 인덱스](docs/README.md) · [MSA 전환](docs/design/msa/README.md) · [API 공통 규칙](docs/api/README.md) · [코드 컨벤션](docs/design/code-conventions.md) |
 | 검증 | [테스트·검증 인덱스](docs/testing/README.md) · [성능 테스트 가이드](docs/design/performance-testing.md) |
 | 운영 | [로컬 운영](docs/operations/local-production.md) · [외부 호환성 검증](docs/operations/external-render-supabase.md) · [v1.0.0 릴리스 기준](docs/releases/v1.0.0-monolith.md) |
 
 ## 개발 흐름
 
-`feature/* → dev → main` 흐름을 사용합니다.
+서비스 추출은 `feature/* → msa/{service} → dev → main` 흐름을 사용합니다.
 
+- `feature/*`: 서비스 추출의 작은 단계 작업 브랜치
+- `msa/{service}`: 단계 작업을 누적 검토하는 서비스 통합 브랜치
 - `dev`: 로컬 개발 통합 브랜치
 - `main`: 릴리스·외부 호환성 설정 기준 브랜치
 - `main`의 배포 설정은 자동 실행하지 않습니다.

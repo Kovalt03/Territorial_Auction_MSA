@@ -13,7 +13,7 @@
 | **auction-service** | auction | 경매·입찰·이력 |
 | **map-service** | map | 지도·영토·대륙 (공유 커널) |
 | **combat-service** | military, building | 유닛·공성전 / 건물·섬·보관함 |
-| **user-service** | user, auth | 프로필·지갑(AP·GP) / 인증·JWT |
+| **user-service** | user, auth | 신원·지갑(AP)·알림 설정 / 인증·JWT |
 | **social-service** | social, guild | 채팅 / 길드·멤버 |
 | **notification-service** | notification | 알림 |
 | **economy-service** | item, season | 아이템·결제 / 시즌패스·트로피 |
@@ -94,7 +94,7 @@ feature/{domain}-{n}-{step}  ─┘             (서비스 통합 브랜치)    
 
 | 서비스 | 가이드 | 위치 |
 |---|---|---|
-| auction | `auction-extraction.md` | `msa/auction-service` 브랜치 (작업 중 추가 예정) |
+| auction | [auction-extraction.md](./auction-extraction.md) | `dev` 병합 완료 |
 | user | [user-extraction.md](./user-extraction.md) | `dev` 병합 완료 |
 | combat | [combat-extraction.md](./combat-extraction.md) | 현재 `msa/combat-service` 작업 기준 |
 
