@@ -14,8 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * OAuth 로그인 시 user-service가 신원을 소유(역전)한다. 모놀리식이 이 계약을 동기 호출해 ID를 받아 로컬 프로젝션을 만든다. username(=provider:providerId)
- * 기준 멱등.
+ * OAuth 로그인 시 user-service가 신원을 소유(역전)한다. 모놀리식이 이 계약을 동기 호출해 ID를 받아 로컬 프로젝션을 만든다.
+ * username(=provider:providerId) 기준 멱등.
  */
 @Service
 @RequiredArgsConstructor
