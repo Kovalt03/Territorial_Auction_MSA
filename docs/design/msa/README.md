@@ -13,7 +13,7 @@
 | **auction-service** | auction | 경매·입찰·이력 |
 | **map-service** | map | 지도·영토·대륙 (공유 커널) |
 | **combat-service** | military, building | 유닛·공성전 / 건물·섬·보관함 |
-| **user-service** | user, auth | 프로필·지갑(AP·GP) / 인증·JWT |
+| **user-service** | user, auth | 신원·지갑(AP)·알림 설정 / 인증·JWT |
 | **social-service** | social, guild | 채팅 / 길드·멤버 |
 | **notification-service** | notification | 알림 |
 | **economy-service** | item, season | 아이템·결제 / 시즌패스·트로피 |
@@ -38,8 +38,8 @@
 |---|---|---|
 | 0 | 모놀리식 + CI/CD·검증 정책 확립 | ✅ 완료 |
 | 1 | **auction-service** (auction) | ✅ **완료** — 서비스 추출·게이트웨이·이벤트 프로젝션·모놀리식 auction 도메인 삭제 |
-| 2 | user-service (user, auth) | 🚧 진행 — 인증·Auction 지갑 계약·가입 outbox 기반 구현 |
-| 3 | combat-service (military, building) | 예정 |
+| 2 | user-service (user, auth) | ✅ 완료 — 신원·인증·AP 지갑·알림 설정·상태 소유 이전 |
+| 3 | combat-service (military, building) | 🚧 진행 — [추출 가이드](./combat-extraction.md) · [이관 추적](./combat-migration-tracking.md) |
 | 4 | economy-service (item, season) | 예정 |
 | 5 | social-service (social, guild) | 예정 |
 | 6 | notification-service (notification) | 예정 |
@@ -55,7 +55,7 @@
 - **서비스 분리**: `services/auction-service` — 자체 DB(`auction-postgres`) 소유. 엔티티는 크로스도메인 관계 대신 ID+스냅샷.
 - **게이트웨이**: Spring Cloud Gateway — `/api/v1/auctions/**` → auction-service, JWT의 subject를 `X-User-Id`로 주입.
 - **동기 통신**: auction-service → user-service(지갑 에스크로·정산), 모놀리식(영토 점유·성 생성) `/internal/*`. [계약: internal.md](../../api/internal.md)
-- **비동기 통신**: Redis pub/sub — 경매 생성/입찰/정산/종료 이벤트.
+- **비동기 통신**: Kafka — 경매 생성 트리거와 프로젝션·랭킹·시즌용 durable 이벤트. Redis pub/sub은 입찰·정산 WebSocket 저지연 경로에만 병행.
 - **읽기 프로젝션**: 맵 그리드 '경매중' 표시를 auction 테이블 조회 → 모놀리식 로컬 read-model(`territory_auction_status`)로 대체(이벤트 구독). 부하 실측: 경매 쓰기 경합 하 맵 그리드 조회 **p99 ~10배 개선**.
 - **실시간·랭킹·시즌**: 클라이언트 WS는 모놀리식 realtime 허브가 이벤트를 구독해 push. 랭킹·시즌 귀속은 이벤트 브리지로 인프로세스 재발행.
 - 상세: [auction-extraction.md](./auction-extraction.md) · [auction-migration-tracking.md](./auction-migration-tracking.md)
@@ -94,8 +94,9 @@ feature/{domain}-{n}-{step}  ─┘             (서비스 통합 브랜치)    
 
 | 서비스 | 가이드 | 위치 |
 |---|---|---|
-| auction | `auction-extraction.md` | `msa/auction-service` 브랜치 (작업 중 추가 예정) |
-| user | [user-extraction.md](./user-extraction.md) | 현재 `msa/user-service` 작업 기준 |
+| auction | [auction-extraction.md](./auction-extraction.md) | `dev` 병합 완료 |
+| user | [user-extraction.md](./user-extraction.md) | `dev` 병합 완료 |
+| combat | [combat-extraction.md](./combat-extraction.md) | 현재 `msa/combat-service` 작업 기준 |
 
 ## 관련 (MSA 밖 공통 문서)
 

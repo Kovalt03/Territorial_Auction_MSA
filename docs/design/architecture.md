@@ -1,6 +1,8 @@
 # 시스템 아키텍처
 
-> 모놀리식 Spring Boot로 시작해 도메인 경계를 확립하고, 부하 측정 결과를 근거로 **MSA 전환에 착수**했다. 현재 **auction은 별도 서비스로 추출됨**(1단계 완료) — 아래 "MSA 런타임(현재)" 참고. 나머지 도메인은 모놀리식에 잔류하며 한 서비스씩 추출한다.
+> 모놀리식 Spring Boot로 시작해 도메인 경계를 확립하고, 부하 측정 결과를 근거로 **MSA 전환에 착수**했다. 현재 auction-service와 user-service 추출이 완료됐으며 combat-service를 설계·이관 중이다. 아래 "MSA 런타임(현재)"과 [전환 허브](./msa/README.md)를 기준으로 한다.
+
+아래 그림은 MSA 전환 전 계층형 모놀리식 기준 구조다.
 
 ![Territorial Auction 계층형 시스템 아키텍처](../assets/architecture.svg)
 
@@ -11,7 +13,7 @@
 | Client | 플레이어·관리자 화면 접근 | Web Browser |
 | Presentation | SPA 화면, 사용자 상호작용, API·STOMP 연결 | React, TypeScript, Vite, Tailwind CSS |
 | Application | 인증, 도메인 규칙, REST API, 실시간 이벤트 | Spring Boot, Spring Security, JPA, WebSocket |
-| Infrastructure | 영속화, 캐시·락·토큰, 주기 작업 | PostgreSQL, Redis, Flyway, Scheduler |
+| Infrastructure | 영속화, durable 이벤트, 캐시·락·실시간 relay, 주기 작업 | PostgreSQL, Kafka, Redis, Flyway, Scheduler |
 
 ## 패키지 경계
 
@@ -32,7 +34,7 @@ com.territorial.auction
 └── global/             # 공통 응답·설정·예외·보안·검증
 ```
 
-## 도메인 협력 원칙
+## 모놀리식 내부 도메인 협력 원칙
 
 - 다른 도메인의 Service를 직접 주입하지 않는다.
 - 단순 조회·참조는 필요한 Repository를 사용한다.
@@ -55,26 +57,27 @@ com.territorial.auction
 
 ## MSA 런타임 (현재)
 
-부하 테스트에서 단일 인기 경매의 지속 경합이 병목으로 확인돼, **auction을 첫 서비스로 추출**했다(1단계 완료). 현재 로컬 런타임은 모놀리식 + auction-service + 게이트웨이가 나란히 뜬다([구동](./msa/local-run.md)).
+부하 테스트에서 단일 인기 경매의 지속 경합이 병목으로 확인돼 auction을 첫 서비스로 추출했고, 이어 user/auth를 user-service로 추출했다. 현재 로컬 런타임은 잔여 모놀리식 + auction-service + user-service + gateway로 구성된다([구동](./msa/local-run.md)).
 
 ```text
             ┌───────────────┐
 Client ───▶ │  API Gateway  │  JWT 검증 → X-User-Id 주입, 경로 라우팅
             └──────┬────────┘
-        /api/v1/auctions/**     그 외 · /ws
-               │                     │
-               ▼                     ▼
-        ┌──────────────┐      ┌──────────────┐
-        │auction-service│◀────▶│  모놀리식     │  (auction 제외 전 도메인)
-        │  (auction DB) │ /internal (동기)    │  (monolith DB + realtime WS)
-        └──────┬───────┘      └──────┬───────┘
-               └──── Redis pub/sub (이벤트 버스) ────┘
+ /api/v1/auctions/**   user 소유 경로       그 외 · /ws
+          │                  │                  │
+          ▼                  ▼                  ▼
+ ┌───────────────┐  ┌──────────────┐  ┌──────────────┐
+ │auction-service│  │ user-service │  │  모놀리식     │
+ │  (auction DB) │  │  (user DB)   │  │(잔여 도메인 DB│
+ └───────┬───────┘  └──────┬───────┘  │ + realtime WS)│
+         └──── 내부 HTTP·비동기 이벤트 ┴──┤              │
+                                         └──────────────┘
 ```
 
-- **게이트웨이**(Spring Cloud Gateway): `/api/v1/auctions/**`→auction-service, 그 외·`/ws`→모놀리식. 유입 `X-User-Id` 제거 후 유효 JWT의 subject를 `X-User-Id`로 주입 → 내부 서비스가 신뢰(인증 경계).
-- **DB 분리**: auction-service는 자체 DB(`auction-postgres`) 소유. 모놀리식 DB를 직접 조회하지 않는다.
-- **동기 통신**(`/internal`): auction-service → 모놀리식(지갑 에스크로·영토 점유/해제·성 생성). 상태(돈·영토·건물)는 아직 모놀리식 소유이므로 되불러온다. [계약](../api/internal.md)
-- **비동기 통신**(Redis pub/sub): `auction.opened/bid/settled/closed`, `territory.auction-ready`. 소비 = 모놀리식의 **읽기 프로젝션**(맵 그리드 '경매중'), **realtime 허브**(클라이언트 STOMP push + 알림), **랭킹·시즌 브리지**.
+- **게이트웨이**(Spring Cloud Gateway): auction 경로는 auction-service, 인증과 user-service 소유 프로필 명령은 user-service, 그 외와 `/ws`는 모놀리식으로 보낸다. 유입 `X-User-Id`를 제거하고 유효 JWT의 subject를 다시 주입한다.
+- **DB 분리**: auction-service와 user-service는 각각 `auction-postgres`, `user-postgres`를 소유하며 다른 서비스 DB를 직접 조회하지 않는다.
+- **동기 통신**(`/internal`): auction-service는 AP escrow·정산을 user-service에 요청하고 영토·초기 성 명령은 모놀리식에 요청한다. 모놀리식의 일반 AP 명령과 OAuth provisioning도 user-service 계약을 사용한다. [계약](../api/internal.md)
+- **비동기 통신**: Kafka가 경매 생성·프로젝션·랭킹·시즌과 user projection의 durable 경로를 담당한다. Redis pub/sub은 auction 입찰·정산의 WebSocket 저지연 경로에만 병행한다. [내부 계약](../api/internal.md)
 - **읽기 프로젝션**: 맵 그리드가 auction 테이블을 매번 조회하던 것을 로컬 read-model(`territory_auction_status`, 이벤트로 유지)로 대체 → 핫패스를 auction 경합에서 격리(부하 실측 p99 ~10배 개선).
 
 ## MSA 목표 토폴로지 (7개)

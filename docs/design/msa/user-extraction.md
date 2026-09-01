@@ -20,10 +20,10 @@ Auction 의존성 전환을 먼저 확보하는 기반 단계이며, 모놀리�
 ## 가입 흐름
 
 1. user-service가 User, Wallet, GlobalVault와 outbox 레코드를 한 DB 트랜잭션에 저장한다.
-2. outbox publisher가 `stream:user-events`에 `user.created`를 append하고 성공 시 발행 완료를 기록한다.
-3. 모놀리스 consumer group이 User 최소 프로젝션, NotificationSetting, UserProfile,
-   HomeIsland와 기본 성을 멱등 생성한 뒤 ACK한다.
-4. 실패 레코드는 ACK하지 않아 같은 consumer가 다시 처리한다.
+2. outbox publisher가 Kafka `user-events`에 `user.created`를 발행하고 성공 시 발행 완료를 기록한다.
+3. 모놀리스 `backend-user-projection` consumer group이 User 최소 프로젝션,
+   NotificationSetting, UserProfile, HomeIsland와 기본 성을 멱등 생성한다.
+4. 실패 레코드는 commit하지 않아 재전달하고, 성공한 offset만 commit한다.
 
 신규 ID는 `1,000,000,000`부터 발급한다. 모놀리스 기존 identity 대역과 충돌을 막기 위한
 Strangler 임시 정책이며 서비스 간 관계는 DB FK가 아니라 ID로만 연결한다.
@@ -59,7 +59,7 @@ Auction은 `X-Internal-Service-Token`을 포함한 내부 API로만 user-service
 - 정지·탈퇴 상태 쓰기는 모놀리스에 남아 user-service 로그인 정책에 반영되지 않는다.
 - 신규 일반 가입자는 모놀리스 최소 User 프로젝션만 가지므로 기존 `/users/me`, 비밀번호,
   탈퇴, 닉네임 API를 정상 사용할 수 없다.
-- Auction bid 저장 실패 후 성공한 escrow를 되돌리는 보상 명령이 아직 없다.
+- 정산 중 영토 점유 이후 후속 단계가 실패할 때의 전체 saga 보상은 아직 완료되지 않았다.
 
 따라서 이 브랜치는 `msa/user-service` 내부 기반 단계로만 합치고, 위 경로와 데이터 이관을
 완료하기 전에는 통합 브랜치를 `dev`로 PR하지 않는다.
