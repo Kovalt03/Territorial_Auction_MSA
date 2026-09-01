@@ -8,22 +8,22 @@ PR 생성·push·merge는 사용자 승인 후 진행한다.
 
 ## 리뷰 방법
 
-두 combat 브랜치는 같은 대상을 중복 구현하는 브랜치가 아니다.
+combat 단계 브랜치와 통합 브랜치는 같은 대상을 중복 구현하는 브랜치가 아니다.
 
-- `feature/infra-0-combat-design`: 현재 단계의 실제 변경분. 작은 PR로 리뷰한다.
-- `msa/combat-service`: 모든 단계 PR을 누적하는 통합 브랜치. 현재는 `origin/dev`와 동일하며 단계가 합쳐진 뒤 전체 서비스를 리뷰한다.
+- `feature/building-1-combat-scaffold`: 현재 scaffold 단계의 실제 변경분. 작은 PR로 리뷰한다.
+- `msa/combat-service`: 모든 단계 PR을 누적하는 통합 브랜치. 단계가 합쳐진 뒤 전체 서비스를 리뷰한다.
 
 원격 push 후 설계 단계만 확인할 때:
 
 ```bash
 git fetch origin
-git log --oneline origin/msa/combat-service..origin/feature/infra-0-combat-design
-git diff --check origin/msa/combat-service...origin/feature/infra-0-combat-design
-git diff --stat origin/msa/combat-service...origin/feature/infra-0-combat-design
-git diff origin/msa/combat-service...origin/feature/infra-0-combat-design
+git log --oneline origin/msa/combat-service..origin/feature/building-1-combat-scaffold
+git diff --check origin/msa/combat-service...origin/feature/building-1-combat-scaffold
+git diff --stat origin/msa/combat-service...origin/feature/building-1-combat-scaffold
+git diff origin/msa/combat-service...origin/feature/building-1-combat-scaffold
 ```
 
-GitHub에서는 `feature/infra-0-combat-design` → `msa/combat-service` PR의 Files changed에서 같은 범위를 확인한다. 이 PR에서는 소유권, 계약 경계, 단계 순서와 문서 링크만 검토한다.
+GitHub에서는 `feature/building-1-combat-scaffold` → `msa/combat-service` PR의 Files changed에서 같은 범위를 확인한다. 이 PR에서는 독립 빌드, combat DB 경계, 내부 헤더 보안, compose와 CI를 검토한다.
 
 통합 브랜치에 단계가 누적된 뒤 combat 전체를 확인할 때:
 
@@ -43,8 +43,8 @@ Kafka 전환은 dev 반영 완료(`#9`) 상태다. combat은 기존 Kafka 설정
 
 | 단계 | 브랜치 | 범위 | 상태 |
 |---|---|---|---|
-| 0 | `feature/infra-0-combat-design` | 경계·계약·순서 | 진행 중 |
-| 1 | `feature/building-1-combat-scaffold` | 서비스·DB·보안 scaffold | 예정 |
+| 0 | `feature/infra-0-combat-design` | 경계·계약·순서 | 완료 (`#8`) |
+| 1 | `feature/building-1-combat-scaffold` | 서비스·DB·보안 scaffold | 구현·로컬 검증 완료 |
 | 2 | `feature/building-2-combat-core` | island/building/vault/storage | 예정 |
 | 3 | `feature/military-3-combat-core` | unit/research/attack-token | 예정 |
 | 4 | `feature/military-4-combat-siege` | siege/scheduler/outbox | 예정 |
@@ -53,14 +53,14 @@ Kafka 전환은 dev 반영 완료(`#9`) 상태다. combat은 기존 Kafka 설정
 
 ## 충돌 회피
 
-- 기준 브랜치: `origin/dev` `2fe55c8`
+- 현재 단계 기준 브랜치: `origin/msa/combat-service` `e219e43`
 - Kafka 이벤트 백본: dev 반영 완료(`#9`)
 - MSA 통합 브랜치 PR CI: dev 반영 완료(`#10`)
 - combat-service는 기존 broker 구성을 재정의하지 않고 `combat-events` producer/consumer 설정만 추가한다.
 
 ## 검증 체크
 
-- [ ] combat-service Flyway schema 단독 기동
+- [x] combat-service Flyway V1 단독 기동·health `UP` (PostgreSQL 16, 2026-09-01)
 - [ ] building 테스트 이전
 - [ ] military 테스트 이전
 - [ ] internal API 계약 테스트

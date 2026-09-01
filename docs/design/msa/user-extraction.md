@@ -9,7 +9,8 @@ Auction 의존성 전환을 먼저 확보하는 기반 단계이며, 모놀리�
 | 기능·데이터 | 현재 쓰기 소유자 | 상태 |
 |---|---|---|
 | 일반 회원가입·로그인·토큰 갱신 | user-service | 전환 |
-| User·Wallet·GlobalVault 원본 | user-service | 신규 사용자 기준 전환 |
+| User·Wallet 원본 | user-service | 신규 사용자 기준 전환 |
+| GlobalVault·HomeIsland 원본 | combat 대상(building) | 현재 모놀리식, combat core 단계에서 전환 |
 | Auction AP escrow·정산·환불 | user-service | 전환 |
 | AP 결제 충전 | user-service | 전환 |
 | 모놀리스 게임 초기화 | 모놀리스 read-model | `user.created` 소비로 생성 |
@@ -19,7 +20,7 @@ Auction 의존성 전환을 먼저 확보하는 기반 단계이며, 모놀리�
 
 ## 가입 흐름
 
-1. user-service가 User, Wallet, GlobalVault와 outbox 레코드를 한 DB 트랜잭션에 저장한다.
+1. user-service가 User, Wallet과 outbox 레코드를 한 DB 트랜잭션에 저장한다.
 2. outbox publisher가 Kafka `user-events`에 `user.created`를 발행하고 성공 시 발행 완료를 기록한다.
 3. 모놀리스 `backend-user-projection` consumer group이 User 최소 프로젝션,
    NotificationSetting, UserProfile, HomeIsland와 기본 성을 멱등 생성한다.
@@ -42,7 +43,7 @@ Auction은 `X-Internal-Service-Token`을 포함한 내부 API로만 user-service
 ## 완료 전 필수 작업
 
 - building, item, season, admin의 `WalletRepository` 직접 쓰기를 user-service 명령으로 전환
-- `GlobalVaultRepository` 소유 위치를 확정하고 모든 AP/GP 조회·쓰기를 단일 원본으로 통합
+- GlobalVault·HomeIsland bootstrap을 combat-service의 `user.created` 소비자로 이전
 - 프로필·알림 설정·닉네임·비밀번호·탈퇴 API와 이벤트 전환
 - OAuth2와 관리자 사용자 관리 전환
 - 모놀리스 User/Wallet/GlobalVault 원본 테이블과 기존 auth/user 코드 제거
