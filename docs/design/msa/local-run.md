@@ -15,23 +15,25 @@
 redis · postgres · backend(단일) · frontend
 ```
 
-**단계 2 (auction-service + user-service 추출 후, 현재)** — `docker-compose.msa.yml`
+**단계 3 (combat-service scaffold 포함, 현재)** — `docker-compose.msa.yml`
 ```
 redis                     ← 공유 (Redisson 분산락·캐시·실시간 pub/sub)
 kafka                     ← durable 서비스 이벤트 백본 (호스트 9092)
 postgres                  ← 모놀리식 전용 (호스트 5432)
 auction-postgres          ← auction-service 전용 (호스트 5433)
 user-postgres             ← user-service 전용 (컨테이너 내부 전용)
+combat-postgres           ← combat-service 전용 (호스트 5434)
 backend(모놀리식)          ← auction/user 제외 잔여 도메인 (호스트 8080)
 auction-service           ← 경매·입찰·이력             (호스트 8082)
 user-service              ← 신원·인증·AP 지갑·알림 설정 (컨테이너 내부 전용)
+combat-service            ← DB·내부 보안 scaffold       (호스트 8084, 공개 라우팅 전)
 gateway                   ← auction/user 소유 경로→각 서비스, 그 외→모놀리식 (호스트 8090)
 frontend                  ← 게이트웨이로 프록시          (호스트 3000)
 ```
 > 게이트웨이는 도입됨(1단계에 포함). 프론트 API/WS 프록시 대상은 **게이트웨이(8090)**다.
 
 핵심:
-- **DB는 서비스당 컨테이너**(결정 사항). auction/user 서비스는 각자 소유한 PostgreSQL에만 붙고, 모놀리식 DB를 직접 조회하지 않는다.
+- **DB는 서비스당 컨테이너**(결정 사항). auction/user/combat 서비스는 각자 소유한 PostgreSQL에만 붙고, 모놀리식 DB를 직접 조회하지 않는다.
 - 서비스는 외부 도메인 키를 **FK가 아닌 ID 값**으로 보관한다. 다른 도메인 데이터가 필요하면 내부 REST 또는 비동기 이벤트로 얻는다.
 - 서비스 간 통신은 **컨테이너 이름 DNS**로 해결된다 — `http://backend:8080`, `http://auction-service:8080`. 로컬에선 Eureka 등 서비스 디스커버리 불필요.
 
@@ -46,7 +48,7 @@ frontend                  ← 게이트웨이로 프록시          (호스트 3
    docker compose -f docker-compose.msa.yml up redis auction-postgres auction-service
    ```
    compose는 명시한 서비스 + 그 `depends_on`만 기동한다.
-2. **모놀리식이 "나머지 세계" 역할을 한다.** 현재는 `backend + auction-service + user-service`가 추출 완료 범위의 통합 흐름을 재현한다.
+2. **모놀리식이 "나머지 세계" 역할을 한다.** 현재는 `backend + auction-service + user-service`가 추출 완료 범위의 통합 흐름을 재현하고, combat-service는 core 이관 전 health·Flyway만 제공한다.
 3. **전체가 다 떠야 하는 검증은 로컬이 아니라 CI 러너에 맡긴다.** push하면 러너가 `compose up` → 스모크 → 폐기한다([정책 5.4](../../operations/ci-cd-policy.md#54-msa-검증-전략-테스트-피라미드)).
 4. **인터랙티브하게 무거운 스택이 필요하면 Codespaces**(클라우드 개발환경)로 노트북 부하 0.
 
@@ -65,18 +67,20 @@ frontend                  ← 게이트웨이로 프록시          (호스트 3
 | `postgres` | 모놀리식 DB | 5432 | `territorial_auction` |
 | `auction-postgres` | auction DB(별도) | 5433 | `auction`(Flyway 소유) |
 | `user-postgres` | user DB(별도) | 내부 전용 | `user`(Flyway 소유) |
+| `combat-postgres` | combat DB(별도) | 5434 | `combat`(Flyway 소유) |
 | `backend` | `./backend` | 8080 | auction/user 내부 API client와 잔여 도메인 |
 | `auction-service` | `context: .`(루트) | 8082 | map/building→backend, wallet→user-service |
 | `user-service` | `context: .`(루트) | 내부 전용 | 신원·인증·AP 지갑·알림 설정 |
+| `combat-service` | `context: .`(루트) | 8084 | DB·내부 헤더 보안·health scaffold |
 | `gateway` | `./services/gateway` | 8090 | `JWT_SECRET` 공유, 경로 라우팅 |
 | `frontend` | node:20 | 3000 | `API_TARGET=http://gateway:8080` |
 
 **주의점**
-- **DB 분리**: `postgres` / `auction-postgres` / `user-postgres`는 별도 컨테이너·볼륨이며 서로 직접 조회하지 않는다.
+- **DB 분리**: `postgres` / `auction-postgres` / `user-postgres` / `combat-postgres`는 별도 컨테이너·볼륨이며 서로 직접 조회하지 않는다.
 - **Kafka durable 경로**: `territory-auction-ready`, `auction-events`, `user-events`를 서비스별 consumer group이 구독한다.
 - **공유 Redis**: 분산락·캐시와 auction WebSocket 저지연 pub/sub에 사용한다. durable 상태 반영은 Redis에 의존하지 않는다.
 - 각 서비스는 **자기 Flyway 마이그레이션**을 자기 DB에 적용한다.
-- **auction-service 이미지는 self-contained 빌드**: 빌드 컨텍스트가 리포 루트(`context: .`)이고, Dockerfile이 이미지 안에서 공유 라이브러리 `common`을 `mavenLocal`에 발행한 뒤 빌드한다 → **GitHub Packages PAT 없이** 빌드된다. (`.dockerignore`로 컨텍스트 경량화)
+- **분리 서비스 이미지는 self-contained 빌드**: auction/user/combat Dockerfile은 이미지 안에서 공유 라이브러리 `common`을 `mavenLocal`에 발행한 뒤 빌드한다 → **GitHub Packages PAT 없이** 빌드된다. (`.dockerignore`로 컨텍스트 경량화)
 - 컨테이너 시각은 `TZ: Asia/Seoul`(단일 타임존).
 
 ---
@@ -106,10 +110,14 @@ docker compose -f docker-compose.msa.yml up -d --build
 # 경매만 작업 — 필요한 것만
 docker compose -f docker-compose.msa.yml up redis kafka auction-postgres user-postgres auction-service user-service backend
 
+# combat scaffold만 확인
+docker compose -f docker-compose.msa.yml up redis kafka combat-postgres combat-service
+
 # 상태·헬스체크
 docker compose -f docker-compose.msa.yml ps
 docker compose -f docker-compose.msa.yml exec auction-service wget -qO- http://localhost:8080/actuator/health
 docker compose -f docker-compose.msa.yml exec user-service wget -qO- http://localhost:8080/actuator/health
+docker compose -f docker-compose.msa.yml exec combat-service wget -qO- http://localhost:8080/actuator/health
 
 # 특정 서비스 로그
 docker compose -f docker-compose.msa.yml logs -f auction-service
