@@ -2,8 +2,8 @@
 #   docker compose -f docker-compose.msa.yml up -d --build
 #
 # 구성:
-#   - DB 분리: 모놀리식 / auction-service / user-service가 각각 자기 PostgreSQL을 소유.
-#   - 공유 redis: auction.* pub/sub, user.created Stream, 캐시. 이벤트가 오가려면 반드시 동일 인스턴스.
+#   - DB 분리: 모놀리식 / auction-service / user-service / combat-service가 각각 자기 PostgreSQL을 소유.
+#   - Kafka: durable 서비스 이벤트. Redis: 분산락·캐시·auction realtime pub/sub.
 #   - 게이트웨이: auction·auth·wallet 공개 경로를 분리 서비스로 라우팅하고 access JWT만 X-User-Id로 변환.
 #   - 프론트: 게이트웨이로 프록시.
 # 모놀리식 단독(전환 이전) 구동은 docker-compose.yml 사용.
@@ -105,6 +105,24 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── combat-service 전용 DB (분리) ───────────────────────
+  combat-postgres:
+    image: postgres:16-alpine
+    container_name: msa-combat-postgres
+    environment:
+      POSTGRES_DB: combat
+      POSTGRES_USER: combat
+      POSTGRES_PASSWORD: combat
+    ports:
+      - "5434:5432"
+    volumes:
+      - msa-combat-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U combat -d combat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # ── 모놀리식 ──────────────────────────────────────────────
   backend:
     build:
@@ -194,6 +212,34 @@ services:
       kafka:
         condition: service_healthy
 
+  # ── combat-service scaffold ─────────────────────────────
+  # 공개 API는 cutover 전까지 backend가 담당한다. 현재는 DB·내부 보안·health만 검증한다.
+  combat-service:
+    build:
+      context: .
+      dockerfile: services/combat-service/Dockerfile
+    container_name: msa-combat-service
+    environment:
+      TZ: Asia/Seoul
+      DB_HOST: combat-postgres
+      DB_PORT: 5432
+      DB_NAME: combat
+      DB_USERNAME: combat
+      DB_PASSWORD: combat
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8084:8080"
+    depends_on:
+      combat-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
   # ── API 게이트웨이 ────────────────────────────────────────
   gateway:
     build:
@@ -236,3 +282,4 @@ volumes:
   msa-postgres-data:
   msa-auction-pg-data:
   msa-user-pg-data:
+  msa-combat-pg-data:
