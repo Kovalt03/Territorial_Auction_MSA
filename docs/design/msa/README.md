@@ -38,8 +38,8 @@
 |---|---|---|
 | 0 | 모놀리식 + CI/CD·검증 정책 확립 | ✅ 완료 |
 | 1 | **auction-service** (auction) | ✅ **완료** — 서비스 추출·게이트웨이·이벤트 프로젝션·모놀리식 auction 도메인 삭제 |
-| 2 | user-service (user, auth) | 🚧 진행 — 인증·Auction 지갑 계약·가입 outbox 기반 구현 |
-| 3 | combat-service (military, building) | 예정 |
+| 2 | user-service (user, auth) | ✅ 완료 — 신원·인증·AP 지갑·알림 설정·상태 소유 이전 |
+| 3 | combat-service (military, building) | 🚧 진행 — [추출 가이드](./combat-extraction.md) · [이관 추적](./combat-migration-tracking.md) |
 | 4 | economy-service (item, season) | 예정 |
 | 5 | social-service (social, guild) | 예정 |
 | 6 | notification-service (notification) | 예정 |
@@ -95,7 +95,8 @@ feature/{domain}-{n}-{step}  ─┘             (서비스 통합 브랜치)    
 | 서비스 | 가이드 | 위치 |
 |---|---|---|
 | auction | `auction-extraction.md` | `msa/auction-service` 브랜치 (작업 중 추가 예정) |
-| user | [user-extraction.md](./user-extraction.md) | 현재 `msa/user-service` 작업 기준 |
+| user | [user-extraction.md](./user-extraction.md) | `dev` 병합 완료 |
+| combat | [combat-extraction.md](./combat-extraction.md) | 현재 `msa/combat-service` 작업 기준 |
 
 ## 관련 (MSA 밖 공통 문서)
 
