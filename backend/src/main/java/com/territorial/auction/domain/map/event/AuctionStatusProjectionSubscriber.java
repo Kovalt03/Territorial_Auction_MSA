@@ -2,64 +2,56 @@ package com.territorial.auction.domain.map.event;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.territorial.auction.domain.map.service.TerritoryAuctionStatusService;
-import jakarta.annotation.PostConstruct;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.redisson.api.RedissonClient;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.messaging.handler.annotation.Header;
+import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
 
 /**
- * map 읽기 프로젝션 구독기. auction-service의 auction.opened/bid/closed 이벤트로 territory_auction_status를 갱신한다.
- * auction 도메인이 삭제돼도 살아남도록 페이로드는 자체 record로 정의한다(필드명만 일치하면 됨).
+ * map 읽기 프로젝션 구독기. auction-service의 auction.opened/bid/closed(Kafka `auction-events`)로
+ * territory_auction_status를 갱신한다. durable 경로 — 페이로드는 자체 record(필드명만 일치).
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class AuctionStatusProjectionSubscriber {
 
-    private final RedissonClient redissonClient;
     private final ObjectMapper objectMapper;
     private final TerritoryAuctionStatusService statusService;
 
-    @PostConstruct
-    public void subscribe() {
-        redissonClient
-                .getTopic("auction.opened")
-                .addListener(String.class, (ch, json) -> handleOpened(json));
-        redissonClient
-                .getTopic("auction.bid")
-                .addListener(String.class, (ch, json) -> handleBid(json));
-        redissonClient
-                .getTopic("auction.closed")
-                .addListener(String.class, (ch, json) -> handleClosed(json));
-        log.info("[AuctionStatusProjection] 구독 시작: auction.opened, auction.bid, auction.closed");
-    }
-
-    private void handleOpened(String json) {
+    @KafkaListener(topics = "auction-events", groupId = "backend-map-projection")
+    public void handle(
+            @Payload String json,
+            @Header(name = "event-topic", required = false) byte[] eventTopicHeader) {
+        String topic =
+                eventTopicHeader != null
+                        ? new String(eventTopicHeader, StandardCharsets.UTF_8)
+                        : "";
         try {
-            OpenedEvent e = objectMapper.readValue(json, OpenedEvent.class);
-            statusService.open(e.territoryId(), e.auctionId(), e.currentPrice(), e.endAt());
+            switch (topic) {
+                case "auction.opened" -> {
+                    OpenedEvent e = objectMapper.readValue(json, OpenedEvent.class);
+                    statusService.open(e.territoryId(), e.auctionId(), e.currentPrice(), e.endAt());
+                }
+                case "auction.bid" -> {
+                    BidEvent e = objectMapper.readValue(json, BidEvent.class);
+                    statusService.updateBid(e.auctionId(), e.currentPrice(), e.endAt());
+                }
+                case "auction.closed" -> {
+                    ClosedEvent e = objectMapper.readValue(json, ClosedEvent.class);
+                    statusService.close(e.auctionId());
+                }
+                default -> {
+                    /* settled 등은 프로젝션 관심 밖 */
+                }
+            }
         } catch (Exception ex) {
-            log.error("[AuctionStatusProjection] opened 처리 실패: {}", json, ex);
-        }
-    }
-
-    private void handleBid(String json) {
-        try {
-            BidEvent e = objectMapper.readValue(json, BidEvent.class);
-            statusService.updateBid(e.auctionId(), e.currentPrice(), e.endAt());
-        } catch (Exception ex) {
-            log.error("[AuctionStatusProjection] bid 처리 실패: {}", json, ex);
-        }
-    }
-
-    private void handleClosed(String json) {
-        try {
-            ClosedEvent e = objectMapper.readValue(json, ClosedEvent.class);
-            statusService.close(e.auctionId());
-        } catch (Exception ex) {
-            log.error("[AuctionStatusProjection] closed 처리 실패: {}", json, ex);
+            log.error("[AuctionStatusProjection] 처리 실패: topic={}, payload={}", topic, json, ex);
+            throw new IllegalStateException("auction 프로젝션 처리 실패", ex);
         }
     }
 

@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.redisson.api.RedissonClient;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,10 +23,10 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class TerritoryAuctionReadyPublisher {
 
-    public static final String TOPIC = "territory.auction-ready";
+    public static final String TOPIC = "territory-auction-ready";
 
     private final TerritoryRepository territoryRepository;
-    private final RedissonClient redissonClient;
+    private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
 
     @Scheduled(fixedDelay = 60_000)
@@ -57,7 +57,11 @@ public class TerritoryAuctionReadyPublisher {
 
     private void publish(TerritoryAuctionReadyEvent event) {
         try {
-            redissonClient.getTopic(TOPIC).publish(objectMapper.writeValueAsString(event));
+            // 경매 생성 트리거 — durable. auction-service가 Kafka로 구독.
+            kafkaTemplate.send(
+                    TOPIC,
+                    String.valueOf(event.territoryId()),
+                    objectMapper.writeValueAsString(event));
         } catch (JsonProcessingException e) {
             log.error("[TerritoryAuctionReady] 직렬화 실패 territoryId={}", event.territoryId(), e);
         }
