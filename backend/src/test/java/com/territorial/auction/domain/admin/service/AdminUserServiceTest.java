@@ -18,6 +18,7 @@ import com.territorial.auction.domain.admin.dto.AdminUserDetailResponse;
 import com.territorial.auction.domain.admin.dto.AdminUserListResponse;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
 import com.territorial.auction.domain.user.client.WalletClient;
+import com.territorial.auction.domain.user.client.UserProvisioningClient;
 import com.territorial.auction.domain.user.client.WalletSnapshot;
 import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.entity.UserRole;
@@ -45,6 +46,7 @@ class AdminUserServiceTest {
 
     @Mock private UserRepository userRepository;
     @Mock private WalletClient walletClient;
+    @Mock private UserProvisioningClient userProvisioningClient;
 
     @Mock
     private com.territorial.auction.domain.building.repository.GlobalVaultRepository

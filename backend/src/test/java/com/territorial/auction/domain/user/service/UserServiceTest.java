@@ -48,7 +48,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -68,7 +67,6 @@ class UserServiceTest {
     @Mock private TerritoryRepository territoryRepository;
     @Mock private UserProfileRepository userProfileRepository;
     @Mock private UserTrophyRepository userTrophyRepository;
-    @Mock private PasswordEncoder passwordEncoder;
     @Mock private RefreshTokenService refreshTokenService;
     @Mock private com.territorial.auction.global.security.jwt.JwtTokenProvider jwtTokenProvider;
     @Mock private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
@@ -311,54 +309,6 @@ class UserServiceTest {
                     .isEqualTo(ErrorCode.USER_NOT_FOUND);
         }
     }
-
-    // ─── deleteMe() ───────────────────────────────────────────────────────────
-
-    @Nested
-    @DisplayName("deleteMe()")
-    class DeleteMe {
-
-        @Test
-        @DisplayName("존재하지 않는 userId 시 USER_NOT_FOUND 예외")
-        void deleteMe_userNotFound() {
-            given(userRepository.findById(99L)).willReturn(Optional.empty());
-
-            assertThatThrownBy(() -> userService.deleteMe(99L, "any", null))
-                    .isInstanceOf(CustomException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.USER_NOT_FOUND);
-        }
-
-        @Test
-        @DisplayName("비밀번호 불일치 시 INVALID_PASSWORD 예외 — passwordEncoder.matches() 사용 전제")
-        void deleteMe_wrongPassword_throwsInvalidPassword() {
-            User user = sampleUser(); // passwordHash = "encoded"
-            given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(passwordEncoder.matches("wrongPw", "encoded")).willReturn(false);
-
-            assertThatThrownBy(() -> userService.deleteMe(1L, "wrongPw", null))
-                    .isInstanceOf(CustomException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.INVALID_PASSWORD);
-        }
-
-        @Test
-        @DisplayName("정상 탈퇴 시 소프트 삭제 — status=WITHDRAWN, userRepository.delete() 미호출")
-        void deleteMe_success_softDelete() {
-            User user = sampleUser(); // passwordHash = "encoded"
-            given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(passwordEncoder.matches("rawPw", "encoded")).willReturn(true);
-
-            userService.deleteMe(1L, "rawPw", null);
-
-            // 소프트 삭제 검증: 하드 삭제 금지, status=WITHDRAWN 이어야 함
-            then(userRepository).should(never()).delete(user);
-            assertThat(user.getStatus()).isEqualTo(UserStatus.WITHDRAWN);
-            then(refreshTokenService).should().delete(1L);
-        }
-    }
-
-    // ─── getMyWallet() ────────────────────────────────────────────────────────
 
     @Nested
     @DisplayName("getMyWallet()")
