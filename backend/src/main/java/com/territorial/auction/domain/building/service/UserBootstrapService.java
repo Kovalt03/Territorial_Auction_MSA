@@ -8,10 +8,8 @@ import com.territorial.auction.domain.building.repository.BuildingInstanceReposi
 import com.territorial.auction.domain.building.repository.BuildingTypeRepository;
 import com.territorial.auction.domain.building.repository.HomeIslandRepository;
 import com.territorial.auction.domain.building.repository.IslandGradeRepository;
-import com.territorial.auction.domain.user.entity.NotificationSetting;
 import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.entity.UserProfile;
-import com.territorial.auction.domain.user.repository.NotificationSettingRepository;
 import com.territorial.auction.domain.user.repository.UserProfileRepository;
 import com.territorial.auction.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +24,6 @@ public class UserBootstrapService {
 
     private final JdbcTemplate jdbcTemplate;
     private final UserRepository userRepository;
-    private final NotificationSettingRepository notificationSettingRepository;
     private final UserProfileRepository userProfileRepository;
     private final HomeIslandRepository homeIslandRepository;
     private final IslandGradeRepository islandGradeRepository;
@@ -54,9 +51,6 @@ public class UserBootstrapService {
     }
 
     private void createUserProjections(User user) {
-        if (!notificationSettingRepository.existsById(user.getId())) {
-            notificationSettingRepository.save(NotificationSetting.builder().user(user).build());
-        }
         if (!userProfileRepository.existsById(user.getId())) {
             userProfileRepository.save(UserProfile.builder().user(user).build());
         }

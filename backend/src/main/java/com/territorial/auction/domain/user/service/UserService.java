@@ -17,7 +17,6 @@ import com.territorial.auction.domain.user.client.WalletSnapshot;
 import com.territorial.auction.domain.user.dto.*;
 import com.territorial.auction.domain.user.dto.MyWalletResponse;
 import com.territorial.auction.domain.user.entity.*;
-import com.territorial.auction.domain.user.repository.NotificationSettingRepository;
 import com.territorial.auction.domain.user.repository.UserProfileRepository;
 import com.territorial.auction.domain.user.repository.UserRepository;
 import com.territorial.auction.global.exception.CustomException;
@@ -54,7 +53,6 @@ public class UserService {
     private final TerritoryRepository territoryRepository;
     private final UserProfileRepository userProfileRepository;
     private final UserTrophyRepository userTrophyRepository;
-    private final NotificationSettingRepository notificationSettingRepository;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenService refreshTokenService;
     private final JwtTokenProvider jwtTokenProvider;
@@ -174,29 +172,6 @@ public class UserService {
                         JwtAuthenticationFilter.BLACKLIST_KEY_PREFIX + accessToken,
                         "1",
                         Duration.ofMillis(remainingMs));
-    }
-
-    public NotificationSettingResponse getNotificationSetting(Long userId) {
-        NotificationSetting setting =
-                notificationSettingRepository
-                        .findById(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND));
-        return NotificationSettingResponse.from(setting);
-    }
-
-    @Transactional
-    public NotificationSettingResponse updateNotificationSetting(
-            Long userId, UpdateNotificationSettingRequest request) {
-        NotificationSetting setting =
-                notificationSettingRepository
-                        .findById(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND));
-        setting.update(
-                request.isOutbidEnabled(),
-                request.isAuctionStartEnabled(),
-                request.isMarketingEnabled());
-        notificationSettingRepository.save(setting);
-        return NotificationSettingResponse.from(setting);
     }
 
     @Transactional(readOnly = true)

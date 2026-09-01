@@ -52,20 +52,6 @@ public class UserController {
         return null;
     }
 
-    @GetMapping("/me/settings")
-    public ResponseEntity<ApiResponse<NotificationSettingResponse>> getNotificationSetting(
-            @AuthenticationPrincipal Long userId) {
-        return ResponseEntity.ok(ApiResponse.ok(userService.getNotificationSetting(userId)));
-    }
-
-    @PatchMapping("/me/settings")
-    public ResponseEntity<ApiResponse<NotificationSettingResponse>> updateNotificationSetting(
-            @AuthenticationPrincipal Long userId,
-            @RequestBody UpdateNotificationSettingRequest request) {
-        return ResponseEntity.ok(
-                ApiResponse.ok(userService.updateNotificationSetting(userId, request)));
-    }
-
     @GetMapping("/me/territories")
     public ResponseEntity<ApiResponse<MyTerritoryResponse>> getMyTerritories(
             @AuthenticationPrincipal Long userId,
