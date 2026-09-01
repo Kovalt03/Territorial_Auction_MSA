@@ -93,22 +93,27 @@
 
 ---
 
-## 4. 이벤트 (Redis — 공유 인스턴스)
+## 4. 이벤트 (Kafka durable + Redis realtime)
 
-Auction 이벤트는 Redis pub/sub JSON 문자열로 발행한다. `user.created`는 Redis Stream `stream:user-events`로 전달하고 소비 후 ACK한다. 소비자는 필드명만 일치하는 자체 record로 역직렬화한다(클래스 공유 아님).
+상태 반영·재처리가 필요한 이벤트는 Kafka로 전달한다. 논리 이벤트 종류는 `event-topic` header에 담고, payload는 JSON 문자열로 직렬화한다. 소비자는 필드명만 일치하는 자체 record로 역직렬화하며 Java 클래스를 공유하지 않는다.
 
-| Topic | 발행 | 페이로드 | 소비 (현행) |
+- `territory-auction-ready`: map → auction-service 경매 생성 trigger
+- `auction-events`: auction-service → map projection·랭킹/시즌 bridge. record key는 논리 이벤트명이며 `event-topic` header도 함께 사용한다.
+- `user-events`: user-service transactional outbox → monolith user projection·HomeIsland bootstrap. record key는 outbox event ID다.
+- Redis pub/sub `auction.bid`, `auction.settled`: 모놀리식 realtime hub의 WebSocket 저지연 전달 전용. durable 소비자는 Kafka를 사용한다.
+
+| Kafka topic / event-topic | 발행 | 페이로드 | 소비 (현행) |
 |---|---|---|---|
-| `territory.auction-ready` | 모놀리식(map) | `{territoryId, coordX, coordY, continentName, continentId, grade}` | auction-service → 경매 생성 |
-| `auction.opened` | auction-service | `{auctionId, territoryId, currentPrice, endAt}` | 모놀리식 프로젝션 upsert |
-| `auction.bid` | auction-service | `{auctionId, currentPrice, bidderId, bidderNickname, bidAt, endAt, previousBidderId, coordX, coordY}` | 프로젝션 갱신 · realtime 허브(`/sub/auction/{id}` push + OUTBID 알림) |
-| `auction.settled` | auction-service | `{auctionId, territoryId, coordX, coordY, winnerId, winnerNickname, finalPrice, grade, runnerUpIds}` | realtime 허브(WIN/LOSE push+알림 · map OCCUPIED) · 랭킹·시즌 브리지 |
-| `auction.closed` | auction-service | `{auctionId, territoryId}` | 프로젝션 제거 (낙찰·무낙찰 공통) |
-| `user.created` | user-service outbox | `{userId, username, email, nickname}` | 모놀리식 User 읽기 프로젝션·NotificationSetting·UserProfile·HomeIsland·기본 성 생성 |
-| `user.updated` | user-service outbox | `{userId, nickname}` | 모놀리식 User 프로젝션 `nickname` 갱신(15개 도메인 표시 반영) |
-| `user.status-changed` | user-service outbox | `{userId, status}` | 모놀리식 User 프로젝션 `status` 갱신(admin 목록/표시) |
+| `territory-auction-ready` | 모놀리식(map) | `{territoryId, coordX, coordY, continentName, continentId, grade}` | auction-service `auction-territory-ready` group → 경매 생성 |
+| `auction-events` / `auction.opened` | auction-service | `{auctionId, territoryId, currentPrice, endAt}` | `backend-map-projection` → 프로젝션 upsert |
+| `auction-events` / `auction.bid` | auction-service | `{auctionId, currentPrice, bidderId, bidderNickname, bidAt, endAt, previousBidderId, coordX, coordY}` | `backend-map-projection` 갱신. Redis realtime hub도 동시 수신 |
+| `auction-events` / `auction.settled` | auction-service | `{auctionId, territoryId, coordX, coordY, winnerId, winnerNickname, finalPrice, grade, runnerUpIds}` | `backend-ranking-relay` → 랭킹·시즌 bridge. Redis realtime hub도 동시 수신 |
+| `auction-events` / `auction.closed` | auction-service | `{auctionId, territoryId}` | `backend-map-projection` → 프로젝션 제거 |
+| `user-events` / `user.created` | user-service outbox | `{userId, username, email, nickname}` | `backend-user-projection` → User 읽기 프로젝션·NotificationSetting·UserProfile·HomeIsland·기본 성 생성 |
+| `user-events` / `user.updated` | user-service outbox | `{userId, nickname}` | `backend-user-projection` → User 프로젝션 nickname 갱신 |
+| `user-events` / `user.status-changed` | user-service outbox | `{userId, status}` | `backend-user-projection` → User 프로젝션 status 갱신 |
 
-- `user.created`·`user.updated`는 User DB transactional outbox(`stream:user-events`)로 발행하고, 모놀리식 구독자가 `topic` 필드로 분기한다(created→프로젝션 부트스트랩, updated→닉네임 갱신). 소비자는 `userId` 기준으로 멱등 처리한다.
+- `user.created`·`user.updated`·`user.status-changed`는 User DB transactional outbox에서 Kafka `user-events`로 발행한다. 모놀리식 구독자는 `event-topic` header로 분기하고 소비자는 `userId` 기준으로 멱등 처리한다.
 - **프로필 쓰기 소유**: 신원 프로필(닉네임·비밀번호)은 user-service가 소유한다. 게이트웨이가 `PATCH /api/v1/users/me/{nickname,password}`만 user-service로 라우팅하고, 나머지 `/api/v1/users/**`(프로필·지갑 조회, AP 충전)는 모놀리식이 서빙한다. 닉네임 변경은 `user.updated`로 프로젝션에 전파한다.
 
 > 정산 시 `grade`는 랭킹이 쓰므로 `auction.settled`에 반드시 포함. 자세한 소비자별 동작은 [이관 추적 §1](../design/msa/auction-migration-tracking.md).
@@ -118,4 +123,3 @@ Auction 이벤트는 Redis pub/sub JSON 문자열로 발행한다. `user.created
 ## 5. 미구현 (후속)
 
 - **정산 saga 보상**: `occupy` 성공 후 `consume-locked`/`initial-castle` 실패 시 `occupy` 되돌리기(release). 현재는 로깅만.
-- **escrow 보상**: escrow 성공 후 경매 트랜잭션 롤백 시 취소.

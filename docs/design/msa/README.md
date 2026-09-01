@@ -55,7 +55,7 @@
 - **서비스 분리**: `services/auction-service` — 자체 DB(`auction-postgres`) 소유. 엔티티는 크로스도메인 관계 대신 ID+스냅샷.
 - **게이트웨이**: Spring Cloud Gateway — `/api/v1/auctions/**` → auction-service, JWT의 subject를 `X-User-Id`로 주입.
 - **동기 통신**: auction-service → user-service(지갑 에스크로·정산), 모놀리식(영토 점유·성 생성) `/internal/*`. [계약: internal.md](../../api/internal.md)
-- **비동기 통신**: Redis pub/sub — 경매 생성/입찰/정산/종료 이벤트.
+- **비동기 통신**: Kafka — 경매 생성 트리거와 프로젝션·랭킹·시즌용 durable 이벤트. Redis pub/sub은 입찰·정산 WebSocket 저지연 경로에만 병행.
 - **읽기 프로젝션**: 맵 그리드 '경매중' 표시를 auction 테이블 조회 → 모놀리식 로컬 read-model(`territory_auction_status`)로 대체(이벤트 구독). 부하 실측: 경매 쓰기 경합 하 맵 그리드 조회 **p99 ~10배 개선**.
 - **실시간·랭킹·시즌**: 클라이언트 WS는 모놀리식 realtime 허브가 이벤트를 구독해 push. 랭킹·시즌 귀속은 이벤트 브리지로 인프로세스 재발행.
 - 상세: [auction-extraction.md](./auction-extraction.md) · [auction-migration-tracking.md](./auction-migration-tracking.md)

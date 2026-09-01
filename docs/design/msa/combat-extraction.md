@@ -1,6 +1,6 @@
 # Combat Service 추출 가이드
 
-> 기준: `origin/dev` `5bfd88c` · 대상: `building` + `military`
+> 기준: `origin/dev` `2fe55c8` (Kafka 이벤트 백본·MSA PR CI 포함) · 대상: `building` + `military`
 >
 > 단계별 진행 상태와 리뷰 명령은 [combat-migration-tracking.md](./combat-migration-tracking.md)를 따른다.
 
@@ -58,11 +58,18 @@ military가 금고·저장소·섬·건물 HP에 의존하므로 building을 먼
 - season·notification·realtime은 combat DB를 읽지 않고 combat 이벤트를 소비한다.
 - item/season의 GP 보상과 토지세 차감은 combat 내부 자원 명령을 사용한다.
 
-세부 endpoint와 event payload는 `docs/api/internal.md`에 Kafka 전환 브랜치가 합쳐진 뒤 함께 확정한다.
+세부 endpoint와 event payload는 구현 단계마다 `docs/api/internal.md`에 추가한다.
 
-## Kafka 병행 작업
+## 이벤트 백본
 
-combat 도메인은 broker port와 outbox까지만 소유한다. 별도 Kafka 브랜치가 합쳐지기 전에는 기존 broker 설정, auction event adapter, 공용 compose broker 구성을 수정하지 않는다. 최신 dev를 통합 브랜치에 병합한 뒤 해당 브랜치의 event envelope와 topic 규칙으로 combat adapter를 연결한다.
+Kafka 이전이 dev에 반영됐으므로 combat-service도 같은 패턴을 사용한다.
+
+- durable 이벤트는 Kafka `combat-events`로 발행하고 논리 이벤트명은 `event-topic` header로 구분한다.
+- aggregate ID를 record key로 사용해 같은 aggregate의 순서를 유지한다.
+- DB 변경과 이벤트 생성은 combat outbox로 묶고, broker 전송 성공 후 published 처리한다.
+- season·map projection처럼 재처리가 필요한 소비자는 Kafka consumer group을 각각 소유한다.
+- 공성 선언·결과의 WebSocket 저지연 전달이 필요하면 auction과 동일하게 Redis pub/sub을 병행하되, 상태 반영 소비자는 Kafka만 사용한다.
+- 이벤트 DTO는 서비스별로 정의하고 Java 클래스를 공유하지 않는다.
 
 ## 완료 조건
 

@@ -37,16 +37,7 @@ git diff origin/dev...origin/msa/combat-service
 
 이 비교에서는 서비스 전체 소유권, monolith 삭제 범위, gateway/compose, 테스트 이관과 회귀를 검토한다. `msa/combat-service` → `dev` PR은 모든 단계와 full-stack 검증이 끝난 뒤에만 만든다.
 
-병행 중인 Kafka 작업은 combat과 섞지 않고 별도로 확인한다.
-
-```bash
-git log --oneline origin/dev..feature/infra-kafka-events
-git diff --check origin/dev...feature/infra-kafka-events
-git diff --stat origin/dev...feature/infra-kafka-events
-git diff origin/dev...feature/infra-kafka-events
-```
-
-Kafka가 먼저 dev에 병합되면 combat 통합 브랜치에 최신 dev를 반영한 뒤 `git diff origin/dev...msa/combat-service`를 다시 확인한다. 이때 예상 충돌 범위는 event adapter, application 설정, `docker-compose.msa.yml`이다.
+Kafka 전환은 dev 반영 완료(`#9`) 상태다. combat은 기존 Kafka 설정과 `event-topic` header 규칙을 기준으로 새 topic·consumer group만 추가한다.
 
 ## 단계
 
@@ -62,10 +53,10 @@ Kafka가 먼저 dev에 병합되면 combat 통합 브랜치에 최신 dev를 반
 
 ## 충돌 회피
 
-- 기준 브랜치: `origin/dev` `5bfd88c`
-- 병행 브랜치: `feature/infra-kafka-events`
-- Kafka 합류 전 기존 broker adapter, broker application 설정, `docker-compose.msa.yml`의 broker 영역은 수정하지 않는다.
-- Kafka가 dev에 병합되면 `msa/combat-service`에 최신 dev를 병합하고 단계 5~6을 진행한다.
+- 기준 브랜치: `origin/dev` `2fe55c8`
+- Kafka 이벤트 백본: dev 반영 완료(`#9`)
+- MSA 통합 브랜치 PR CI: dev 반영 완료(`#10`)
+- combat-service는 기존 broker 구성을 재정의하지 않고 `combat-events` producer/consumer 설정만 추가한다.
 
 ## 검증 체크
 

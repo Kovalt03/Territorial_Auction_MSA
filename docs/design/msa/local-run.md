@@ -17,7 +17,8 @@ redis · postgres · backend(단일) · frontend
 
 **단계 2 (auction-service + user-service 추출 후, 현재)** — `docker-compose.msa.yml`
 ```
-redis                     ← 공유 (Redisson 분산락 · 서비스 간 이벤트 버스)
+redis                     ← 공유 (Redisson 분산락·캐시·실시간 pub/sub)
+kafka                     ← durable 서비스 이벤트 백본 (호스트 9092)
 postgres                  ← 모놀리식 전용 (호스트 5432)
 auction-postgres          ← auction-service 전용 (호스트 5433)
 user-postgres             ← user-service 전용 (컨테이너 내부 전용)
@@ -59,7 +60,8 @@ frontend                  ← 게이트웨이로 프록시          (호스트 3
 
 | 서비스 | 이미지/빌드 | 호스트 포트 | 요점 |
 |---|---|---|---|
-| `redis` | redis 7 | 6379 | **공유** 이벤트 버스 + 캐시 |
+| `redis` | redis 7 | 6379 | 분산락·캐시·WebSocket 저지연 pub/sub |
+| `kafka` | apache/kafka 3.9 | 9092 | 경매·유저 durable 이벤트 백본 |
 | `postgres` | 모놀리식 DB | 5432 | `territorial_auction` |
 | `auction-postgres` | auction DB(별도) | 5433 | `auction`(Flyway 소유) |
 | `user-postgres` | user DB(별도) | 내부 전용 | `user`(Flyway 소유) |
@@ -71,7 +73,8 @@ frontend                  ← 게이트웨이로 프록시          (호스트 3
 
 **주의점**
 - **DB 분리**: `postgres` / `auction-postgres` / `user-postgres`는 별도 컨테이너·볼륨이며 서로 직접 조회하지 않는다.
-- **공유 redis 단일 인스턴스**: 현재 dev의 서비스 간 이벤트와 캐시는 동일 인스턴스를 사용한다. Kafka 이전이 dev에 합쳐지면 이 설명도 함께 갱신한다.
+- **Kafka durable 경로**: `territory-auction-ready`, `auction-events`, `user-events`를 서비스별 consumer group이 구독한다.
+- **공유 Redis**: 분산락·캐시와 auction WebSocket 저지연 pub/sub에 사용한다. durable 상태 반영은 Redis에 의존하지 않는다.
 - 각 서비스는 **자기 Flyway 마이그레이션**을 자기 DB에 적용한다.
 - **auction-service 이미지는 self-contained 빌드**: 빌드 컨텍스트가 리포 루트(`context: .`)이고, Dockerfile이 이미지 안에서 공유 라이브러리 `common`을 `mavenLocal`에 발행한 뒤 빌드한다 → **GitHub Packages PAT 없이** 빌드된다. (`.dockerignore`로 컨텍스트 경량화)
 - 컨테이너 시각은 `TZ: Asia/Seoul`(단일 타임존).
@@ -101,7 +104,7 @@ export INTERNAL_API_SECRET=local-internal-secret
 docker compose -f docker-compose.msa.yml up -d --build
 
 # 경매만 작업 — 필요한 것만
-docker compose -f docker-compose.msa.yml up redis auction-postgres user-postgres auction-service user-service backend
+docker compose -f docker-compose.msa.yml up redis kafka auction-postgres user-postgres auction-service user-service backend
 
 # 상태·헬스체크
 docker compose -f docker-compose.msa.yml ps

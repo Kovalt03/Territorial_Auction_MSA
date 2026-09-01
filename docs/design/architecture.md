@@ -13,7 +13,7 @@
 | Client | 플레이어·관리자 화면 접근 | Web Browser |
 | Presentation | SPA 화면, 사용자 상호작용, API·STOMP 연결 | React, TypeScript, Vite, Tailwind CSS |
 | Application | 인증, 도메인 규칙, REST API, 실시간 이벤트 | Spring Boot, Spring Security, JPA, WebSocket |
-| Infrastructure | 영속화, 캐시·락·토큰, 주기 작업 | PostgreSQL, Redis, Flyway, Scheduler |
+| Infrastructure | 영속화, durable 이벤트, 캐시·락·실시간 relay, 주기 작업 | PostgreSQL, Kafka, Redis, Flyway, Scheduler |
 
 ## 패키지 경계
 
@@ -77,7 +77,7 @@ Client ───▶ │  API Gateway  │  JWT 검증 → X-User-Id 주입, 경�
 - **게이트웨이**(Spring Cloud Gateway): auction 경로는 auction-service, 인증과 user-service 소유 프로필 명령은 user-service, 그 외와 `/ws`는 모놀리식으로 보낸다. 유입 `X-User-Id`를 제거하고 유효 JWT의 subject를 다시 주입한다.
 - **DB 분리**: auction-service와 user-service는 각각 `auction-postgres`, `user-postgres`를 소유하며 다른 서비스 DB를 직접 조회하지 않는다.
 - **동기 통신**(`/internal`): auction-service는 AP escrow·정산을 user-service에 요청하고 영토·초기 성 명령은 모놀리식에 요청한다. 모놀리식의 일반 AP 명령과 OAuth provisioning도 user-service 계약을 사용한다. [계약](../api/internal.md)
-- **비동기 통신**: auction 이벤트는 모놀리식 read model·realtime·랭킹·시즌 bridge가 소비한다. user 생성·수정·상태 이벤트는 모놀리식 user projection과 HomeIsland bootstrap에 반영한다. 현재 dev의 transport와 Kafka 이전 진행 상태는 [내부 계약](../api/internal.md) 및 해당 인프라 PR을 따른다.
+- **비동기 통신**: Kafka가 경매 생성·프로젝션·랭킹·시즌과 user projection의 durable 경로를 담당한다. Redis pub/sub은 auction 입찰·정산의 WebSocket 저지연 경로에만 병행한다. [내부 계약](../api/internal.md)
 - **읽기 프로젝션**: 맵 그리드가 auction 테이블을 매번 조회하던 것을 로컬 read-model(`territory_auction_status`, 이벤트로 유지)로 대체 → 핫패스를 auction 경합에서 격리(부하 실측 p99 ~10배 개선).
 
 ## MSA 목표 토폴로지 (7개)
