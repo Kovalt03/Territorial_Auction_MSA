@@ -9,7 +9,11 @@ import static org.mockito.Mockito.verify;
 
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.user.domain.user.dto.ChangeNicknameResponse;
+import com.territorial.user.domain.user.dto.NotificationSettingResponse;
+import com.territorial.user.domain.user.dto.UpdateNotificationSettingRequest;
+import com.territorial.user.domain.user.entity.NotificationSetting;
 import com.territorial.user.domain.user.entity.User;
+import com.territorial.user.domain.user.repository.NotificationSettingRepository;
 import com.territorial.user.domain.user.repository.UserRepository;
 import com.territorial.user.event.UserUpdatedEvent;
 import com.territorial.user.event.UserUpdatedEventPublisher;
@@ -30,6 +34,7 @@ class UserServiceTest {
     @Mock private UserRepository userRepository;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private UserUpdatedEventPublisher userUpdatedEventPublisher;
+    @Mock private NotificationSettingRepository notificationSettingRepository;
 
     private User user(long id, String passwordHash) {
         User user =
@@ -89,5 +94,29 @@ class UserServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_PASSWORD);
+    }
+
+    @Test
+    void updateNotificationSettingAppliesChanges() {
+        NotificationSetting setting = NotificationSetting.builder().user(user(1L, "h")).build();
+        given(notificationSettingRepository.findById(1L)).willReturn(Optional.of(setting));
+
+        NotificationSettingResponse response =
+                userService.updateNotificationSetting(
+                        1L, new UpdateNotificationSettingRequest(false, null, true));
+
+        assertThat(response.isOutbidEnabled()).isFalse(); // 변경됨
+        assertThat(response.isAuctionStartEnabled()).isTrue(); // null → 유지
+        assertThat(response.isMarketingEnabled()).isTrue(); // 변경됨
+    }
+
+    @Test
+    void getNotificationSettingRejectsMissing() {
+        given(notificationSettingRepository.findById(9L)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.getNotificationSetting(9L))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.NOTIFICATION_NOT_FOUND);
     }
 }

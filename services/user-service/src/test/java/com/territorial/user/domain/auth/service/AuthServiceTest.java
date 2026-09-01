@@ -11,6 +11,7 @@ import com.territorial.user.domain.auth.dto.TokenPair;
 import com.territorial.user.domain.user.entity.User;
 import com.territorial.user.domain.user.repository.UserRepository;
 import com.territorial.user.domain.user.repository.WalletRepository;
+import com.territorial.user.domain.user.repository.NotificationSettingRepository;
 import com.territorial.user.event.UserCreatedEventPublisher;
 import com.territorial.user.global.exception.ErrorCode;
 import com.territorial.user.global.security.JwtTokenProvider;
@@ -30,6 +31,7 @@ class AuthServiceTest {
     @InjectMocks private AuthService authService;
     @Mock private UserRepository userRepository;
     @Mock private WalletRepository walletRepository;
+    @Mock private NotificationSettingRepository notificationSettingRepository;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private JwtTokenProvider jwtTokenProvider;
     @Mock private RefreshTokenService refreshTokenService;

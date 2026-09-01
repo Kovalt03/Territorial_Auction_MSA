@@ -11,6 +11,7 @@ import com.territorial.user.domain.user.entity.User;
 import com.territorial.user.domain.user.entity.Wallet;
 import com.territorial.user.domain.user.repository.UserRepository;
 import com.territorial.user.domain.user.repository.WalletRepository;
+import com.territorial.user.domain.user.repository.NotificationSettingRepository;
 import com.territorial.user.event.UserCreatedEvent;
 import com.territorial.user.event.UserCreatedEventPublisher;
 import java.util.Optional;
@@ -27,6 +28,7 @@ class UserProvisioningServiceTest {
     @InjectMocks private UserProvisioningService userProvisioningService;
     @Mock private UserRepository userRepository;
     @Mock private WalletRepository walletRepository;
+    @Mock private NotificationSettingRepository notificationSettingRepository;
     @Mock private UserCreatedEventPublisher userCreatedEventPublisher;
 
     @Test
