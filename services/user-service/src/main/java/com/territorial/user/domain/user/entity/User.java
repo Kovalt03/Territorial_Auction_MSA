@@ -54,4 +54,8 @@ public class User {
     public void updatePassword(String passwordHash) {
         this.passwordHash = passwordHash;
     }
+
+    public void updateStatus(String status) {
+        this.status = status;
+    }
 }
