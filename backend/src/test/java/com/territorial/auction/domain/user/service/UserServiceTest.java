@@ -25,14 +25,10 @@ import com.territorial.auction.domain.user.client.WalletSnapshot;
 import com.territorial.auction.domain.user.dto.MyProfileResponse;
 import com.territorial.auction.domain.user.dto.MyTerritoryResponse;
 import com.territorial.auction.domain.user.dto.MyWalletResponse;
-import com.territorial.auction.domain.user.dto.NotificationSettingResponse;
-import com.territorial.auction.domain.user.dto.UpdateNotificationSettingRequest;
 import com.territorial.auction.domain.user.dto.UserProfileResponse;
-import com.territorial.auction.domain.user.entity.NotificationSetting;
 import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.entity.UserProfile;
 import com.territorial.auction.domain.user.entity.UserStatus;
-import com.territorial.auction.domain.user.repository.NotificationSettingRepository;
 import com.territorial.auction.domain.user.repository.UserProfileRepository;
 import com.territorial.auction.domain.user.repository.UserRepository;
 import com.territorial.auction.global.exception.CustomException;
@@ -70,7 +66,6 @@ class UserServiceTest {
     @Mock private HomeIslandRepository homeIslandRepository;
     @Mock private UserSeasonPassRepository userSeasonPassRepository;
     @Mock private TerritoryRepository territoryRepository;
-    @Mock private NotificationSettingRepository notificationSettingRepository;
     @Mock private UserProfileRepository userProfileRepository;
     @Mock private UserTrophyRepository userTrophyRepository;
     @Mock private PasswordEncoder passwordEncoder;
@@ -130,12 +125,6 @@ class UserServiceTest {
                 .islandBonusPct(10)
                 .extraBuilders(1)
                 .build();
-    }
-
-    private NotificationSetting sampleNotificationSetting(User user) {
-        NotificationSetting setting = NotificationSetting.builder().user(user).build();
-        ReflectionTestUtils.setField(setting, "updatedAt", LocalDateTime.of(2026, 4, 9, 10, 0));
-        return setting;
     }
 
     // ─── getMyProfile() ───────────────────────────────────────────────────────
@@ -320,118 +309,6 @@ class UserServiceTest {
                     .isInstanceOf(CustomException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.USER_NOT_FOUND);
-        }
-    }
-
-    // ─── getNotificationSetting() ─────────────────────────────────────────────
-
-    @Nested
-    @DisplayName("getNotificationSetting()")
-    class GetNotificationSetting {
-
-        @Test
-        @DisplayName("정상 조회 시 NotificationSettingResponse 반환")
-        void getNotificationSetting_success() {
-            User user = sampleUser();
-            given(notificationSettingRepository.findById(1L))
-                    .willReturn(Optional.of(sampleNotificationSetting(user)));
-
-            NotificationSettingResponse response = userService.getNotificationSetting(1L);
-
-            assertThat(response.isOutbidEnabled()).isTrue();
-            assertThat(response.isAuctionStartEnabled()).isTrue();
-            assertThat(response.isMarketingEnabled()).isFalse();
-        }
-
-        @Test
-        @DisplayName("알림 설정이 없으면 NOTIFICATION_NOT_FOUND 예외")
-        void getNotificationSetting_notFound() {
-            given(notificationSettingRepository.findById(99L)).willReturn(Optional.empty());
-
-            assertThatThrownBy(() -> userService.getNotificationSetting(99L))
-                    .isInstanceOf(CustomException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.NOTIFICATION_NOT_FOUND);
-        }
-    }
-
-    // ─── updateNotificationSetting() ──────────────────────────────────────────
-
-    @Nested
-    @DisplayName("updateNotificationSetting()")
-    class UpdateNotificationSetting {
-
-        @Test
-        @DisplayName("전체 필드 업데이트 시 변경된 값 반환")
-        void updateNotificationSetting_allFields() {
-            User user = sampleUser();
-            NotificationSetting setting = sampleNotificationSetting(user);
-            given(notificationSettingRepository.findById(1L)).willReturn(Optional.of(setting));
-            given(notificationSettingRepository.save(any(NotificationSetting.class)))
-                    .willAnswer(inv -> inv.getArgument(0));
-
-            UpdateNotificationSettingRequest request =
-                    new UpdateNotificationSettingRequest(false, false, true);
-
-            NotificationSettingResponse response =
-                    userService.updateNotificationSetting(1L, request);
-
-            assertThat(response.isOutbidEnabled()).isFalse();
-            assertThat(response.isAuctionStartEnabled()).isFalse();
-            assertThat(response.isMarketingEnabled()).isTrue();
-        }
-
-        @Test
-        @DisplayName("null 필드는 기존 값 유지 (Partial Update)")
-        void updateNotificationSetting_partialUpdate() {
-            User user = sampleUser();
-            NotificationSetting setting = sampleNotificationSetting(user);
-            // 기본값: isOutbidEnabled=true, isAuctionStartEnabled=true, isMarketingEnabled=false
-            given(notificationSettingRepository.findById(1L)).willReturn(Optional.of(setting));
-            given(notificationSettingRepository.save(any(NotificationSetting.class)))
-                    .willAnswer(inv -> inv.getArgument(0));
-
-            UpdateNotificationSettingRequest request =
-                    new UpdateNotificationSettingRequest(false, null, null);
-            // isAuctionStartEnabled, isMarketingEnabled 는 null → 변경 없음
-
-            NotificationSettingResponse response =
-                    userService.updateNotificationSetting(1L, request);
-
-            assertThat(response.isOutbidEnabled()).isFalse();
-            assertThat(response.isAuctionStartEnabled()).isTrue(); // 기존 유지
-            assertThat(response.isMarketingEnabled()).isFalse(); // 기존 유지
-        }
-
-        @Test
-        @DisplayName("알림 설정이 없으면 NOTIFICATION_NOT_FOUND 예외")
-        void updateNotificationSetting_notFound() {
-            given(notificationSettingRepository.findById(99L)).willReturn(Optional.empty());
-
-            UpdateNotificationSettingRequest request =
-                    new UpdateNotificationSettingRequest(null, null, null);
-
-            assertThatThrownBy(() -> userService.updateNotificationSetting(99L, request))
-                    .isInstanceOf(CustomException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.NOTIFICATION_NOT_FOUND);
-        }
-
-        @Test
-        @DisplayName("save 호출 여부 검증")
-        void updateNotificationSetting_callsSave() {
-            User user = sampleUser();
-            NotificationSetting setting = sampleNotificationSetting(user);
-            given(notificationSettingRepository.findById(1L)).willReturn(Optional.of(setting));
-            given(notificationSettingRepository.save(any(NotificationSetting.class)))
-                    .willAnswer(inv -> inv.getArgument(0));
-
-            UpdateNotificationSettingRequest request =
-                    new UpdateNotificationSettingRequest(null, null, true);
-
-            userService.updateNotificationSetting(1L, request);
-
-            then(notificationSettingRepository).should().save(setting);
         }
     }
 

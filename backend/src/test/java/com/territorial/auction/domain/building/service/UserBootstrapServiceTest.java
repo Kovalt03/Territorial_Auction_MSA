@@ -13,10 +13,8 @@ import com.territorial.auction.domain.building.repository.BuildingInstanceReposi
 import com.territorial.auction.domain.building.repository.BuildingTypeRepository;
 import com.territorial.auction.domain.building.repository.HomeIslandRepository;
 import com.territorial.auction.domain.building.repository.IslandGradeRepository;
-import com.territorial.auction.domain.user.entity.NotificationSetting;
 import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.entity.UserProfile;
-import com.territorial.auction.domain.user.repository.NotificationSettingRepository;
 import com.territorial.auction.domain.user.repository.UserProfileRepository;
 import com.territorial.auction.domain.user.repository.UserRepository;
 import java.util.Optional;
@@ -36,7 +34,6 @@ class UserBootstrapServiceTest {
     @InjectMocks private UserBootstrapService userBootstrapService;
     @Mock private JdbcTemplate jdbcTemplate;
     @Mock private UserRepository userRepository;
-    @Mock private NotificationSettingRepository notificationSettingRepository;
     @Mock private UserProfileRepository userProfileRepository;
     @Mock private HomeIslandRepository homeIslandRepository;
     @Mock private IslandGradeRepository islandGradeRepository;
@@ -57,13 +54,11 @@ class UserBootstrapServiceTest {
         given(jdbcTemplate.queryForObject(anyString(), eq(Integer.class), any(Object[].class)))
                 .willReturn(1);
         given(userRepository.getReferenceById(USER_ID)).willReturn(user);
-        given(notificationSettingRepository.existsById(USER_ID)).willReturn(false);
         given(userProfileRepository.existsById(USER_ID)).willReturn(false);
         given(homeIslandRepository.findByUserId(USER_ID)).willReturn(Optional.of(island));
 
         userBootstrapService.bootstrap(USER_ID, "tester", "test@example.com", "테스터");
 
-        verify(notificationSettingRepository).save(any(NotificationSetting.class));
         verify(userProfileRepository).save(any(UserProfile.class));
         verify(islandGradeRepository, never()).findByName(anyString());
         verify(buildingInstanceRepository, never()).save(any());
