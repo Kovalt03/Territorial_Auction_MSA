@@ -2,107 +2,51 @@ package com.territorial.auction.domain.building.event;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.territorial.auction.domain.building.service.UserBootstrapService;
-import java.util.List;
+import java.nio.charset.StandardCharsets;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataAccessException;
-import org.springframework.data.redis.connection.stream.Consumer;
-import org.springframework.data.redis.connection.stream.MapRecord;
-import org.springframework.data.redis.connection.stream.ReadOffset;
-import org.springframework.data.redis.connection.stream.StreamOffset;
-import org.springframework.data.redis.connection.stream.StreamReadOptions;
-import org.springframework.data.redis.core.StreamOperations;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.messaging.handler.annotation.Header;
+import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
 
+/** user-service 이벤트(Kafka `user-events`)를 소비해 모놀리식 User 프로젝션에 반영. 핸들러는 userId 기준 멱등. */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class UserCreatedSubscriber {
 
-    private static final String STREAM_KEY = "stream:user-events";
-    private static final String GROUP = "backend-user-bootstrap";
-    private static final String CONSUMER = "backend-1";
     private static final String UPDATED_TOPIC = "user.updated";
     private static final String STATUS_CHANGED_TOPIC = "user.status-changed";
 
-    private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
     private final UserBootstrapService userBootstrapService;
 
-    @Scheduled(fixedDelayString = "${user-events.poll-delay-ms:1000}")
-    @SuppressWarnings("unchecked") // Spring Data Stream read API가 generic varargs를 노출한다.
-    public void poll() {
-        if (!ensureConsumerGroup()) {
-            return;
-        }
-        StreamOperations<String, Object, Object> streamOperations = redisTemplate.opsForStream();
-        List<MapRecord<String, Object, Object>> pendingRecords =
-                streamOperations.read(
-                        Consumer.from(GROUP, CONSUMER),
-                        StreamReadOptions.empty().count(20),
-                        StreamOffset.create(STREAM_KEY, ReadOffset.from("0")));
-        handleAll(pendingRecords);
-
-        List<MapRecord<String, Object, Object>> newRecords =
-                streamOperations.read(
-                        Consumer.from(GROUP, CONSUMER),
-                        StreamReadOptions.empty().count(20),
-                        StreamOffset.create(STREAM_KEY, ReadOffset.lastConsumed()));
-        handleAll(newRecords);
-    }
-
-    private void handleAll(List<MapRecord<String, Object, Object>> records) {
-        if (records != null) {
-            records.forEach(this::handle);
-        }
-    }
-
-    private boolean ensureConsumerGroup() {
+    @KafkaListener(topics = "user-events", groupId = "backend-user-projection")
+    public void handle(
+            @Payload String payload,
+            @Header(name = "event-topic", required = false) byte[] eventTopicHeader) {
+        String eventTopic =
+                eventTopicHeader != null
+                        ? new String(eventTopicHeader, StandardCharsets.UTF_8)
+                        : "";
         try {
-            redisTemplate.opsForStream().createGroup(STREAM_KEY, ReadOffset.from("0-0"), GROUP);
-            return true;
-        } catch (DataAccessException e) {
-            return hasBusyGroupCause(e);
-        }
-    }
-
-    private boolean hasBusyGroupCause(Throwable error) {
-        Throwable current = error;
-        while (current != null) {
-            if (current.getMessage() != null && current.getMessage().contains("BUSYGROUP")) {
-                return true;
-            }
-            current = current.getCause();
-        }
-        return false;
-    }
-
-    private void handle(MapRecord<String, Object, Object> record) {
-        String topic = String.valueOf(record.getValue().get("topic"));
-        String json = String.valueOf(record.getValue().get("payload"));
-        try {
-            if (UPDATED_TOPIC.equals(topic)) {
-                UserUpdatedEvent event = objectMapper.readValue(json, UserUpdatedEvent.class);
+            if (UPDATED_TOPIC.equals(eventTopic)) {
+                UserUpdatedEvent event = objectMapper.readValue(payload, UserUpdatedEvent.class);
                 userBootstrapService.updateProjectedNickname(event.userId(), event.nickname());
-            } else if (STATUS_CHANGED_TOPIC.equals(topic)) {
+            } else if (STATUS_CHANGED_TOPIC.equals(eventTopic)) {
                 UserStatusChangedEvent event =
-                        objectMapper.readValue(json, UserStatusChangedEvent.class);
+                        objectMapper.readValue(payload, UserStatusChangedEvent.class);
                 userBootstrapService.updateProjectedStatus(event.userId(), event.status());
             } else {
-                UserCreatedEvent event = objectMapper.readValue(json, UserCreatedEvent.class);
+                UserCreatedEvent event = objectMapper.readValue(payload, UserCreatedEvent.class);
                 userBootstrapService.bootstrap(
                         event.userId(), event.username(), event.email(), event.nickname());
             }
-            redisTemplate.opsForStream().acknowledge(STREAM_KEY, GROUP, record.getId());
         } catch (Exception e) {
-            log.error(
-                    "[UserCreatedSubscriber] 처리 실패: topic={}, recordId={}, payload={}",
-                    topic,
-                    record.getId(),
-                    json,
-                    e);
+            // 재던져 Spring Kafka 기본 에러 핸들러의 재시도(전이 오류) → 최종 스킵에 위임.
+            log.error("[UserEventListener] 처리 실패: topic={}, payload={}", eventTopic, payload, e);
+            throw new IllegalStateException("user-events 처리 실패", e);
         }
     }
 
