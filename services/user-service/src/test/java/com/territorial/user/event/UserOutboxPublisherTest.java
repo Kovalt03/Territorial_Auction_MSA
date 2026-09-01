@@ -5,30 +5,29 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.connection.stream.RecordId;
-import org.springframework.data.redis.core.StreamOperations;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.kafka.core.KafkaTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class UserOutboxPublisherTest {
 
     @InjectMocks private UserOutboxPublisher userOutboxPublisher;
     @Mock private UserOutboxEventRepository outboxEventRepository;
-    @Mock private StringRedisTemplate redisTemplate;
-    @Mock private StreamOperations<String, Object, Object> streamOperations;
+    @Mock private KafkaTemplate<String, String> kafkaTemplate;
 
     @Test
-    void successfulStreamAppendMarksOutboxPublished() {
+    void successfulSendMarksOutboxPublished() {
         UserOutboxEvent event = new UserOutboxEvent("user.created", "{\"userId\":1}");
         given(outboxEventRepository.findTop100ByPublishedAtIsNullOrderByCreatedAtAsc())
                 .willReturn(List.of(event));
-        given(redisTemplate.opsForStream()).willReturn(streamOperations);
-        given(streamOperations.add(any())).willReturn(RecordId.of("1-0"));
+        given(kafkaTemplate.send(any(ProducerRecord.class)))
+                .willReturn(CompletableFuture.completedFuture(null));
 
         userOutboxPublisher.publishPending();
 
@@ -36,12 +35,12 @@ class UserOutboxPublisherTest {
     }
 
     @Test
-    void failedStreamAppendLeavesOutboxPending() {
+    void failedSendLeavesOutboxPending() {
         UserOutboxEvent event = new UserOutboxEvent("user.created", "{\"userId\":1}");
         given(outboxEventRepository.findTop100ByPublishedAtIsNullOrderByCreatedAtAsc())
                 .willReturn(List.of(event));
-        given(redisTemplate.opsForStream()).willReturn(streamOperations);
-        given(streamOperations.add(any())).willThrow(new IllegalStateException("redis down"));
+        given(kafkaTemplate.send(any(ProducerRecord.class)))
+                .willReturn(CompletableFuture.failedFuture(new IllegalStateException("kafka down")));
 
         userOutboxPublisher.publishPending();
 
