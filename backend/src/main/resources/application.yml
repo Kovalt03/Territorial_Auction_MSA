@@ -93,5 +93,8 @@ auction-service:
 # 분리된 user-service — 지갑(AP) 명령·조회를 /internal로 호출
 user-service:
   base-url: ${USER_SERVICE_BASE_URL:http://localhost:8083}
+# 분리된 social-service — admin 채팅 검열을 /internal로 위임 호출
+social-service:
+  base-url: ${SOCIAL_SERVICE_BASE_URL:http://localhost:8084}
 internal-api:
   secret: ${INTERNAL_API_SECRET:local-internal-secret}

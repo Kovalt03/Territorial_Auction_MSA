@@ -35,6 +35,11 @@ spring:
           uri: ${AUCTION_SERVICE_URL:http://localhost:8082}
           predicates:
             - Path=/api/v1/auctions/**
+        # 채팅·길드·소셜은 social-service로
+        - id: social-service
+          uri: ${SOCIAL_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/v1/chat/**,/api/v1/guilds/**,/api/v1/social/**
         # WebSocket(실시간 허브)은 모놀리식
         - id: monolith-ws
           uri: ${MONOLITH_WS_URL:ws://localhost:8081}
