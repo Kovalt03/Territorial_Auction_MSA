@@ -43,7 +43,21 @@ public enum ErrorCode implements ErrorCodeType {
     RESEARCH_IN_PROGRESS(HttpStatus.CONFLICT, "이미 연구가 진행 중입니다."),
     RESEARCH_MAX_REACHED(HttpStatus.BAD_REQUEST, "더 연구할 레벨이 없습니다."),
     RESEARCH_SPEC_NOT_FOUND(HttpStatus.BAD_REQUEST, "해당 레벨의 유닛 스펙이 없습니다."),
-    UNIT_LEVEL_NOT_RESEARCHED(HttpStatus.BAD_REQUEST, "아직 연구하지 않은 유닛 레벨입니다.");
+    UNIT_LEVEL_NOT_RESEARCHED(HttpStatus.BAD_REQUEST, "아직 연구하지 않은 유닛 레벨입니다."),
+    TERRITORY_NOT_OCCUPIED(HttpStatus.BAD_REQUEST, "점유 중인 영토가 아닙니다."),
+    NO_ATTACK_TOKEN(HttpStatus.BAD_REQUEST, "공격권이 없습니다."),
+    ZONE_NOT_CLEARED(HttpStatus.BAD_REQUEST, "이전 Zone을 클리어해야 합니다."),
+    TERRITORY_PROTECTED(HttpStatus.BAD_REQUEST, "보호 기간 중인 영토입니다."),
+    ATTACK_COOLDOWN(HttpStatus.TOO_MANY_REQUESTS, "공격 쿨다운 중입니다."),
+    SIEGE_NOT_FOUND(HttpStatus.NOT_FOUND, "공성전을 찾을 수 없습니다."),
+    SIEGE_FORBIDDEN(HttpStatus.FORBIDDEN, "해당 공성전의 관계자가 아닙니다."),
+    SIEGE_RESULT_NOT_FOUND(HttpStatus.NOT_FOUND, "공성전 결과가 아직 처리되지 않았습니다."),
+    CANNOT_ATTACK_OWN_TERRITORY(HttpStatus.FORBIDDEN, "자신의 영토는 공격할 수 없습니다."),
+    SIEGE_STAGING_REQUIRED(HttpStatus.BAD_REQUEST, "공성에는 주둔지가 최소 1개 필요합니다."),
+    SIEGE_STRUCTURE_PLACEMENT_INVALID(HttpStatus.BAD_REQUEST, "공성 건물은 대상 영토 인접 타일에만 배치할 수 있습니다."),
+    SIEGE_STRUCTURE_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "공성 건물 개수 상한을 초과했습니다."),
+    SIEGE_FORCE_EXCEEDS_CAPACITY(HttpStatus.BAD_REQUEST, "공격 병력이 주둔지 수용량을 초과합니다."),
+    SIEGE_TARGET_BUILDING_INVALID(HttpStatus.BAD_REQUEST, "정밀 공격 대상 건물이 유효하지 않습니다.");
 
     private final HttpStatus httpStatus;
     private final String message;
