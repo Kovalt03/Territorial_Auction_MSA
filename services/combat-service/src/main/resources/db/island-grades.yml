@@ -1,0 +1,34 @@
+# 성(CASTLE) 레벨이 오르면 castleLevelRequired 가 일치하는 등급으로 섬이 승격된다.
+# zone1Radius / zone2Radius 는 격자 중심으로부터의 체비쇼프 거리 — 그 바깥이 Zone3.
+# 성 최대 레벨은 현재 3(BuildingPolicy.MAX_LEVEL) 이라 A·S 는 아직 도달 불가(미출시).
+# gridSize 는 모두 짝수 — 등급이 오를 때 중심 기준으로 건물을 재배치하려면 증가량이 짝수여야 한다.
+islandGrades:
+  - name: "D"
+    gridSize: 10
+    zone1Radius: 2
+    zone2Radius: 4
+    castleLevelRequired: 1
+
+  - name: "C"
+    gridSize: 12
+    zone1Radius: 2
+    zone2Radius: 5
+    castleLevelRequired: 2
+
+  - name: "B"
+    gridSize: 16
+    zone1Radius: 3
+    zone2Radius: 6
+    castleLevelRequired: 3
+
+  - name: "A"
+    gridSize: 18
+    zone1Radius: 4
+    zone2Radius: 7
+    castleLevelRequired: 5
+
+  - name: "S"
+    gridSize: 20
+    zone1Radius: 4
+    zone2Radius: 8
+    castleLevelRequired: 6
