@@ -80,6 +80,51 @@ class SeasonPassServiceTest {
         Mockito.lenient().when(redisTemplate.opsForValue()).thenReturn(valueOps);
     }
 
+    @Test
+    @DisplayName("combat benefit은 활성 시즌 패스의 건설 혜택만 반환한다")
+    void getCombatBenefit_activePass() {
+        SeasonPass pass = buildSeasonPass(1L, 100, 30);
+        ReflectionTestUtils.setField(pass, "buildTimeReductionPct", 20);
+        User user =
+                User.builder().username("u").email("u@x").passwordHash("h").nickname("u").build();
+        UserSeasonPass active =
+                UserSeasonPass.builder()
+                        .user(user)
+                        .seasonPass(pass)
+                        .startedAt(LocalDateTime.now().minusDays(1))
+                        .expiresAt(LocalDateTime.now().plusDays(1))
+                        .build();
+        given(userSeasonPassRepository.findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(1L))
+                .willReturn(Optional.of(active));
+
+        var response = seasonPassService.getCombatBenefit(1L);
+
+        assertThat(response.buildTimeReductionPct()).isEqualTo(20);
+        assertThat(response.extraBuilders()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("combat benefit은 시즌 패스가 만료됐으면 기본값이다")
+    void getCombatBenefit_expiredPass() {
+        SeasonPass pass = buildSeasonPass(1L, 100, 30);
+        User user =
+                User.builder().username("u").email("u@x").passwordHash("h").nickname("u").build();
+        UserSeasonPass expired =
+                UserSeasonPass.builder()
+                        .user(user)
+                        .seasonPass(pass)
+                        .startedAt(LocalDateTime.now().minusDays(2))
+                        .expiresAt(LocalDateTime.now().minusDays(1))
+                        .build();
+        given(userSeasonPassRepository.findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(1L))
+                .willReturn(Optional.of(expired));
+
+        var response = seasonPassService.getCombatBenefit(1L);
+
+        assertThat(response.buildTimeReductionPct()).isZero();
+        assertThat(response.extraBuilders()).isZero();
+    }
+
     // ─── 공통 픽스처 ─────────────────────────────────────────────────────────
 
     private SeasonPass buildSeasonPass(Long id, int costAp, int durationDays) {

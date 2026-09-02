@@ -8,7 +8,10 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.mock;
 
+import com.territorial.auction.domain.admin.client.CombatAdminClient;
+import com.territorial.auction.domain.admin.client.CombatAdminClient.UserResourceSnapshot;
 import com.territorial.auction.domain.admin.dto.AdminAdjustWalletRequest;
 import com.territorial.auction.domain.admin.dto.AdminBulkAdjustWalletRequest;
 import com.territorial.auction.domain.admin.dto.AdminBulkChangeStatusRequest;
@@ -16,6 +19,7 @@ import com.territorial.auction.domain.admin.dto.AdminBulkResultResponse;
 import com.territorial.auction.domain.admin.dto.AdminChangeUserStatusRequest;
 import com.territorial.auction.domain.admin.dto.AdminUserDetailResponse;
 import com.territorial.auction.domain.admin.dto.AdminUserListResponse;
+import com.territorial.auction.domain.map.entity.Territory;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
 import com.territorial.auction.domain.user.client.UserProvisioningClient;
 import com.territorial.auction.domain.user.client.WalletClient;
@@ -48,24 +52,14 @@ class AdminUserServiceTest {
     @Mock private WalletClient walletClient;
     @Mock private UserProvisioningClient userProvisioningClient;
 
-    @Mock
-    private com.territorial.auction.domain.building.repository.GlobalVaultRepository
-            globalVaultRepository;
-
-    @Mock
-    private com.territorial.auction.domain.building.repository.BuildingInstanceRepository
-            buildingInstanceRepository;
-
+    @Mock private CombatAdminClient combatAdminClient;
     @Mock private TerritoryRepository territoryRepository;
     @Mock private AdminAuditLogger adminAuditLogger;
 
-    private com.territorial.auction.domain.building.entity.GlobalVault vault(User user, int gp) {
-        com.territorial.auction.domain.building.entity.GlobalVault v =
-                com.territorial.auction.domain.building.entity.GlobalVault.builder()
-                        .user(user)
-                        .build();
-        ReflectionTestUtils.setField(v, "storedGp", gp);
-        return v;
+    private Territory territory(long id) {
+        Territory territory = mock(Territory.class);
+        given(territory.getId()).willReturn(id);
+        return territory;
     }
 
     private User user(long id, UserStatus status, UserRole role) {
@@ -113,8 +107,10 @@ class AdminUserServiceTest {
             User u = user(1L, UserStatus.ACTIVE, UserRole.USER);
             given(userRepository.findById(1L)).willReturn(Optional.of(u));
             given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(500, 0));
-            given(globalVaultRepository.findById(1L)).willReturn(Optional.of(vault(u, 30)));
-            given(territoryRepository.countByOwnerId(1L)).willReturn(3L);
+            List<Territory> territories = List.of(territory(11L), territory(12L), territory(13L));
+            given(territoryRepository.findByOwnerId(1L)).willReturn(territories);
+            given(combatAdminClient.getUserResources(1L, List.of(11L, 12L, 13L)))
+                    .willReturn(new UserResourceSnapshot(30, 40));
 
             AdminUserDetailResponse res = adminUserService.getUser(1L);
 
@@ -145,7 +141,9 @@ class AdminUserServiceTest {
             User u = user(1L, UserStatus.ACTIVE, UserRole.USER);
             given(userRepository.findById(1L)).willReturn(Optional.of(u));
             given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(0, 0));
-            given(territoryRepository.countByOwnerId(1L)).willReturn(0L);
+            given(territoryRepository.findByOwnerId(1L)).willReturn(List.of());
+            given(combatAdminClient.getUserResources(1L, List.of()))
+                    .willReturn(new UserResourceSnapshot(0, 0));
 
             AdminUserDetailResponse res =
                     adminUserService.changeStatus(
@@ -202,13 +200,13 @@ class AdminUserServiceTest {
         @DisplayName("AP 차감·GP 지급 성공")
         void adjust_success() {
             User u = user(1L, UserStatus.ACTIVE, UserRole.USER);
-            com.territorial.auction.domain.building.entity.GlobalVault v = vault(u, 50);
             given(userRepository.findById(1L)).willReturn(Optional.of(u));
             given(walletClient.adjust(eq(1L), eq(-200), anyString()))
                     .willReturn(new WalletSnapshot(800, 0));
-            given(globalVaultRepository.findByIdWithLock(1L)).willReturn(Optional.of(v));
-            given(globalVaultRepository.findById(1L)).willReturn(Optional.of(v));
-            given(territoryRepository.countByOwnerId(1L)).willReturn(0L);
+            given(combatAdminClient.adjustGp(eq(1L), eq(100), anyString())).willReturn(150);
+            given(territoryRepository.findByOwnerId(1L)).willReturn(List.of());
+            given(combatAdminClient.getUserResources(1L, List.of()))
+                    .willReturn(new UserResourceSnapshot(150, 0));
 
             AdminUserDetailResponse res =
                     adminUserService.adjustWallet(
@@ -267,8 +265,8 @@ class AdminUserServiceTest {
             User u2 = user(2L, UserStatus.ACTIVE, UserRole.USER);
             given(userRepository.findById(1L)).willReturn(Optional.of(u1));
             given(userRepository.findById(2L)).willReturn(Optional.of(u2));
-            given(globalVaultRepository.findByIdWithLock(1L)).willReturn(Optional.of(vault(u1, 0)));
-            given(globalVaultRepository.findByIdWithLock(2L)).willReturn(Optional.of(vault(u2, 0)));
+            given(combatAdminClient.adjustGp(eq(1L), eq(50), anyString())).willReturn(50);
+            given(combatAdminClient.adjustGp(eq(2L), eq(50), anyString())).willReturn(50);
 
             AdminBulkResultResponse res =
                     adminUserService.bulkAdjustWallet(
