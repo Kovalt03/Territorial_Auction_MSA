@@ -44,6 +44,12 @@ server:
 internal-api:
   secret: ${INTERNAL_API_SECRET}
 
+monolith:
+  base-url: ${MONOLITH_BASE_URL:http://localhost:8080}
+
+user-service:
+  base-url: ${USER_SERVICE_BASE_URL:http://localhost:8083}
+
 management:
   endpoints:
     web:
