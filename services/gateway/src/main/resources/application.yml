@@ -40,6 +40,11 @@ spring:
           uri: ${SOCIAL_SERVICE_URL:http://localhost:8084}
           predicates:
             - Path=/api/v1/chat/**,/api/v1/guilds/**,/api/v1/social/**
+        # 알림은 notification-service로
+        - id: notification-service
+          uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8085}
+          predicates:
+            - Path=/api/v1/notifications/**
         # WebSocket(실시간 허브)은 모놀리식
         - id: monolith-ws
           uri: ${MONOLITH_WS_URL:ws://localhost:8081}
