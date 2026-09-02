@@ -12,8 +12,13 @@ public class BuildingClientImpl implements BuildingClient {
     private final RestClient restClient;
 
     public BuildingClientImpl(
-            RestClient.Builder builder, @Value("${monolith.base-url}") String baseUrl) {
-        this.restClient = builder.baseUrl(baseUrl).build();
+            RestClient.Builder builder,
+            @Value("${combat-service.base-url}") String baseUrl,
+            @Value("${internal-api.secret}") String internalApiSecret) {
+        this.restClient =
+                builder.baseUrl(baseUrl)
+                        .defaultHeader("X-Internal-Service-Token", internalApiSecret)
+                        .build();
     }
 
     @Override
@@ -29,7 +34,7 @@ public class BuildingClientImpl implements BuildingClient {
                             throw new CustomException(ErrorCode.BUILDING_TYPE_NOT_FOUND);
                         })
                 .toBodilessEntity();
-        // 409(이미 성 존재)는 모놀리식이 idempotent 처리(스킵)하므로 매핑 불필요
+        // 이미 성이 존재하면 combat-service가 성공으로 간주한다.
     }
 
     private record InitialCastleRequest(Long territoryId) {}
