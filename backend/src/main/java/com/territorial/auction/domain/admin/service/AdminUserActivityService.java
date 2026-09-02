@@ -10,7 +10,7 @@ import com.territorial.auction.domain.admin.dto.AdminUserTerritoryListResponse;
 import com.territorial.auction.domain.admin.dto.AdminUserTerritoryResponse;
 import com.territorial.auction.domain.map.entity.Territory;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
-import com.territorial.auction.domain.notification.entity.NotificationLog.NotificationType;
+import com.territorial.auction.domain.notification.NotificationType;
 import com.territorial.auction.domain.notification.service.NotificationService;
 import com.territorial.auction.domain.user.repository.UserRepository;
 import com.territorial.auction.global.exception.CustomException;

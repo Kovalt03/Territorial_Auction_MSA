@@ -12,7 +12,7 @@ import com.territorial.auction.domain.map.entity.TerritoryProductionLog.Producti
 import com.territorial.auction.domain.map.repository.BonusTileRepository;
 import com.territorial.auction.domain.map.repository.TerritoryProductionLogRepository;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
-import com.territorial.auction.domain.notification.entity.NotificationLog.NotificationType;
+import com.territorial.auction.domain.notification.NotificationType;
 import com.territorial.auction.domain.notification.service.NotificationService;
 import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.repository.UserRepository;
