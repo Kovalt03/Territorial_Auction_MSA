@@ -93,5 +93,7 @@ auction-service:
 # 분리된 user-service — 지갑(AP) 명령·조회를 /internal로 호출
 user-service:
   base-url: ${USER_SERVICE_BASE_URL:http://localhost:8083}
+combat-service:
+  base-url: ${COMBAT_SERVICE_BASE_URL:http://localhost:8084}
 internal-api:
   secret: ${INTERNAL_API_SECRET:local-internal-secret}

@@ -47,6 +47,9 @@ monolith:
 user-service:
   base-url: ${USER_SERVICE_BASE_URL:http://localhost:8083}
 
+combat-service:
+  base-url: ${COMBAT_SERVICE_BASE_URL:http://localhost:8084}
+
 internal-api:
   secret: ${INTERNAL_API_SECRET}
 

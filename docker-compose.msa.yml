@@ -143,6 +143,7 @@ services:
       REDIS_PORT: 6379
       AUCTION_SERVICE_BASE_URL: http://auction-service:8080
       USER_SERVICE_BASE_URL: http://user-service:8080
+      COMBAT_SERVICE_BASE_URL: http://combat-service:8080
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       ADMIN_IP_ALLOWLIST: ""
@@ -173,6 +174,7 @@ services:
       REDIS_PORT: 6379
       MONOLITH_BASE_URL: http://backend:8080
       USER_SERVICE_BASE_URL: http://user-service:8080
+      COMBAT_SERVICE_BASE_URL: http://combat-service:8080
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:

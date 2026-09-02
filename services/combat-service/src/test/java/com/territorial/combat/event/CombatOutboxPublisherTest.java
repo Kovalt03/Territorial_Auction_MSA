@@ -45,6 +45,11 @@ class CombatOutboxPublisherTest {
                                 captor.getValue().headers().lastHeader("event-topic").value(),
                                 StandardCharsets.UTF_8))
                 .isEqualTo("combat.siege.declared");
+        assertThat(
+                        new String(
+                                captor.getValue().headers().lastHeader("event-id").value(),
+                                StandardCharsets.UTF_8))
+                .isEqualTo(event.getId());
     }
 
     @Test

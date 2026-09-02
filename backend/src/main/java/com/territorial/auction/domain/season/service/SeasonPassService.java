@@ -8,6 +8,7 @@ import com.territorial.auction.domain.item.repository.ItemRepository;
 import com.territorial.auction.domain.item.repository.UserItemRepository;
 import com.territorial.auction.domain.season.SeasonPassPolicy;
 import com.territorial.auction.domain.season.dto.ClaimRewardResponse;
+import com.territorial.auction.domain.season.dto.CombatSeasonBenefitResponse;
 import com.territorial.auction.domain.season.dto.MySeasonPassResponse;
 import com.territorial.auction.domain.season.dto.PurchaseLevelResponse;
 import com.territorial.auction.domain.season.dto.PurchaseSeasonPassResponse;
@@ -62,6 +63,19 @@ public class SeasonPassService {
     private final ItemRepository itemRepository;
     private final UserItemRepository userItemRepository;
     private final RedisTemplate<String, Object> redisTemplate;
+
+    public CombatSeasonBenefitResponse getCombatBenefit(Long userId) {
+        LocalDateTime now = LocalDateTime.now();
+        return userSeasonPassRepository
+                .findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(userId)
+                .filter(pass -> pass.getExpiresAt().isAfter(now))
+                .map(
+                        pass ->
+                                new CombatSeasonBenefitResponse(
+                                        pass.getSeasonPass().getBuildTimeReductionPct(),
+                                        pass.getSeasonPass().getExtraBuilders()))
+                .orElseGet(CombatSeasonBenefitResponse::none);
+    }
 
     public SeasonPassResponse getProgress(Long userId) {
         try {

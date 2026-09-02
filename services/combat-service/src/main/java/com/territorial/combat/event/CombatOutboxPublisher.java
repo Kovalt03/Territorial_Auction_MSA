@@ -16,6 +16,7 @@ public class CombatOutboxPublisher {
 
     public static final String TOPIC = "combat-events";
     public static final String EVENT_TOPIC_HEADER = "event-topic";
+    public static final String EVENT_ID_HEADER = "event-id";
 
     private final CombatOutboxEventRepository repository;
     private final KafkaTemplate<String, String> kafkaTemplate;
@@ -32,6 +33,8 @@ public class CombatOutboxPublisher {
                         .add(
                                 EVENT_TOPIC_HEADER,
                                 event.getEventTopic().getBytes(StandardCharsets.UTF_8));
+                record.headers()
+                        .add(EVENT_ID_HEADER, event.getId().getBytes(StandardCharsets.UTF_8));
                 kafkaTemplate.send(record).get();
                 event.markPublished();
             } catch (InterruptedException exception) {
