@@ -1,6 +1,6 @@
 # 시스템 아키텍처
 
-> 모놀리식 Spring Boot로 시작해 도메인 경계를 확립하고, 부하 측정 결과를 근거로 **MSA 전환에 착수**했다. 현재 auction-service와 user-service 추출이 완료됐으며 combat-service는 독립 scaffold와 building core 위에 unit/research·siege core와 outbox를 이관했다. 아래 "MSA 런타임(현재)"과 [전환 허브](./msa/README.md)를 기준으로 한다.
+> 모놀리식 Spring Boot로 시작해 도메인 경계를 확립하고, 부하 측정 결과를 근거로 **MSA 전환에 착수**했다. 현재 auction-service와 user-service 추출이 완료됐으며 combat-service는 building·unit/research·siege core와 outbox, 외부 계약·이벤트 bridge까지 이관했다. 아래 "MSA 런타임(현재)"과 [전환 허브](./msa/README.md)를 기준으로 한다.
 
 아래 그림은 MSA 전환 전 계층형 모놀리식 기준 구조다.
 
@@ -57,7 +57,7 @@ com.territorial.auction
 
 ## MSA 런타임 (현재)
 
-부하 테스트에서 단일 인기 경매의 지속 경합이 병목으로 확인돼 auction을 첫 서비스로 추출했고, 이어 user/auth를 user-service로 추출했다. 현재 MSA compose에는 잔여 모놀리식 + auction-service + user-service + gateway와 building·unit/research·siege core 및 outbox를 소유하는 combat-service가 포함된다. combat 공개 경로는 계약 연결과 cutover 전까지 모놀리식이 처리한다([구동](./msa/local-run.md)).
+부하 테스트에서 단일 인기 경매의 지속 경합이 병목으로 확인돼 auction을 첫 서비스로 추출했고, 이어 user/auth를 user-service로 추출했다. 현재 MSA compose에는 잔여 모놀리식 + auction-service + user-service + gateway와 building·unit/research·siege 및 outbox를 소유하는 combat-service가 포함된다. combat은 내부 계약까지 연결됐고 공개 경로는 cutover 전까지 모놀리식이 처리한다([구동](./msa/local-run.md)).
 
 ```text
             ┌───────────────┐
@@ -75,9 +75,9 @@ Client ───▶ │  API Gateway  │  JWT 검증 → X-User-Id 주입, 경�
 ```
 
 - **게이트웨이**(Spring Cloud Gateway): auction 경로는 auction-service, 인증과 user-service 소유 프로필 명령은 user-service, 그 외와 `/ws`는 모놀리식으로 보낸다. 유입 `X-User-Id`를 제거하고 유효 JWT의 subject를 다시 주입한다.
-- **DB 분리**: auction-service와 user-service는 각각 `auction-postgres`, `user-postgres`를 소유하며 다른 서비스 DB를 직접 조회하지 않는다.
-- **동기 통신**(`/internal`): auction-service는 AP escrow·정산을 user-service에 요청하고 영토·초기 성 명령은 모놀리식에 요청한다. 모놀리식의 일반 AP 명령과 OAuth provisioning도 user-service 계약을 사용한다. [계약](../api/internal.md)
-- **비동기 통신**: Kafka가 경매 생성·프로젝션·랭킹·시즌과 user projection의 durable 경로를 담당한다. Redis pub/sub은 auction 입찰·정산의 WebSocket 저지연 경로에만 병행한다. [내부 계약](../api/internal.md)
+- **DB 분리**: auction-service, user-service, combat-service는 각각 전용 PostgreSQL을 소유하며 다른 서비스 DB를 직접 조회하지 않는다.
+- **동기 통신**(`/internal`): combat-service는 map 영토 context, user AP, season benefit을 조회하고 모놀리식 admin은 combat 설정·집계를 위임한다. auction-service의 초기 성 생성도 combat-service를 직접 호출한다. [계약](../api/internal.md)
+- **비동기 통신**: Kafka가 경매·user projection과 combat 공성 결과·영토 상실의 durable 경로를 담당한다. Redis pub/sub은 auction 입찰·정산의 WebSocket 저지연 경로에만 병행한다. [내부 계약](../api/internal.md)
 - **읽기 프로젝션**: 맵 그리드가 auction 테이블을 매번 조회하던 것을 로컬 read-model(`territory_auction_status`, 이벤트로 유지)로 대체 → 핫패스를 auction 경합에서 격리(부하 실측 p99 ~10배 개선).
 
 ## MSA 목표 토폴로지 (7개)
