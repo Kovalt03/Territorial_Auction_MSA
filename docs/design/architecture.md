@@ -1,6 +1,6 @@
 # 시스템 아키텍처
 
-> 모놀리식 Spring Boot로 시작해 도메인 경계를 확립하고, 부하 측정 결과를 근거로 **MSA 전환에 착수**했다. 현재 auction-service와 user-service 추출이 완료됐으며 combat-service는 독립 scaffold 이후 core 이관을 준비 중이다. 아래 "MSA 런타임(현재)"과 [전환 허브](./msa/README.md)를 기준으로 한다.
+> 모놀리식 Spring Boot로 시작해 도메인 경계를 확립하고, 부하 측정 결과를 근거로 **MSA 전환에 착수**했다. 현재 auction-service와 user-service 추출이 완료됐으며 combat-service는 독립 scaffold 위에 building core를 이관 중이다. 아래 "MSA 런타임(현재)"과 [전환 허브](./msa/README.md)를 기준으로 한다.
 
 아래 그림은 MSA 전환 전 계층형 모놀리식 기준 구조다.
 
@@ -57,7 +57,7 @@ com.territorial.auction
 
 ## MSA 런타임 (현재)
 
-부하 테스트에서 단일 인기 경매의 지속 경합이 병목으로 확인돼 auction을 첫 서비스로 추출했고, 이어 user/auth를 user-service로 추출했다. 현재 MSA compose에는 잔여 모놀리식 + auction-service + user-service + gateway와 combat-service scaffold가 포함된다. combat 공개 경로는 cutover 전까지 모놀리식이 처리한다([구동](./msa/local-run.md)).
+부하 테스트에서 단일 인기 경매의 지속 경합이 병목으로 확인돼 auction을 첫 서비스로 추출했고, 이어 user/auth를 user-service로 추출했다. 현재 MSA compose에는 잔여 모놀리식 + auction-service + user-service + gateway와 building core를 이관 중인 combat-service가 포함된다. combat 공개 경로는 계약 연결과 cutover 전까지 모놀리식이 처리한다([구동](./msa/local-run.md)).
 
 ```text
             ┌───────────────┐
