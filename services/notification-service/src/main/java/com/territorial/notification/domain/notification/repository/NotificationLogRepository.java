@@ -1,6 +1,6 @@
-package com.territorial.auction.domain.notification.repository;
+package com.territorial.notification.domain.notification.repository;
 
-import com.territorial.auction.domain.notification.entity.NotificationLog;
+import com.territorial.notification.domain.notification.entity.NotificationLog;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
@@ -11,14 +11,14 @@ import org.springframework.data.repository.query.Param;
 
 public interface NotificationLogRepository extends JpaRepository<NotificationLog, Long> {
 
-    Slice<NotificationLog> findByUser_IdOrderByCreatedAtDesc(Long userId, Pageable pageable);
+    Slice<NotificationLog> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
-    Optional<NotificationLog> findByIdAndUser_Id(Long id, Long userId);
+    Optional<NotificationLog> findByIdAndUserId(Long id, Long userId);
 
-    long countByUser_IdAndIsReadFalse(Long userId);
+    long countByUserIdAndIsReadFalse(Long userId);
 
     @Modifying
     @Query(
-            "UPDATE NotificationLog n SET n.isRead = true WHERE n.user.id = :userId AND n.isRead = false")
+            "UPDATE NotificationLog n SET n.isRead = true WHERE n.userId = :userId AND n.isRead = false")
     int markAllAsReadByUserId(@Param("userId") Long userId);
 }

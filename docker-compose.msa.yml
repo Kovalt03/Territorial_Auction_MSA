@@ -121,6 +121,22 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── notification-service 전용 DB (분리) ───────────────────
+  notification-postgres:
+    image: postgres:16-alpine
+    container_name: msa-notification-postgres
+    environment:
+      POSTGRES_DB: notification
+      POSTGRES_USER: notification
+      POSTGRES_PASSWORD: notification
+    volumes:
+      - msa-notification-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notification -d notification"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # ── 모놀리식 ──────────────────────────────────────────────
   backend:
     build:
@@ -236,6 +252,30 @@ services:
       kafka:
         condition: service_healthy
 
+  # ── notification-service ─────────────────────────────────
+  notification-service:
+    build:
+      context: .
+      dockerfile: services/notification-service/Dockerfile
+    container_name: msa-notification-service
+    environment:
+      TZ: Asia/Seoul
+      DB_HOST: notification-postgres
+      DB_PORT: 5432
+      DB_NAME: notification
+      DB_USERNAME: notification
+      DB_PASSWORD: notification
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      notification-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
   # ── API 게이트웨이 ────────────────────────────────────────
   gateway:
     build:
@@ -249,6 +289,7 @@ services:
       AUCTION_SERVICE_URL: http://auction-service:8080
       USER_SERVICE_URL: http://user-service:8080
       SOCIAL_SERVICE_URL: http://social-service:8080
+      NOTIFICATION_SERVICE_URL: http://notification-service:8080
       MONOLITH_URL: http://backend:8080
       MONOLITH_WS_URL: ws://backend:8080
     ports:
@@ -258,6 +299,7 @@ services:
       - auction-service
       - user-service
       - social-service
+      - notification-service
 
   # ── 프론트 (게이트웨이로 프록시) ──────────────────────────
   frontend:
@@ -281,3 +323,4 @@ volumes:
   msa-auction-pg-data:
   msa-user-pg-data:
   msa-social-pg-data:
+  msa-notification-pg-data:

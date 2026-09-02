@@ -1,7 +1,7 @@
-package com.territorial.auction.domain.notification.dto;
+package com.territorial.notification.domain.notification.dto;
 
-import com.territorial.auction.domain.notification.entity.NotificationLog;
-import com.territorial.auction.domain.notification.entity.NotificationLog.NotificationType;
+import com.territorial.notification.domain.notification.entity.NotificationLog;
+import com.territorial.notification.domain.notification.entity.NotificationType;
 import java.time.LocalDateTime;
 
 public record NotificationResponse(

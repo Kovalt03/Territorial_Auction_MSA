@@ -1,4 +1,4 @@
-package com.territorial.auction.domain.notification.dto;
+package com.territorial.notification.domain.notification.dto;
 
 import java.util.List;
 
