@@ -39,7 +39,7 @@
 | 0 | 모놀리식 + CI/CD·검증 정책 확립 | ✅ 완료 |
 | 1 | **auction-service** (auction) | ✅ **완료** — 서비스 추출·게이트웨이·이벤트 프로젝션·모놀리식 auction 도메인 삭제 |
 | 2 | user-service (user, auth) | ✅ 완료 — 신원·인증·AP 지갑·알림 설정·상태 소유 이전 |
-| 3 | combat-service (military, building) | 🚧 building core 완료·unit/research core 구현 중 — [추출 가이드](./combat-extraction.md) · [이관 추적](./combat-migration-tracking.md) |
+| 3 | combat-service (military, building) | 🚧 공성 core·outbox까지 이관, 서비스 계약 연결 예정 — [추출 가이드](./combat-extraction.md) · [이관 추적](./combat-migration-tracking.md) |
 | 4 | economy-service (item, season) | 예정 |
 | 5 | social-service (social, guild) | 예정 |
 | 6 | notification-service (notification) | 예정 |

@@ -67,7 +67,7 @@
 
 - 프론트엔드는 REST와 STOMP/SockJS로 백엔드와 통신합니다.
 - 공개 REST 요청은 Spring Cloud Gateway를 거칩니다.
-- auction-service와 user-service는 각각 독립 PostgreSQL을 소유합니다. combat-service는 전용 DB·보안·Flyway 위에 building core 이관을 완료했고 unit/research core를 이관 중이며, 공개 요청은 계약 연결과 cutover 전까지 모놀리식이 처리합니다.
+- auction-service와 user-service는 각각 독립 PostgreSQL을 소유합니다. combat-service는 전용 DB·보안·Flyway 위에 building, unit/research, siege core와 transactional outbox를 이관했으며, 공개 요청은 계약 연결과 cutover 전까지 모놀리식이 처리합니다.
 - 서비스 간 상태 변경은 내부 HTTP 계약과 비동기 이벤트로 전달하며 다른 서비스 DB를 직접 참조하지 않습니다.
 
 자세한 구조와 도메인 간 의존 규칙은 [시스템 아키텍처](docs/design/architecture.md), [MSA 전환 허브](docs/design/msa/README.md), [내부 서비스 계약](docs/api/internal.md), [WebSocket 문서](docs/api/websocket/README.md)에 정리했습니다.
@@ -80,7 +80,7 @@
 |---|---|---|---|
 | 1 | auction-service | 완료 | [추출 설계](docs/design/msa/auction-extraction.md) · [이관 기록](docs/design/msa/auction-migration-tracking.md) |
 | 2 | user-service | 완료 | [추출 설계](docs/design/msa/user-extraction.md) |
-| 3 | combat-service | building core 완료·unit/research core 구현 중 | [추출 설계](docs/design/msa/combat-extraction.md) · [이관 기록](docs/design/msa/combat-migration-tracking.md) |
+| 3 | combat-service | 공성 core까지 이관·서비스 계약 연결 예정 | [추출 설계](docs/design/msa/combat-extraction.md) · [이관 기록](docs/design/msa/combat-migration-tracking.md) |
 
 전체 목표 토폴로지와 이후 economy, social, notification, map 분리 순서는 [MSA 전환 로드맵](docs/design/msa/README.md)을 참고하세요.
 
