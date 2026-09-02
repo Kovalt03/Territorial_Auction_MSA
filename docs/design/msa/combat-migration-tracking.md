@@ -47,7 +47,7 @@ Kafka 전환은 dev 반영 완료(`#9`) 상태다. combat은 기존 Kafka 설정
 | 1 | `feature/building-1-combat-scaffold` | 서비스·DB·보안 scaffold | 완료 (`#11`) |
 | 2 | `feature/building-2-combat-core` | island/building/vault/storage | 완료 (`#13`) |
 | 3 | `feature/military-3-combat-core` | unit/research/attack-token | 완료 (`#14`) |
-| 4 | `feature/military-4-combat-siege` | siege/scheduler/outbox | 구현 중 |
+| 4 | `feature/military-4-combat-siege` | siege/scheduler/outbox | 구현 완료·PR 준비 |
 | 5 | `feature/infra-5-combat-contracts` | 타 서비스 client/event bridge | 예정 |
 | 6 | `feature/infra-6-combat-cutover` | gateway/compose/monolith 제거 | 예정 |
 
@@ -63,8 +63,10 @@ Kafka 전환은 dev 반영 완료(`#9`) 상태다. combat은 기존 Kafka 설정
 - [x] combat-service Flyway V1 단독 기동·health `UP` (PostgreSQL 16, 2026-09-01)
 - [x] building core 테스트 이전: 104건 통과 (2026-09-01)
 - [x] military core 테스트 이전: 15건, combat 전체 119건 통과 (2026-09-02)
+- [x] siege 선언·정산·퇴각·스케줄러 테스트 이전: 14건, combat 전체 138건 통과 (2026-09-02)
 - [ ] internal API 계약 테스트
-- [ ] outbox·중복 소비 테스트
+- [x] outbox 저장·발행 성공/실패 재시도 테스트 (2026-09-02)
+- [ ] 이벤트 소비 중복 처리 테스트 (contracts 단계)
 - [ ] gateway route 테스트
 - [ ] MSA compose smoke
 - [ ] monolith 직접 의존 0건

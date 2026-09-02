@@ -15,7 +15,7 @@
 redis · postgres · backend(단일) · frontend
 ```
 
-**단계 3 (combat-service unit/research core 이관 중, 현재)** — `docker-compose.msa.yml`
+**단계 3 (combat-service siege core 이관 완료·계약 연결 전, 현재)** — `docker-compose.msa.yml`
 ```
 redis                     ← 공유 (Redisson 분산락·캐시·실시간 pub/sub)
 kafka                     ← durable 서비스 이벤트 백본 (호스트 9092)
@@ -26,7 +26,7 @@ combat-postgres           ← combat-service 전용 (호스트 5434)
 backend(모놀리식)          ← auction/user 제외 잔여 도메인 (호스트 8080)
 auction-service           ← 경매·입찰·이력             (호스트 8082)
 user-service              ← 신원·인증·AP 지갑·알림 설정 (컨테이너 내부 전용)
-combat-service            ← DB·building·unit/research core·내부 보안  (호스트 8084, 공개 라우팅 전)
+combat-service            ← DB·building·unit/research·siege core·outbox·내부 보안  (호스트 8084, 공개 라우팅 전)
 gateway                   ← auction/user 소유 경로→각 서비스, 그 외→모놀리식 (호스트 8090)
 frontend                  ← 게이트웨이로 프록시          (호스트 3000)
 ```
@@ -48,7 +48,7 @@ frontend                  ← 게이트웨이로 프록시          (호스트 3
    docker compose -f docker-compose.msa.yml up redis auction-postgres auction-service
    ```
    compose는 명시한 서비스 + 그 `depends_on`만 기동한다.
-2. **모놀리식이 "나머지 세계" 역할을 한다.** 현재는 `backend + auction-service + user-service`가 추출 완료 범위의 통합 흐름을 재현한다. combat-service는 building DB·user event bootstrap·unit/research core를 소유하지만, 외부 port adapter와 공개 route가 연결되기 전까지 클라이언트 요청은 모놀리식이 처리한다.
+2. **모놀리식이 "나머지 세계" 역할을 한다.** 현재는 `backend + auction-service + user-service`가 추출 완료 범위의 통합 흐름을 재현한다. combat-service는 building DB·user event bootstrap·unit/research·siege core와 outbox를 소유하지만, 외부 port adapter와 공개 route가 연결되기 전까지 클라이언트 요청은 모놀리식이 처리한다.
 3. **전체가 다 떠야 하는 검증은 로컬이 아니라 CI 러너에 맡긴다.** push하면 러너가 `compose up` → 스모크 → 폐기한다([정책 5.4](../../operations/ci-cd-policy.md#54-msa-검증-전략-테스트-피라미드)).
 4. **인터랙티브하게 무거운 스택이 필요하면 Codespaces**(클라우드 개발환경)로 노트북 부하 0.
 
@@ -71,13 +71,13 @@ frontend                  ← 게이트웨이로 프록시          (호스트 3
 | `backend` | `./backend` | 8080 | auction/user 내부 API client와 잔여 도메인 |
 | `auction-service` | `context: .`(루트) | 8082 | map/building→backend, wallet→user-service |
 | `user-service` | `context: .`(루트) | 내부 전용 | 신원·인증·AP 지갑·알림 설정 |
-| `combat-service` | `context: .`(루트) | 8084 | building·unit/research core·combat DB·내부 헤더 보안·health |
+| `combat-service` | `context: .`(루트) | 8084 | building·unit/research·siege core·outbox·combat DB·내부 헤더 보안·health |
 | `gateway` | `./services/gateway` | 8090 | `JWT_SECRET` 공유, 경로 라우팅 |
 | `frontend` | node:20 | 3000 | `API_TARGET=http://gateway:8080` |
 
 **주의점**
 - **DB 분리**: `postgres` / `auction-postgres` / `user-postgres` / `combat-postgres`는 별도 컨테이너·볼륨이며 서로 직접 조회하지 않는다.
-- **Kafka durable 경로**: `territory-auction-ready`, `auction-events`, `user-events`를 서비스별 consumer group이 구독한다.
+- **Kafka durable 경로**: `territory-auction-ready`, `auction-events`, `user-events`, `combat-events`를 서비스별 producer/consumer가 사용한다. combat 이벤트 소비 bridge는 contracts 단계에서 연결한다.
 - **공유 Redis**: 분산락·캐시와 auction WebSocket 저지연 pub/sub에 사용한다. durable 상태 반영은 Redis에 의존하지 않는다.
 - 각 서비스는 **자기 Flyway 마이그레이션**을 자기 DB에 적용한다.
 - **분리 서비스 이미지는 self-contained 빌드**: auction/user/combat Dockerfile은 이미지 안에서 공유 라이브러리 `common`을 `mavenLocal`에 발행한 뒤 빌드한다 → **GitHub Packages PAT 없이** 빌드된다. (`.dockerignore`로 컨텍스트 경량화)
@@ -110,7 +110,7 @@ docker compose -f docker-compose.msa.yml up -d --build
 # 경매만 작업 — 필요한 것만
 docker compose -f docker-compose.msa.yml up redis kafka auction-postgres user-postgres auction-service user-service backend
 
-# combat DB·building·unit/research core 기동 확인
+# combat DB·building·unit/research·siege core 기동 확인
 docker compose -f docker-compose.msa.yml up redis kafka combat-postgres combat-service
 
 # 상태·헬스체크
