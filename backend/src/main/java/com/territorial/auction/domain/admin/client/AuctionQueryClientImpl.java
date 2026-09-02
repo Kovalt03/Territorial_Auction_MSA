@@ -16,8 +16,13 @@ public class AuctionQueryClientImpl implements AuctionQueryClient {
     private final RestClient restClient;
 
     public AuctionQueryClientImpl(
-            RestClient.Builder builder, @Value("${auction-service.base-url}") String baseUrl) {
-        this.restClient = builder.baseUrl(baseUrl).build();
+            RestClient.Builder builder,
+            @Value("${auction-service.base-url}") String baseUrl,
+            @Value("${internal-api.secret}") String internalApiSecret) {
+        this.restClient =
+                builder.baseUrl(baseUrl)
+                        .defaultHeader("X-Internal-Service-Token", internalApiSecret)
+                        .build();
     }
 
     @Override
