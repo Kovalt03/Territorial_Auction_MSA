@@ -2,7 +2,7 @@ package com.territorial.auction.realtime;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.territorial.auction.domain.map.dto.MapUpdateBroadcast;
-import com.territorial.auction.domain.notification.entity.NotificationLog.NotificationType;
+import com.territorial.auction.domain.notification.NotificationType;
 import com.territorial.auction.domain.notification.service.NotificationService;
 import jakarta.annotation.PostConstruct;
 import java.time.LocalDateTime;
