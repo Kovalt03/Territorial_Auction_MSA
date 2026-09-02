@@ -45,15 +45,15 @@ Kafka 전환은 dev 반영 완료(`#9`) 상태다. combat은 기존 Kafka 설정
 |---|---|---|---|
 | 0 | `feature/infra-0-combat-design` | 경계·계약·순서 | 완료 (`#8`) |
 | 1 | `feature/building-1-combat-scaffold` | 서비스·DB·보안 scaffold | 완료 (`#11`) |
-| 2 | `feature/building-2-combat-core` | island/building/vault/storage | 구현·로컬 검증 중 |
-| 3 | `feature/military-3-combat-core` | unit/research/attack-token | 예정 |
+| 2 | `feature/building-2-combat-core` | island/building/vault/storage | 완료 (`#13`) |
+| 3 | `feature/military-3-combat-core` | unit/research/attack-token | 구현·로컬 검증 중 |
 | 4 | `feature/military-4-combat-siege` | siege/scheduler/outbox | 예정 |
 | 5 | `feature/infra-5-combat-contracts` | 타 서비스 client/event bridge | 예정 |
 | 6 | `feature/infra-6-combat-cutover` | gateway/compose/monolith 제거 | 예정 |
 
 ## 충돌 회피
 
-- 현재 단계 기준 브랜치: `feature/building-2-combat-core` (base `origin/msa/combat-service` `003f107`)
+- 현재 단계 기준 브랜치: `feature/military-3-combat-core` (base `origin/msa/combat-service` `1712f78`)
 - Kafka 이벤트 백본: dev 반영 완료(`#9`)
 - MSA 통합 브랜치 PR CI: dev 반영 완료(`#10`)
 - combat-service는 기존 broker 구성을 재정의하지 않고 `combat-events` producer/consumer 설정만 추가한다.
@@ -62,7 +62,7 @@ Kafka 전환은 dev 반영 완료(`#9`) 상태다. combat은 기존 Kafka 설정
 
 - [x] combat-service Flyway V1 단독 기동·health `UP` (PostgreSQL 16, 2026-09-01)
 - [x] building core 테스트 이전: 104건 통과 (2026-09-01)
-- [ ] military 테스트 이전
+- [x] military core 테스트 이전: 15건, combat 전체 119건 통과 (2026-09-02)
 - [ ] internal API 계약 테스트
 - [ ] outbox·중복 소비 테스트
 - [ ] gateway route 테스트
