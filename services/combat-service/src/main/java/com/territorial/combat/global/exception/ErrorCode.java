@@ -31,7 +31,19 @@ public enum ErrorCode implements ErrorCodeType {
     INSUFFICIENT_GP(HttpStatus.BAD_REQUEST, "GP 잔액이 부족합니다."),
     STORAGE_CAPACITY_EXCEEDED(HttpStatus.CONFLICT, "저장 공간이 가득 찼습니다."),
     VAULT_CAPACITY_EXCEEDED(HttpStatus.CONFLICT, "금고 용량을 초과합니다."),
-    TRANSFER_COOLDOWN_ACTIVE(HttpStatus.TOO_MANY_REQUESTS, "이전 쿨다운 중입니다. 잠시 후 다시 시도하세요.");
+    TRANSFER_COOLDOWN_ACTIVE(HttpStatus.TOO_MANY_REQUESTS, "이전 쿨다운 중입니다. 잠시 후 다시 시도하세요."),
+    INVALID_INPUT(HttpStatus.BAD_REQUEST, "잘못된 입력입니다."),
+    NO_BARRACKS(HttpStatus.BAD_REQUEST, "병영이 없습니다."),
+    BARRACKS_LEVEL_INSUFFICIENT(HttpStatus.BAD_REQUEST, "병영 레벨이 부족합니다."),
+    INSUFFICIENT_UNITS(HttpStatus.BAD_REQUEST, "유닛 수량이 부족합니다."),
+    UNIT_CAPACITY_EXCEEDED(HttpStatus.BAD_REQUEST, "유닛 수용 한도를 초과했습니다."),
+    FOOD_INSUFFICIENT(HttpStatus.BAD_REQUEST, "식량이 부족합니다."),
+    UNIT_TYPE_NOT_FOUND(HttpStatus.NOT_FOUND, "유닛 타입을 찾을 수 없습니다."),
+    RESEARCH_LAB_LEVEL_INSUFFICIENT(HttpStatus.BAD_REQUEST, "연구소 레벨이 부족합니다."),
+    RESEARCH_IN_PROGRESS(HttpStatus.CONFLICT, "이미 연구가 진행 중입니다."),
+    RESEARCH_MAX_REACHED(HttpStatus.BAD_REQUEST, "더 연구할 레벨이 없습니다."),
+    RESEARCH_SPEC_NOT_FOUND(HttpStatus.BAD_REQUEST, "해당 레벨의 유닛 스펙이 없습니다."),
+    UNIT_LEVEL_NOT_RESEARCHED(HttpStatus.BAD_REQUEST, "아직 연구하지 않은 유닛 레벨입니다.");
 
     private final HttpStatus httpStatus;
     private final String message;
