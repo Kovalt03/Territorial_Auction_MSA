@@ -2,7 +2,6 @@ package com.territorial.auction.domain.map.event;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.territorial.auction.domain.military.event.TerritoryLostEvent;
 import java.nio.charset.StandardCharsets;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

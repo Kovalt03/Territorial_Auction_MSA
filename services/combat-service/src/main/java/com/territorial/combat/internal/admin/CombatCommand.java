@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "combat_commands")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-class CombatCommand {
+public class CombatCommand {
 
     @Id
     @Column(name = "command_key", length = 200)
@@ -34,11 +34,16 @@ class CombatCommand {
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
-    CombatCommand(String commandKey, String commandType, String requestFingerprint) {
+    public CombatCommand(String commandKey, String commandType, String requestFingerprint) {
         this.commandKey = commandKey;
         this.commandType = commandType;
         this.requestFingerprint = requestFingerprint;
         this.createdAt = LocalDateTime.now();
         this.completedAt = this.createdAt;
+    }
+
+    public void recordResponse(String responsePayload) {
+        this.responsePayload = responsePayload;
+        this.completedAt = LocalDateTime.now();
     }
 }

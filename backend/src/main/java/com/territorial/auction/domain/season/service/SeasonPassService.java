@@ -1,7 +1,6 @@
 package com.territorial.auction.domain.season.service;
 
-import com.territorial.auction.domain.building.entity.GlobalVault;
-import com.territorial.auction.domain.building.repository.GlobalVaultRepository;
+import com.territorial.auction.domain.combat.client.CombatResourceClient;
 import com.territorial.auction.domain.item.entity.Item;
 import com.territorial.auction.domain.item.entity.UserItem;
 import com.territorial.auction.domain.item.repository.ItemRepository;
@@ -59,7 +58,7 @@ public class SeasonPassService {
     private final SeasonPassRewardClaimRepository seasonPassRewardClaimRepository;
     private final UserRepository userRepository;
     private final WalletClient walletClient;
-    private final GlobalVaultRepository globalVaultRepository;
+    private final CombatResourceClient combatResourceClient;
     private final ItemRepository itemRepository;
     private final UserItemRepository userItemRepository;
     private final RedisTemplate<String, Object> redisTemplate;
@@ -344,7 +343,11 @@ public class SeasonPassService {
 
     private void grantReward(User user, SeasonPassLevelReward reward) {
         switch (reward.getRewardKind()) {
-            case GP -> grantGp(user.getId(), reward.getQuantity());
+            case GP ->
+                    grantGp(
+                            user.getId(),
+                            reward.getQuantity(),
+                            "SEASON_PASS_REWARD:" + user.getId() + ":" + reward.getId());
             case ITEM -> grantItem(user, reward.getItemType(), reward.getQuantity());
             case BUILD_TIME_REDUCTION ->
                     grantBuildTimeReduction(user.getId(), reward.getQuantity());
@@ -366,17 +369,9 @@ public class SeasonPassService {
     }
 
     // 시즌패스 보상 GP는 위치가 없으므로 금고로 적립한다. 금고가 없으면 만든다.
-    private void grantGp(Long userId, int amount) {
+    private void grantGp(Long userId, int amount, String commandKey) {
         if (amount <= 0) return;
-        globalVaultRepository
-                .findByIdWithLock(userId)
-                .orElseGet(
-                        () ->
-                                globalVaultRepository.save(
-                                        GlobalVault.builder()
-                                                .user(userRepository.getReferenceById(userId))
-                                                .build()))
-                .receiveGp(amount);
+        combatResourceClient.creditGp(userId, amount, commandKey);
     }
 
     private void grantItem(User user, Item.ItemType itemType, int quantity) {

@@ -1,10 +1,10 @@
 package com.territorial.auction.global.security.oauth2;
 
-import com.territorial.auction.domain.building.service.UserBootstrapService;
 import com.territorial.auction.domain.user.client.OAuthProvisionResult;
 import com.territorial.auction.domain.user.client.UserProvisioningClient;
 import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.repository.UserRepository;
+import com.territorial.auction.domain.user.service.UserProjectionService;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +22,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     private final UserRepository userRepository;
     private final UserProvisioningClient userProvisioningClient;
-    private final UserBootstrapService userBootstrapService;
+    private final UserProjectionService userProjectionService;
 
     @Override
     @Transactional
@@ -52,7 +52,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         // 신원(User·Wallet)은 user-service가 소유한다. 동기 프로비저닝으로 발급 ID를 받아 로컬 프로젝션을 만든다.
         OAuthProvisionResult provisioned =
                 userProvisioningClient.provisionOAuth(username, email, generateNickname(name));
-        userBootstrapService.bootstrap(
+        userProjectionService.bootstrap(
                 provisioned.userId(),
                 provisioned.username(),
                 provisioned.email(),
