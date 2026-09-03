@@ -8,9 +8,9 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
 import com.territorial.auction.domain.admin.client.CombatAdminClient;
+import com.territorial.auction.domain.admin.dto.AdminBuildingTypeCatalogResponse.BuildingTypeInfo;
 import com.territorial.auction.domain.admin.dto.AdminCreateBuildingTypeRequest;
 import com.territorial.auction.domain.admin.dto.AdminUpdateBuildingTypeRequest;
-import com.territorial.auction.domain.building.dto.BuildingTypeCatalogResponse.BuildingTypeInfo;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;

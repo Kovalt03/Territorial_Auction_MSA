@@ -67,7 +67,8 @@ class SiegeResolutionServiceTest {
         lenient().when(siegeEventRepository.findById(100L)).thenReturn(Optional.of(event));
         lenient()
                 .when(territoryPort.findById(10L))
-                .thenReturn(Optional.of(new TerritoryCombatContext(10L, 2L, 4, 5, true, null)));
+                .thenReturn(
+                        Optional.of(new TerritoryCombatContext(10L, 2L, 4, 5, true, "A", null)));
         lenient()
                 .when(userSnapshotRepository.findById(1L))
                 .thenReturn(Optional.of(snapshot(1L, "공격자")));

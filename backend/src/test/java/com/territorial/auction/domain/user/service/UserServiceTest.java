@@ -6,8 +6,8 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
 
-import com.territorial.auction.domain.building.entity.HomeIsland;
-import com.territorial.auction.domain.building.repository.HomeIslandRepository;
+import com.territorial.auction.domain.combat.client.CombatResourceClient;
+import com.territorial.auction.domain.combat.client.CombatResourceClient.UserSummary;
 import com.territorial.auction.domain.map.entity.Continent;
 import com.territorial.auction.domain.map.entity.Territory;
 import com.territorial.auction.domain.map.entity.TerritoryGrade;
@@ -34,6 +34,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -54,11 +55,7 @@ class UserServiceTest {
     @Mock private UserRepository userRepository;
     @Mock private WalletClient walletClient;
 
-    @Mock
-    private com.territorial.auction.domain.building.repository.GlobalVaultRepository
-            globalVaultRepository;
-
-    @Mock private HomeIslandRepository homeIslandRepository;
+    @Mock private CombatResourceClient combatResourceClient;
     @Mock private UserSeasonPassRepository userSeasonPassRepository;
     @Mock private TerritoryRepository territoryRepository;
     @Mock private UserProfileRepository userProfileRepository;
@@ -67,9 +64,12 @@ class UserServiceTest {
     @Mock private com.territorial.auction.global.security.jwt.JwtTokenProvider jwtTokenProvider;
     @Mock private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
 
-    @Mock
-    private com.territorial.auction.domain.military.repository.UnitInstanceRepository
-            unitInstanceRepository;
+    @BeforeEach
+    void setUpCombatSummary() {
+        org.mockito.Mockito.lenient()
+                .when(combatResourceClient.getUserSummary(org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(new UserSummary(0, null, 1));
+    }
 
     // ─── 공통 픽스처 ─────────────────────────────────────────────────────────
 
@@ -84,20 +84,6 @@ class UserServiceTest {
         ReflectionTestUtils.setField(user, "id", 1L);
         ReflectionTestUtils.setField(user, "createdAt", LocalDateTime.of(2026, 1, 10, 0, 0));
         return user;
-    }
-
-    // 지갑 화면의 GP 는 금고 잔액을 보여준다 — 금고에 1500 을 둔다.
-    private void stubVaultGp(Long userId, int gp) {
-        com.territorial.auction.domain.building.entity.GlobalVault vault =
-                com.territorial.auction.domain.building.entity.GlobalVault.builder().build();
-        ReflectionTestUtils.setField(vault, "storedGp", gp);
-        given(globalVaultRepository.findById(userId)).willReturn(java.util.Optional.of(vault));
-    }
-
-    private HomeIsland sampleIsland(User user) {
-        HomeIsland island = HomeIsland.builder().user(user).build();
-        ReflectionTestUtils.setField(island, "id", 1L);
-        return island;
     }
 
     private UserProfile sampleUserProfile(User user) {
@@ -133,13 +119,11 @@ class UserServiceTest {
             User user = sampleUser();
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
             given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(300, 0));
-            given(homeIslandRepository.findByUserId(1L))
-                    .willReturn(Optional.of(sampleIsland(user)));
+            given(combatResourceClient.getUserSummary(1L)).willReturn(new UserSummary(1500, 1L, 1));
             given(userSeasonPassRepository.findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(1L))
                     .willReturn(Optional.empty());
             given(territoryRepository.countByOwnerId(1L)).willReturn(3L);
 
-            stubVaultGp(1L, 1500);
             MyProfileResponse response = userService.getMyProfile(1L);
 
             assertThat(response.userId()).isEqualTo(1L);
@@ -165,8 +149,7 @@ class UserServiceTest {
                             .build();
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
             given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(300, 0));
-            given(homeIslandRepository.findByUserId(1L))
-                    .willReturn(Optional.of(sampleIsland(user)));
+            given(combatResourceClient.getUserSummary(1L)).willReturn(new UserSummary(0, 1L, 1));
             given(userSeasonPassRepository.findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(1L))
                     .willReturn(Optional.of(activePass));
             given(territoryRepository.countByOwnerId(1L)).willReturn(0L);
@@ -194,7 +177,7 @@ class UserServiceTest {
             User user = sampleUser();
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
             given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(300, 0));
-            given(homeIslandRepository.findByUserId(1L)).willReturn(Optional.empty());
+            given(combatResourceClient.getUserSummary(1L)).willReturn(new UserSummary(0, null, 1));
             given(userSeasonPassRepository.findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(1L))
                     .willReturn(Optional.empty());
             given(territoryRepository.countByOwnerId(1L)).willReturn(0L);
@@ -283,10 +266,8 @@ class UserServiceTest {
         @DisplayName("level이 home_islands.level에서 반환")
         void getUserProfile_levelReturned() {
             User user = sampleUser();
-            HomeIsland island = HomeIsland.builder().user(user).build();
-            ReflectionTestUtils.setField(island, "level", 5);
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(homeIslandRepository.findByUserId(1L)).willReturn(Optional.of(island));
+            given(combatResourceClient.getUserSummary(1L)).willReturn(new UserSummary(0, 1L, 5));
             given(territoryRepository.countByOwnerId(1L)).willReturn(0L);
 
             UserProfileResponse response = userService.getUserProfile(1L);
@@ -317,7 +298,7 @@ class UserServiceTest {
 
             given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(300, 0));
 
-            stubVaultGp(1L, 1500);
+            given(combatResourceClient.getUserSummary(1L)).willReturn(new UserSummary(1500, 1L, 1));
             MyWalletResponse response = userService.getMyWallet(1L);
 
             assertThat(response.availableGP()).isEqualTo(1500);

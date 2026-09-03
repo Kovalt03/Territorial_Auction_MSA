@@ -2,14 +2,12 @@ package com.territorial.auction.domain.season.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 
-import com.territorial.auction.domain.building.entity.GlobalVault;
-import com.territorial.auction.domain.building.repository.GlobalVaultRepository;
-import com.territorial.auction.domain.military.entity.AttackToken;
-import com.territorial.auction.domain.military.repository.AttackTokenRepository;
+import com.territorial.auction.domain.combat.client.CombatResourceClient;
 import com.territorial.auction.domain.season.TierPolicy;
 import com.territorial.auction.domain.season.entity.Season;
 import com.territorial.auction.domain.season.entity.SeasonReward;
@@ -20,7 +18,6 @@ import com.territorial.auction.domain.season.repository.SeasonRewardRepository;
 import com.territorial.auction.domain.season.repository.UserSeasonPassRepository;
 import com.territorial.auction.domain.season.repository.UserTrophyRepository;
 import com.territorial.auction.domain.user.entity.User;
-import com.territorial.auction.domain.user.repository.UserRepository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -42,15 +39,11 @@ class SeasonEndBatchServiceTest {
     @Mock private SeasonRepository seasonRepository;
     @Mock private UserTrophyRepository userTrophyRepository;
     @Mock private SeasonRewardRepository seasonRewardRepository;
-    @Mock private GlobalVaultRepository globalVaultRepository;
-    @Mock private UserRepository userRepository;
-    @Mock private AttackTokenRepository attackTokenRepository;
+    @Mock private CombatResourceClient combatResourceClient;
     @Mock private UserSeasonPassRepository userSeasonPassRepository;
 
     private Season season;
     private User user;
-    private GlobalVault vault;
-    private AttackToken attackToken;
     private UserTrophy trophy;
 
     @BeforeEach
@@ -71,12 +64,6 @@ class SeasonEndBatchServiceTest {
                         .nickname("tester")
                         .build();
         ReflectionTestUtils.setField(user, "id", 10L);
-
-        vault = GlobalVault.builder().user(user).build();
-        ReflectionTestUtils.setField(vault, "userId", 10L);
-
-        attackToken = AttackToken.builder().user(user).build();
-        ReflectionTestUtils.setField(attackToken, "userId", 10L);
 
         trophy = UserTrophy.builder().user(user).season(season).build();
         ReflectionTestUtils.setField(trophy, "userId", 10L);
@@ -106,10 +93,6 @@ class SeasonEndBatchServiceTest {
                     .willReturn(Optional.of(season));
             given(userTrophyRepository.findAllBySeasonId(1L)).willReturn(List.of(trophy));
             given(seasonRewardRepository.existsBySeasonIdAndUserId(1L, 10L)).willReturn(false);
-            given(globalVaultRepository.findByIdWithLock(10L)).willReturn(Optional.of(vault));
-            given(attackTokenRepository.findByUserIdWithLock(10L))
-                    .willReturn(Optional.of(attackToken));
-
             seasonEndBatchService.runIfSeasonEnded();
 
             then(seasonRewardRepository).should().save(any(SeasonReward.class));
@@ -141,14 +124,9 @@ class SeasonEndBatchServiceTest {
                     .willReturn(Optional.of(season));
             given(userTrophyRepository.findAllBySeasonId(1L)).willReturn(List.of(trophy));
             given(seasonRewardRepository.existsBySeasonIdAndUserId(1L, 10L)).willReturn(false);
-            given(globalVaultRepository.findByIdWithLock(10L)).willReturn(Optional.of(vault));
-            given(attackTokenRepository.findByUserIdWithLock(10L))
-                    .willReturn(Optional.of(attackToken));
-
-            int gpBefore = vault.getStoredGp();
             seasonEndBatchService.runIfSeasonEnded();
 
-            assertThat(vault.getStoredGp()).isEqualTo(gpBefore + 600);
+            then(combatResourceClient).should().creditGp(10L, 600, "SEASON_END:1:10:GP");
         }
 
         @Test
@@ -158,16 +136,11 @@ class SeasonEndBatchServiceTest {
                     .willReturn(Optional.of(season));
             given(userTrophyRepository.findAllBySeasonId(1L)).willReturn(List.of(trophy));
             given(seasonRewardRepository.existsBySeasonIdAndUserId(1L, 10L)).willReturn(false);
-            given(globalVaultRepository.findByIdWithLock(10L)).willReturn(Optional.of(vault));
-            given(attackTokenRepository.findByUserIdWithLock(10L))
-                    .willReturn(Optional.of(attackToken));
-
-            int normalBefore = attackToken.getNormalCount();
-            int precisionBefore = attackToken.getPrecisionCount();
             seasonEndBatchService.runIfSeasonEnded();
 
-            assertThat(attackToken.getNormalCount()).isEqualTo(normalBefore + 1);
-            assertThat(attackToken.getPrecisionCount()).isEqualTo(precisionBefore + 1);
+            then(combatResourceClient)
+                    .should()
+                    .creditAttackTokens(10L, 1, 1, "SEASON_END:1:10:ATTACK_TOKEN");
         }
 
         @Test
@@ -180,11 +153,11 @@ class SeasonEndBatchServiceTest {
                     .willReturn(Optional.of(season));
             given(userTrophyRepository.findAllBySeasonId(1L)).willReturn(List.of(trophy));
             given(seasonRewardRepository.existsBySeasonIdAndUserId(1L, 10L)).willReturn(false);
-            given(globalVaultRepository.findByIdWithLock(10L)).willReturn(Optional.of(vault));
-
             seasonEndBatchService.runIfSeasonEnded();
 
-            then(attackTokenRepository).should(never()).findByUserIdWithLock(any());
+            then(combatResourceClient)
+                    .should(never())
+                    .creditAttackTokens(any(), anyInt(), anyInt(), any());
         }
     }
 
@@ -199,10 +172,6 @@ class SeasonEndBatchServiceTest {
                     .willReturn(Optional.of(season));
             given(userTrophyRepository.findAllBySeasonId(1L)).willReturn(List.of(trophy));
             given(seasonRewardRepository.existsBySeasonIdAndUserId(1L, 10L)).willReturn(false);
-            given(globalVaultRepository.findByIdWithLock(10L)).willReturn(Optional.of(vault));
-            given(attackTokenRepository.findByUserIdWithLock(10L))
-                    .willReturn(Optional.of(attackToken));
-
             seasonEndBatchService.runIfSeasonEnded();
 
             assertThat(trophy.getScore()).isEqualTo(1167);
@@ -219,8 +188,6 @@ class SeasonEndBatchServiceTest {
                     .willReturn(Optional.of(season));
             given(userTrophyRepository.findAllBySeasonId(1L)).willReturn(List.of(trophy));
             given(seasonRewardRepository.existsBySeasonIdAndUserId(1L, 10L)).willReturn(false);
-            given(globalVaultRepository.findByIdWithLock(10L)).willReturn(Optional.of(vault));
-
             seasonEndBatchService.runIfSeasonEnded();
 
             assertThat(trophy.getScore()).isEqualTo(0);
@@ -236,10 +203,6 @@ class SeasonEndBatchServiceTest {
                     .willReturn(Optional.of(season));
             given(userTrophyRepository.findAllBySeasonId(1L)).willReturn(List.of(trophy));
             given(seasonRewardRepository.existsBySeasonIdAndUserId(1L, 10L)).willReturn(false);
-            given(globalVaultRepository.findByIdWithLock(10L)).willReturn(Optional.of(vault));
-            given(attackTokenRepository.findByUserIdWithLock(10L))
-                    .willReturn(Optional.of(attackToken));
-
             seasonEndBatchService.runIfSeasonEnded();
 
             assertThat(trophy.getScore()).isEqualTo(6667);

@@ -69,7 +69,7 @@ class SiegeCommandServiceTest {
     }
 
     private TerritoryCombatContext target() {
-        return new TerritoryCombatContext(20L, 2L, 5, 6, true, null);
+        return new TerritoryCombatContext(20L, 2L, 5, 6, true, "A", null);
     }
 
     private List<DeclareSiegeRequest.StructureEntry> structures() {
@@ -140,7 +140,8 @@ class SiegeCommandServiceTest {
     @DisplayName("자기 영토 공격은 CANNOT_ATTACK_OWN_TERRITORY")
     void declareSiege_ownTerritory() {
         given(territoryPort.findById(20L))
-                .willReturn(Optional.of(new TerritoryCombatContext(20L, 1L, 5, 6, true, null)));
+                .willReturn(
+                        Optional.of(new TerritoryCombatContext(20L, 1L, 5, 6, true, "A", null)));
         assertError(request(), ErrorCode.CANNOT_ATTACK_OWN_TERRITORY);
     }
 
@@ -151,7 +152,13 @@ class SiegeCommandServiceTest {
                 .willReturn(
                         Optional.of(
                                 new TerritoryCombatContext(
-                                        20L, 2L, 5, 6, true, LocalDateTime.now().plusHours(1))));
+                                        20L,
+                                        2L,
+                                        5,
+                                        6,
+                                        true,
+                                        "A",
+                                        LocalDateTime.now().plusHours(1))));
         assertError(request(), ErrorCode.TERRITORY_PROTECTED);
     }
 

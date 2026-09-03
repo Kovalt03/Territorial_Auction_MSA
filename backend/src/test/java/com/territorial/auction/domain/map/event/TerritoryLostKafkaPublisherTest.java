@@ -6,7 +6,6 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.territorial.auction.domain.military.event.TerritoryLostEvent;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
 import org.apache.kafka.clients.producer.ProducerRecord;

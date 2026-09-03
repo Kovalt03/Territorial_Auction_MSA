@@ -6,7 +6,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 
-import com.territorial.auction.domain.military.event.SiegeVictoryEvent;
+import com.territorial.auction.domain.combat.event.SiegeVictoryEvent;
 import com.territorial.auction.domain.ranking.event.AuctionSettledEvent;
 import com.territorial.auction.domain.season.SeasonPassPolicy;
 import com.territorial.auction.domain.season.entity.Season;
