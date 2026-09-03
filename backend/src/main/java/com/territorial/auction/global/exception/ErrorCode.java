@@ -66,13 +66,6 @@ public enum ErrorCode {
     // Social
     FRIEND_NOT_FOUND(HttpStatus.NOT_FOUND, "친구 관계를 찾을 수 없습니다."),
     ALREADY_FRIENDS(HttpStatus.CONFLICT, "이미 친구 관계입니다."),
-    CHAT_ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "채팅방을 찾을 수 없습니다."),
-    CHAT_ACCESS_DENIED(HttpStatus.FORBIDDEN, "해당 채팅방에 접근 권한이 없습니다."),
-    CHAT_MESSAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "채팅 메시지를 찾을 수 없습니다."),
-
-    // Notification
-    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "알림을 찾을 수 없습니다."),
-    NOTIFICATION_FORBIDDEN(HttpStatus.FORBIDDEN, "본인의 알림이 아닙니다."),
 
     // Building
     BUILDING_NOT_FOUND(HttpStatus.NOT_FOUND, "건물을 찾을 수 없습니다."),
@@ -109,17 +102,6 @@ public enum ErrorCode {
     TRANSFER_COOLDOWN_ACTIVE(HttpStatus.TOO_MANY_REQUESTS, "이전 쿨다운 중입니다. 잠시 후 다시 시도하세요."),
 
     // Guild
-    GUILD_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 길드입니다."),
-    GUILD_NAME_DUPLICATED(HttpStatus.CONFLICT, "이미 존재하는 길드명입니다."),
-    ALREADY_IN_GUILD(HttpStatus.CONFLICT, "이미 길드에 소속되어 있습니다."),
-    NOT_IN_GUILD(HttpStatus.NOT_FOUND, "소속된 길드가 없습니다."),
-    ALREADY_APPLIED(HttpStatus.CONFLICT, "이미 가입 신청한 길드입니다."),
-    NOT_GUILD_MASTER(HttpStatus.FORBIDDEN, "길드장 권한이 없습니다."),
-    GUILD_FULL(HttpStatus.BAD_REQUEST, "길드 정원이 초과되었습니다."),
-    APPLICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "가입 신청을 찾을 수 없습니다."),
-    GUILD_MASTER_CANNOT_LEAVE(HttpStatus.FORBIDDEN, "길드장은 탈퇴할 수 없습니다. 길드장을 먼저 이전하세요."),
-    CANNOT_TRANSFER_TO_SELF(HttpStatus.BAD_REQUEST, "자기 자신에게 길드장을 이전할 수 없습니다."),
-    CANNOT_KICK_MASTER(HttpStatus.FORBIDDEN, "길드장은 강제 추방할 수 없습니다."),
 
     // Military
     INSUFFICIENT_TROOPS(HttpStatus.BAD_REQUEST, "병력이 부족합니다."),

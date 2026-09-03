@@ -49,11 +49,11 @@ Kafka 전환은 dev 반영 완료(`#9`) 상태다. combat은 기존 Kafka 설정
 | 3 | `feature/military-3-combat-core` | unit/research/attack-token | 완료 (`#14`) |
 | 4 | `feature/military-4-combat-siege` | siege/scheduler/outbox | 완료 (`#16`) |
 | 5 | `feature/infra-5-combat-contracts` | 타 서비스 client/event bridge | 완료 (`#24`) |
-| 6 | `feature/infra-6-combat-cutover` | gateway/compose/monolith 제거 | 구현·검증 완료, PR 준비 |
+| 6 | `feature/infra-6-combat-cutover` | gateway/compose/monolith 제거 | 완료 (`#25`) |
 
 ## 충돌 회피
 
-- 현재 단계 기준 브랜치: `feature/infra-6-combat-cutover` (base `msa/combat-service` `d613700`)
+- 모든 단계 PR을 `msa/combat-service`에 병합했으며 최종 `dev` 통합만 남았다.
 - Kafka 이벤트 백본: dev 반영 완료(`#9`)
 - MSA 통합 브랜치 PR CI: dev 반영 완료(`#10`)
 - combat-service는 기존 broker 구성을 재정의하지 않고 `combat-events` producer/consumer 설정만 추가한다.

@@ -2,7 +2,7 @@ package com.territorial.auction.domain.combat.event;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.territorial.auction.domain.map.service.TerritoryService;
-import com.territorial.auction.domain.notification.entity.NotificationLog.NotificationType;
+import com.territorial.auction.domain.notification.NotificationType;
 import com.territorial.auction.domain.notification.service.NotificationService;
 import com.territorial.auction.domain.season.repository.SeasonRepository;
 import com.territorial.auction.global.event.CombatEventReceiptService;

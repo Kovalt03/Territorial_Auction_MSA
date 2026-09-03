@@ -466,4 +466,4 @@
 
 ## 다음 단계
 
-모놀리식 기능 구현과 우선순위 성능 검증은 완료 기준에 도달했다. MSA 전환은 auction-service와 user-service 추출을 완료했고, combat-service는 gateway 공개 cutover·모놀리식 building/military 코드 제거·full-stack compose smoke까지 완료해 통합 대기 중이다. 이후 순서는 economy → social → notification → map이며 [MSA 전환 허브](design/msa/README.md)를 기준으로 한다. 생산 랭킹과 실제 PG 결제 연동은 별도 후속 범위다.
+모놀리식 기능 구현과 우선순위 성능 검증은 완료 기준에 도달했다. MSA 전환은 auction-service, user-service, combat-service 추출을 완료했다. combat-service는 gateway 공개 cutover·모놀리식 building/military 코드 및 스키마 제거·full-stack compose smoke까지 검증했다. 이후 순서는 economy → social → notification → map이며 [MSA 전환 허브](design/msa/README.md)를 기준으로 한다. 생산 랭킹과 실제 PG 결제 연동은 별도 후속 범위다.

@@ -75,7 +75,6 @@ public class SecurityConfig {
                                     .requestMatchers(HttpMethod.GET, "/api/v1/continents/**").permitAll()
                                     .requestMatchers(HttpMethod.GET, "/api/v1/auctions/my-bids").authenticated()
                                     .requestMatchers(HttpMethod.GET, "/api/v1/auctions", "/api/v1/auctions/**").permitAll()
-                                    .requestMatchers(HttpMethod.GET, "/api/v1/guilds", "/api/v1/guilds/{guildId}").permitAll()
                                     .requestMatchers(HttpMethod.GET, "/api/v1/rankings/territory-hold").permitAll()
                                     .requestMatchers(HttpMethod.GET, "/api/v1/rankings/auction-spend").permitAll()
                                     .requestMatchers(HttpMethod.GET, "/api/v1/rankings/continent/**").permitAll()

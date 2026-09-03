@@ -39,7 +39,7 @@
 | 0 | 모놀리식 + CI/CD·검증 정책 확립 | ✅ 완료 |
 | 1 | **auction-service** (auction) | ✅ **완료** — 서비스 추출·게이트웨이·이벤트 프로젝션·모놀리식 auction 도메인 삭제 |
 | 2 | user-service (user, auth) | ✅ 완료 — 신원·인증·AP 지갑·알림 설정·상태 소유 이전 |
-| 3 | combat-service (military, building) | 🚧 공개 route cutover·모놀리식 코드 제거·full-stack smoke 완료, 통합 대기 — [추출 가이드](./combat-extraction.md) · [이관 추적](./combat-migration-tracking.md) |
+| 3 | combat-service (military, building) | ✅ **완료** — 독립 DB·공개 route cutover·모놀리식 코드/스키마 제거·full-stack smoke 완료 — [추출 가이드](./combat-extraction.md) · [이관 추적](./combat-migration-tracking.md) |
 | 4 | economy-service (item, season) | 예정 |
 | 5 | social-service (social, guild) | 예정 |
 | 6 | notification-service (notification) | 예정 |
@@ -96,7 +96,7 @@ feature/{domain}-{n}-{step}  ─┘             (서비스 통합 브랜치)    
 |---|---|---|
 | auction | [auction-extraction.md](./auction-extraction.md) | `dev` 병합 완료 |
 | user | [user-extraction.md](./user-extraction.md) | `dev` 병합 완료 |
-| combat | [combat-extraction.md](./combat-extraction.md) | 현재 `msa/combat-service` 작업 기준 |
+| combat | [combat-extraction.md](./combat-extraction.md) | `dev` 병합 완료 |
 
 ## 관련 (MSA 밖 공통 문서)
 

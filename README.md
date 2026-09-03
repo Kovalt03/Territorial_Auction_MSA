@@ -80,7 +80,7 @@
 |---|---|---|---|
 | 1 | auction-service | 완료 | [추출 설계](docs/design/msa/auction-extraction.md) · [이관 기록](docs/design/msa/auction-migration-tracking.md) |
 | 2 | user-service | 완료 | [추출 설계](docs/design/msa/user-extraction.md) |
-| 3 | combat-service | 공개 cutover·모놀리식 코드 제거·full-stack smoke 완료, 통합 대기 | [추출 설계](docs/design/msa/combat-extraction.md) · [이관 기록](docs/design/msa/combat-migration-tracking.md) |
+| 3 | combat-service | 완료 | [추출 설계](docs/design/msa/combat-extraction.md) · [이관 기록](docs/design/msa/combat-migration-tracking.md) |
 
 전체 목표 토폴로지와 이후 economy, social, notification, map 분리 순서는 [MSA 전환 로드맵](docs/design/msa/README.md)을 참고하세요.
 
