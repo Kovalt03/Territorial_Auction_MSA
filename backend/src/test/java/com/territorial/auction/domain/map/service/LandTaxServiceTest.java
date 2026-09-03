@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -24,16 +25,13 @@ import com.territorial.auction.domain.map.repository.LandTaxLogRepository;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
 import com.territorial.auction.domain.notification.NotificationType;
 import com.territorial.auction.domain.notification.service.NotificationService;
-import com.territorial.auction.domain.season.entity.SeasonPass;
-import com.territorial.auction.domain.season.entity.UserSeasonPass;
-import com.territorial.auction.domain.season.repository.UserSeasonPassRepository;
 import com.territorial.auction.domain.user.repository.UserRepository;
+import com.territorial.auction.global.client.SeasonQueryClient;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -56,7 +54,7 @@ class LandTaxServiceTest {
 
     @Mock private TerritoryRepository territoryRepository;
     @Mock private LandTaxLogRepository landTaxLogRepository;
-    @Mock private UserSeasonPassRepository userSeasonPassRepository;
+    @Mock private SeasonQueryClient seasonQueryClient;
     @Mock private CombatResourceClient combatResourceClient;
     @Mock private UserRepository userRepository;
     @Mock private NotificationService notificationService;
@@ -69,19 +67,11 @@ class LandTaxServiceTest {
         // getLandTaxLogs() 테스트는 Redis를 사용하지 않으므로 lenient로 선언
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         lenient().when(valueOperations.get(any())).thenReturn(null); // 기본 캐시 미스
+        // 시즌패스 면제 보너스 기본값 0 — 필요한 테스트에서만 override
+        lenient().when(seasonQueryClient.getTaxExemptBonus(anyLong())).thenReturn(0);
     }
 
     // ─── 공통 픽스처 ─────────────────────────────────────────────────────────
-
-    private UserSeasonPass activeSeasonPass(int taxExemptBonus) {
-        SeasonPass seasonPass = SeasonPass.builder().taxExemptBonus(taxExemptBonus).build();
-
-        return UserSeasonPass.builder()
-                .seasonPass(seasonPass)
-                .startedAt(LocalDateTime.now().minusDays(1))
-                .expiresAt(LocalDateTime.now().plusDays(30))
-                .build();
-    }
 
     private LandTaxLog taxLog(Long id, int count, int gp, TaxStatus status) {
         LandTaxLog log =
@@ -106,8 +96,6 @@ class LandTaxServiceTest {
         @DisplayName("영토 없음 - 면제, 세금 0")
         void noTerritories_exempt() {
             given(territoryRepository.countByOwnerId(1L)).willReturn(0L);
-            given(userSeasonPassRepository.findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(1L))
-                    .willReturn(Optional.empty());
 
             TaxStatusResponse response = landTaxService.getLandTaxStatus(1L);
 
@@ -121,8 +109,6 @@ class LandTaxServiceTest {
         @DisplayName("영토 3개 이하 - 기본 면제 구간")
         void threeOrFewer_exempt() {
             given(territoryRepository.countByOwnerId(1L)).willReturn(3L);
-            given(userSeasonPassRepository.findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(1L))
-                    .willReturn(Optional.empty());
 
             TaxStatusResponse response = landTaxService.getLandTaxStatus(1L);
 
@@ -138,8 +124,6 @@ class LandTaxServiceTest {
         @DisplayName("영토 4개, 패스 없음 - 1단계 과세 (50 GP/일)")
         void fourTerritories_noPass_tier1Tax() {
             given(territoryRepository.countByOwnerId(1L)).willReturn(4L);
-            given(userSeasonPassRepository.findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(1L))
-                    .willReturn(Optional.empty());
 
             TaxStatusResponse response = landTaxService.getLandTaxStatus(1L);
 
@@ -155,8 +139,6 @@ class LandTaxServiceTest {
         @DisplayName("영토 7개, 패스 없음 - 2단계 과세 (150 GP/일)")
         void sevenTerritories_noPass_tier2Tax() {
             given(territoryRepository.countByOwnerId(1L)).willReturn(7L);
-            given(userSeasonPassRepository.findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(1L))
-                    .willReturn(Optional.empty());
 
             TaxStatusResponse response = landTaxService.getLandTaxStatus(1L);
 
@@ -170,8 +152,6 @@ class LandTaxServiceTest {
         @DisplayName("영토 11개, 패스 없음 - 3단계 과세 (400 GP/일)")
         void elevenTerritories_noPass_tier3Tax() {
             given(territoryRepository.countByOwnerId(1L)).willReturn(11L);
-            given(userSeasonPassRepository.findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(1L))
-                    .willReturn(Optional.empty());
 
             TaxStatusResponse response = landTaxService.getLandTaxStatus(1L);
 
@@ -185,9 +165,8 @@ class LandTaxServiceTest {
         @DisplayName("영토 5개 + 유효한 시즌패스 - 패스 적용 시 면제")
         void fiveTerritories_withSeasonPass_finallyExempt() {
             given(territoryRepository.countByOwnerId(1L)).willReturn(5L);
-            given(userSeasonPassRepository.findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(1L))
-                    .willReturn(
-                            Optional.of(activeSeasonPass(LandTaxPolicy.SEASON_PASS_EXEMPT_BONUS)));
+            given(seasonQueryClient.getTaxExemptBonus(1L))
+                    .willReturn(LandTaxPolicy.SEASON_PASS_EXEMPT_BONUS);
 
             TaxStatusResponse response = landTaxService.getLandTaxStatus(1L);
 
@@ -206,9 +185,8 @@ class LandTaxServiceTest {
         @DisplayName("영토 8개 + 유효한 시즌패스 - 세금 단계 낮아짐")
         void eightTerritories_withSeasonPass_lowerTier() {
             given(territoryRepository.countByOwnerId(1L)).willReturn(8L);
-            given(userSeasonPassRepository.findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(1L))
-                    .willReturn(
-                            Optional.of(activeSeasonPass(LandTaxPolicy.SEASON_PASS_EXEMPT_BONUS)));
+            given(seasonQueryClient.getTaxExemptBonus(1L))
+                    .willReturn(LandTaxPolicy.SEASON_PASS_EXEMPT_BONUS);
 
             TaxStatusResponse response = landTaxService.getLandTaxStatus(1L);
 
@@ -220,31 +198,9 @@ class LandTaxServiceTest {
         }
 
         @Test
-        @DisplayName("만료된 시즌패스 - 패스 없음으로 처리")
-        void expiredSeasonPass_treatedAsNoPass() {
-            UserSeasonPass expiredPass = mock(UserSeasonPass.class);
-            given(expiredPass.getExpiresAt()).willReturn(LocalDateTime.now().minusMinutes(1));
-
-            given(territoryRepository.countByOwnerId(1L)).willReturn(5L);
-            given(userSeasonPassRepository.findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(1L))
-                    .willReturn(Optional.of(expiredPass));
-
-            TaxStatusResponse response = landTaxService.getLandTaxStatus(1L);
-
-            assertThat(response.seasonPassExemptBonus()).isEqualTo(0);
-            assertThat(response.effectiveExemptCount()).isEqualTo(LandTaxPolicy.BASE_EXEMPT_COUNT);
-            // 패스 없음 기준: taxableCount = 5-3 = 2 → finalDailyGP = 50
-            assertThat(response.finalDailyGP()).isEqualTo(50);
-            // 만료 패스의 SeasonPass는 조회하지 않아야 함
-            then(expiredPass).should(never()).getSeasonPass();
-        }
-
-        @Test
         @DisplayName("nextChargeAt은 현재 시각 이후")
         void nextChargeAt_isInFuture() {
             given(territoryRepository.countByOwnerId(1L)).willReturn(0L);
-            given(userSeasonPassRepository.findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(1L))
-                    .willReturn(Optional.empty());
 
             TaxStatusResponse response = landTaxService.getLandTaxStatus(1L);
 
@@ -379,11 +335,7 @@ class LandTaxServiceTest {
 
         @BeforeEach
         void setUp() {
-            lenient()
-                    .when(
-                            userSeasonPassRepository
-                                    .findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(1L))
-                    .thenReturn(Optional.empty());
+            lenient().when(seasonQueryClient.getTaxExemptBonus(1L)).thenReturn(0);
         }
 
         private Territory mockTerritory(String gradeStr) {

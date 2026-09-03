@@ -13,9 +13,9 @@ import com.territorial.auction.domain.map.repository.LandTaxLogRepository;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
 import com.territorial.auction.domain.notification.NotificationType;
 import com.territorial.auction.domain.notification.service.NotificationService;
-import com.territorial.auction.domain.season.repository.UserSeasonPassRepository;
 import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.repository.UserRepository;
+import com.territorial.auction.global.client.SeasonQueryClient;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -47,7 +47,7 @@ public class LandTaxService {
 
     private final TerritoryRepository territoryRepository;
     private final LandTaxLogRepository landTaxLogRepository;
-    private final UserSeasonPassRepository userSeasonPassRepository;
+    private final SeasonQueryClient seasonQueryClient;
     private final CombatResourceClient combatResourceClient;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
@@ -81,12 +81,7 @@ public class LandTaxService {
     private TaxStatusResponse computeTaxStatus(Long userId) {
         int territoryCount = (int) territoryRepository.countByOwnerId(userId);
 
-        int seasonPassExemptBonus =
-                userSeasonPassRepository
-                        .findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(userId)
-                        .filter(pass -> pass.getExpiresAt().isAfter(LocalDateTime.now()))
-                        .map(pass -> pass.getSeasonPass().getTaxExemptBonus())
-                        .orElse(0);
+        int seasonPassExemptBonus = seasonQueryClient.getTaxExemptBonus(userId);
 
         int baseExemptedCount = Math.min(territoryCount, LandTaxPolicy.BASE_EXEMPT_COUNT);
         int baseTaxableCount = Math.max(0, territoryCount - LandTaxPolicy.BASE_EXEMPT_COUNT);
@@ -274,11 +269,7 @@ public class LandTaxService {
     }
 
     private int resolveSeasonPassExemptBonus(Long userId) {
-        return userSeasonPassRepository
-                .findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(userId)
-                .filter(pass -> pass.getExpiresAt().isAfter(LocalDateTime.now()))
-                .map(pass -> pass.getSeasonPass().getTaxExemptBonus())
-                .orElse(0);
+        return seasonQueryClient.getTaxExemptBonus(userId);
     }
 
     private void saveLog(Long userId, int territoryCount, int gpCharged, TaxStatus status) {

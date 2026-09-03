@@ -14,7 +14,7 @@ import com.territorial.auction.domain.map.entity.Territory;
 import com.territorial.auction.domain.map.entity.TerritoryGrade;
 import com.territorial.auction.domain.map.event.TerritoryLostEvent;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
-import com.territorial.auction.domain.season.repository.SeasonRepository;
+import com.territorial.auction.global.client.SeasonQueryClient;
 import com.territorial.auction.domain.user.entity.User;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -39,7 +39,7 @@ class TerritoryExpiryServiceTest {
     @InjectMocks private TerritoryExpiryService territoryExpiryService;
 
     @Mock private TerritoryRepository territoryRepository;
-    @Mock private SeasonRepository seasonRepository;
+    @Mock private SeasonQueryClient seasonQueryClient;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private SimpMessagingTemplate messagingTemplate;
 
@@ -101,7 +101,7 @@ class TerritoryExpiryServiceTest {
     void release_single() {
         Territory t = occupiedTerritory(1L);
         given(territoryRepository.findAllExpiredOccupied(any(), any())).willReturn(List.of(t));
-        given(seasonRepository.findActiveSeason(any())).willReturn(Optional.empty());
+        given(seasonQueryClient.getActiveSeason()).willReturn(Optional.empty());
 
         territoryExpiryService.releaseExpiredTerritories();
         flushAfterCommit();
@@ -118,7 +118,7 @@ class TerritoryExpiryServiceTest {
     void release_multiple() {
         given(territoryRepository.findAllExpiredOccupied(any(), any()))
                 .willReturn(List.of(occupiedTerritory(1L), occupiedTerritory(2L)));
-        given(seasonRepository.findActiveSeason(any())).willReturn(Optional.empty());
+        given(seasonQueryClient.getActiveSeason()).willReturn(Optional.empty());
 
         territoryExpiryService.releaseExpiredTerritories();
         flushAfterCommit();

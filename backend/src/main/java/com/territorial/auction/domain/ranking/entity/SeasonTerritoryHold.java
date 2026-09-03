@@ -1,7 +1,6 @@
 package com.territorial.auction.domain.ranking.entity;
 
 import com.territorial.auction.domain.map.entity.Territory;
-import com.territorial.auction.domain.season.entity.Season;
 import com.territorial.auction.domain.user.entity.User;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
@@ -17,9 +16,9 @@ public class SeasonTerritoryHold {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "season_id", nullable = false)
-    private Season season;
+    // season은 season-service 소유라 FK 없이 식별자만 보관한다.
+    @Column(name = "season_id", nullable = false)
+    private Long seasonId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -39,8 +38,8 @@ public class SeasonTerritoryHold {
 
     @Builder
     public SeasonTerritoryHold(
-            Season season, User user, Territory territory, String grade, LocalDateTime heldFrom) {
-        this.season = season;
+            Long seasonId, User user, Territory territory, String grade, LocalDateTime heldFrom) {
+        this.seasonId = seasonId;
         this.user = user;
         this.territory = territory;
         this.grade = grade;

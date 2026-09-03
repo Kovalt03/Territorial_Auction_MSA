@@ -7,49 +7,33 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 
+import com.territorial.auction.domain.admin.client.SeasonAdminClient;
+import com.territorial.auction.domain.admin.client.SeasonAdminClient.SeasonView;
 import com.territorial.auction.domain.admin.dto.AdminCreateSeasonRequest;
 import com.territorial.auction.domain.admin.dto.AdminSeasonResponse;
-import com.territorial.auction.domain.season.entity.Season;
-import com.territorial.auction.domain.season.repository.SeasonRepository;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import java.time.LocalDateTime;
-import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class AdminSeasonServiceTest {
 
     @InjectMocks private AdminSeasonService adminSeasonService;
 
-    @Mock private SeasonRepository seasonRepository;
+    @Mock private SeasonAdminClient seasonAdminClient;
     @Mock private AdminAuditLogger adminAuditLogger;
 
-    private Season season(long id, int number, LocalDateTime startedAt, LocalDateTime endedAt) {
-        Season s =
-                Season.builder().seasonNumber(number).startedAt(startedAt).endedAt(endedAt).build();
-        ReflectionTestUtils.setField(s, "id", id);
-        return s;
-    }
-
     @Test
-    @DisplayName("새 시즌 생성 성공 → 번호 자동 증가, 즉시 시작")
+    @DisplayName("새 시즌 생성 성공 → season-service 위임 결과 매핑 + 감사 로그")
     void createSeason_success() {
-        given(seasonRepository.findActiveSeason(any())).willReturn(Optional.empty());
-        given(seasonRepository.findMaxSeasonNumber()).willReturn(3);
-        given(seasonRepository.save(any()))
-                .willAnswer(
-                        inv -> {
-                            Season s = inv.getArgument(0);
-                            ReflectionTestUtils.setField(s, "id", 99L);
-                            return s;
-                        });
+        given(seasonAdminClient.createSeason(any(), any()))
+                .willReturn(new SeasonView(99L, 4, LocalDateTime.now(), null, null));
 
         AdminSeasonResponse res =
                 adminSeasonService.createSeason(10L, new AdminCreateSeasonRequest(null, null));
@@ -60,10 +44,10 @@ class AdminSeasonServiceTest {
     }
 
     @Test
-    @DisplayName("진행 중 시즌 존재 시 생성 거부 → SEASON_ALREADY_ACTIVE")
+    @DisplayName("진행 중 시즌 존재 시 season-service가 거부 → SEASON_ALREADY_ACTIVE 전파, 감사 로그 없음")
     void createSeason_activeExists() {
-        given(seasonRepository.findActiveSeason(any()))
-                .willReturn(Optional.of(season(1L, 3, LocalDateTime.now().minusDays(1), null)));
+        given(seasonAdminClient.createSeason(any(), any()))
+                .willThrow(new CustomException(ErrorCode.SEASON_ALREADY_ACTIVE));
 
         assertThatThrownBy(
                         () ->
@@ -72,28 +56,28 @@ class AdminSeasonServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.SEASON_ALREADY_ACTIVE);
-        then(seasonRepository).should(never()).save(any());
+        then(adminAuditLogger).should(never()).record(any(), any(), any(), any(), any());
     }
 
     @Test
-    @DisplayName("시즌 종료 성공 → endedAt 설정")
+    @DisplayName("시즌 종료 성공 → 위임 결과 매핑(ENDED) + 감사 로그")
     void endSeason_success() {
-        Season s = season(5L, 3, LocalDateTime.now().minusDays(1), null);
-        given(seasonRepository.findById(5L)).willReturn(Optional.of(s));
+        given(seasonAdminClient.endSeason(5L))
+                .willReturn(
+                        new SeasonView(
+                                5L, 3, LocalDateTime.now().minusDays(1), LocalDateTime.now(), null));
 
         AdminSeasonResponse res = adminSeasonService.endSeason(10L, 5L);
 
-        assertThat(s.getEndedAt()).isNotNull();
         assertThat(res.status()).isEqualTo("ENDED");
         then(adminAuditLogger).should().record(any(), any(), any(), any(), any());
     }
 
     @Test
-    @DisplayName("이미 종료된 시즌 → SEASON_ALREADY_ENDED")
+    @DisplayName("이미 종료된 시즌 → season-service가 SEASON_ALREADY_ENDED 전파")
     void endSeason_alreadyEnded() {
-        Season s =
-                season(5L, 3, LocalDateTime.now().minusDays(2), LocalDateTime.now().minusDays(1));
-        given(seasonRepository.findById(5L)).willReturn(Optional.of(s));
+        given(seasonAdminClient.endSeason(5L))
+                .willThrow(new CustomException(ErrorCode.SEASON_ALREADY_ENDED));
 
         assertThatThrownBy(() -> adminSeasonService.endSeason(10L, 5L))
                 .isInstanceOf(CustomException.class)

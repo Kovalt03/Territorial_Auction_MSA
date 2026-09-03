@@ -12,11 +12,6 @@ import com.territorial.auction.domain.map.entity.Continent;
 import com.territorial.auction.domain.map.entity.Territory;
 import com.territorial.auction.domain.map.entity.TerritoryGrade;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
-import com.territorial.auction.domain.season.entity.SeasonPass;
-import com.territorial.auction.domain.season.entity.UserSeasonPass;
-import com.territorial.auction.domain.season.entity.UserTrophy;
-import com.territorial.auction.domain.season.repository.UserSeasonPassRepository;
-import com.territorial.auction.domain.season.repository.UserTrophyRepository;
 import com.territorial.auction.domain.user.client.WalletClient;
 import com.territorial.auction.domain.user.client.WalletSnapshot;
 import com.territorial.auction.domain.user.dto.MyProfileResponse;
@@ -27,6 +22,10 @@ import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.entity.UserProfile;
 import com.territorial.auction.domain.user.repository.UserProfileRepository;
 import com.territorial.auction.domain.user.repository.UserRepository;
+import com.territorial.auction.global.client.SeasonQueryClient;
+import com.territorial.auction.global.client.SeasonQueryClient.UserPassSummary;
+import com.territorial.auction.global.client.SeasonTrophyClient;
+import com.territorial.auction.global.client.SeasonTrophyClient.Trophy;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import com.territorial.auction.global.security.jwt.RefreshTokenService;
@@ -56,10 +55,10 @@ class UserServiceTest {
     @Mock private WalletClient walletClient;
 
     @Mock private CombatResourceClient combatResourceClient;
-    @Mock private UserSeasonPassRepository userSeasonPassRepository;
+    @Mock private SeasonQueryClient seasonQueryClient;
     @Mock private TerritoryRepository territoryRepository;
     @Mock private UserProfileRepository userProfileRepository;
-    @Mock private UserTrophyRepository userTrophyRepository;
+    @Mock private SeasonTrophyClient seasonTrophyClient;
     @Mock private RefreshTokenService refreshTokenService;
     @Mock private com.territorial.auction.global.security.jwt.JwtTokenProvider jwtTokenProvider;
     @Mock private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
@@ -92,21 +91,6 @@ class UserServiceTest {
         return profile;
     }
 
-    private UserTrophy sampleUserTrophy(User user) {
-        UserTrophy trophy = UserTrophy.builder().user(user).season(null).build();
-        ReflectionTestUtils.setField(trophy, "score", 3850);
-        return trophy;
-    }
-
-    private SeasonPass sampleSeasonPass() {
-        return SeasonPass.builder()
-                .name("기본 시즌 패스")
-                .costAp(100)
-                .islandBonusPct(10)
-                .extraBuilders(1)
-                .build();
-    }
-
     // ─── getMyProfile() ───────────────────────────────────────────────────────
 
     @Nested
@@ -120,8 +104,7 @@ class UserServiceTest {
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
             given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(300, 0));
             given(combatResourceClient.getUserSummary(1L)).willReturn(new UserSummary(1500, 1L, 1));
-            given(userSeasonPassRepository.findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(1L))
-                    .willReturn(Optional.empty());
+            given(seasonQueryClient.getUserPassSummary(1L)).willReturn(Optional.empty());
             given(territoryRepository.countByOwnerId(1L)).willReturn(3L);
 
             MyProfileResponse response = userService.getMyProfile(1L);
@@ -140,18 +123,11 @@ class UserServiceTest {
         @DisplayName("활성 시즌 패스가 있으면 seasonPass.isActive = true")
         void getMyProfile_withActiveSeasonPass() {
             User user = sampleUser();
-            UserSeasonPass activePass =
-                    UserSeasonPass.builder()
-                            .user(user)
-                            .seasonPass(sampleSeasonPass())
-                            .startedAt(LocalDateTime.now().minusDays(1))
-                            .expiresAt(LocalDateTime.now().plusDays(30))
-                            .build();
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
             given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(300, 0));
             given(combatResourceClient.getUserSummary(1L)).willReturn(new UserSummary(0, 1L, 1));
-            given(userSeasonPassRepository.findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(1L))
-                    .willReturn(Optional.of(activePass));
+            given(seasonQueryClient.getUserPassSummary(1L))
+                    .willReturn(Optional.of(new UserPassSummary(LocalDateTime.now().plusDays(30), 1)));
             given(territoryRepository.countByOwnerId(1L)).willReturn(0L);
 
             MyProfileResponse response = userService.getMyProfile(1L);
@@ -178,8 +154,7 @@ class UserServiceTest {
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
             given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(300, 0));
             given(combatResourceClient.getUserSummary(1L)).willReturn(new UserSummary(0, null, 1));
-            given(userSeasonPassRepository.findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(1L))
-                    .willReturn(Optional.empty());
+            given(seasonQueryClient.getUserPassSummary(1L)).willReturn(Optional.empty());
             given(territoryRepository.countByOwnerId(1L)).willReturn(0L);
 
             MyProfileResponse response = userService.getMyProfile(1L);
@@ -241,8 +216,8 @@ class UserServiceTest {
         void getUserProfile_trophyPointsReturned() {
             User user = sampleUser();
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(userTrophyRepository.findById(1L))
-                    .willReturn(Optional.of(sampleUserTrophy(user)));
+            given(seasonTrophyClient.getTrophy(1L))
+                    .willReturn(Optional.of(new Trophy(1L, 3850, "BRONZE")));
             given(territoryRepository.countByOwnerId(1L)).willReturn(0L);
 
             UserProfileResponse response = userService.getUserProfile(1L);

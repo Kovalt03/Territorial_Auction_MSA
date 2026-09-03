@@ -4,13 +4,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.territorial.auction.domain.map.service.TerritoryService;
 import com.territorial.auction.domain.notification.NotificationType;
 import com.territorial.auction.domain.notification.service.NotificationService;
-import com.territorial.auction.domain.season.repository.SeasonRepository;
+import com.territorial.auction.global.client.SeasonGameEventClient;
 import com.territorial.auction.global.event.CombatEventReceiptService;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -35,8 +34,7 @@ public class CombatEventSubscriber {
     private final CombatEventReceiptService receiptService;
     private final NotificationService notificationService;
     private final TerritoryService territoryService;
-    private final SeasonRepository seasonRepository;
-    private final ApplicationEventPublisher eventPublisher;
+    private final SeasonGameEventClient seasonGameEventClient;
     private final SimpMessagingTemplate messagingTemplate;
 
     @KafkaListener(topics = TOPIC, groupId = "backend-combat-notification")
@@ -95,15 +93,7 @@ public class CombatEventSubscriber {
             SiegeVictory event = objectMapper.readValue(payload, SiegeVictory.class);
             receiptService.processOnce(
                     receiptKey("season", eventIdHeader, eventTopic, event.siegeId()),
-                    () ->
-                            seasonRepository
-                                    .findActiveSeason(LocalDateTime.now())
-                                    .ifPresent(
-                                            season ->
-                                                    eventPublisher.publishEvent(
-                                                            new SiegeVictoryEvent(
-                                                                    event.attackerId(),
-                                                                    season.getId()))));
+                    () -> seasonGameEventClient.sendGameEvent(event.attackerId(), "SIEGE_WIN"));
         } catch (Exception exception) {
             throw processingFailure(eventTopic, exception);
         }
