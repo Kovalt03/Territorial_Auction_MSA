@@ -72,6 +72,7 @@ Kafka 전환은 dev 반영 완료(`#9`) 상태다. combat은 기존 Kafka 설정
 - [x] gateway 경로 변경 전용 CI workflow 추가 (2026-09-03)
 - [x] MSA compose smoke: backend·auction·user·combat·gateway health, gateway 공개 route, 직접 접근 403, 가입 이벤트 기반 섬·기본 성 생성, AP+GP 합성 조회 (2026-09-03)
 - [x] monolith building/military 코드·직접 Repository 의존 0건 (2026-09-03)
-- [ ] monolith DB의 기존 combat 테이블 제거 migration (데이터 삭제 승인 후 별도 적용)
+- [x] monolith DB의 기존 combat 테이블 제거 Flyway V4 적용 (운영 데이터 없음 확인·삭제 승인, 2026-09-03)
+- [x] production 프로필 빈 DB Flyway V1→V4·Hibernate validate·health `UP`, combat 테이블 0개 확인 (2026-09-03)
 - [x] 문서 최종 갱신 (2026-09-03)
 - [x] cutover 회귀: combat 161, gateway 4, backend 329 전체 통과 (PostgreSQL·Redis 테스트 인프라, 2026-09-03)
