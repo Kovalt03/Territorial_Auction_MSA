@@ -48,12 +48,12 @@ Kafka 전환은 dev 반영 완료(`#9`) 상태다. combat은 기존 Kafka 설정
 | 2 | `feature/building-2-combat-core` | island/building/vault/storage | 완료 (`#13`) |
 | 3 | `feature/military-3-combat-core` | unit/research/attack-token | 완료 (`#14`) |
 | 4 | `feature/military-4-combat-siege` | siege/scheduler/outbox | 완료 (`#16`) |
-| 5 | `feature/infra-5-combat-contracts` | 타 서비스 client/event bridge | 구현 완료·PR 준비 |
-| 6 | `feature/infra-6-combat-cutover` | gateway/compose/monolith 제거 | 예정 |
+| 5 | `feature/infra-5-combat-contracts` | 타 서비스 client/event bridge | 완료 (`#24`) |
+| 6 | `feature/infra-6-combat-cutover` | gateway/compose/monolith 제거 | 구현·검증 완료, PR 준비 |
 
 ## 충돌 회피
 
-- 현재 단계 기준 브랜치: `feature/infra-5-combat-contracts` (base `origin/msa/combat-service` `bf5222e`)
+- 현재 단계 기준 브랜치: `feature/infra-6-combat-cutover` (base `msa/combat-service` `d613700`)
 - Kafka 이벤트 백본: dev 반영 완료(`#9`)
 - MSA 통합 브랜치 PR CI: dev 반영 완료(`#10`)
 - combat-service는 기존 broker 구성을 재정의하지 않고 `combat-events` producer/consumer 설정만 추가한다.
@@ -68,7 +68,10 @@ Kafka 전환은 dev 반영 완료(`#9`) 상태다. combat은 기존 Kafka 설정
 - [x] outbox 저장·발행 성공/실패 재시도 테스트 (2026-09-02)
 - [x] event-id receipt 기반 이벤트 소비 중복 처리 테스트 (2026-09-02)
 - [x] contracts 단계 전체 회귀: combat 154, auction 40, backend 단위 495 통과 (DB 미기동 context 1건 제외, 2026-09-02)
-- [ ] gateway route 테스트
-- [ ] MSA compose smoke
-- [ ] monolith 직접 의존 0건
-- [ ] 문서/checklist 최종 갱신
+- [x] gateway combat route·위조 헤더 제거 테스트 (2026-09-03)
+- [x] gateway 경로 변경 전용 CI workflow 추가 (2026-09-03)
+- [x] MSA compose smoke: backend·auction·user·combat·gateway health, gateway 공개 route, 직접 접근 403, 가입 이벤트 기반 섬·기본 성 생성, AP+GP 합성 조회 (2026-09-03)
+- [x] monolith building/military 코드·직접 Repository 의존 0건 (2026-09-03)
+- [ ] monolith DB의 기존 combat 테이블 제거 migration (데이터 삭제 승인 후 별도 적용)
+- [x] 문서 최종 갱신 (2026-09-03)
+- [x] cutover 회귀: combat 161, gateway 4, backend 329 전체 통과 (PostgreSQL·Redis 테스트 인프라, 2026-09-03)

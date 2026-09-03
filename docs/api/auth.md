@@ -42,7 +42,7 @@
 ```
 
 ### 부가 효과
-가입 성공 시 자동 생성: `wallets`, `notification_settings`, `home_islands`, `user_profiles`
+가입 성공 시 user-service가 `wallets`, `notification_settings`와 `user.created` outbox 이벤트를 만든다. 이벤트를 받은 모놀리식은 `user_profiles` 읽기 프로젝션을, combat-service는 `home_islands`와 기본 성을 생성한다.
 
 ### 에러
 
@@ -212,4 +212,3 @@ pm.environment.set('accessToken', '');
   }
 }
 ```
-
