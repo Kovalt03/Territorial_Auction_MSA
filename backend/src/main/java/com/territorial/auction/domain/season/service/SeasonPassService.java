@@ -1,17 +1,15 @@
 package com.territorial.auction.domain.season.service;
 
 import com.territorial.auction.domain.combat.client.CombatResourceClient;
-import com.territorial.auction.domain.item.entity.Item;
-import com.territorial.auction.domain.item.entity.UserItem;
-import com.territorial.auction.domain.item.repository.ItemRepository;
-import com.territorial.auction.domain.item.repository.UserItemRepository;
 import com.territorial.auction.domain.season.SeasonPassPolicy;
+import com.territorial.auction.domain.season.client.ItemGrantClient;
 import com.territorial.auction.domain.season.dto.ClaimRewardResponse;
 import com.territorial.auction.domain.season.dto.CombatSeasonBenefitResponse;
 import com.territorial.auction.domain.season.dto.MySeasonPassResponse;
 import com.territorial.auction.domain.season.dto.PurchaseLevelResponse;
 import com.territorial.auction.domain.season.dto.PurchaseSeasonPassResponse;
 import com.territorial.auction.domain.season.dto.SeasonPassResponse;
+import com.territorial.auction.domain.season.entity.RewardItemType;
 import com.territorial.auction.domain.season.entity.Season;
 import com.territorial.auction.domain.season.entity.SeasonPass;
 import com.territorial.auction.domain.season.entity.SeasonPassLevelReward;
@@ -59,8 +57,7 @@ public class SeasonPassService {
     private final UserRepository userRepository;
     private final WalletClient walletClient;
     private final CombatResourceClient combatResourceClient;
-    private final ItemRepository itemRepository;
-    private final UserItemRepository userItemRepository;
+    private final ItemGrantClient itemGrantClient;
     private final RedisTemplate<String, Object> redisTemplate;
 
     public CombatSeasonBenefitResponse getCombatBenefit(Long userId) {
@@ -374,22 +371,7 @@ public class SeasonPassService {
         combatResourceClient.creditGp(userId, amount, commandKey);
     }
 
-    private void grantItem(User user, Item.ItemType itemType, int quantity) {
-        Item item =
-                itemRepository
-                        .findByItemType(itemType)
-                        .orElseThrow(() -> new CustomException(ErrorCode.ITEM_NOT_FOUND));
-        userItemRepository
-                .findByUser_IdAndItem_Id(user.getId(), item.getId())
-                .ifPresentOrElse(
-                        existing -> existing.add(quantity),
-                        () ->
-                                userItemRepository.save(
-                                        UserItem.builder()
-                                                .user(user)
-                                                .item(item)
-                                                .quantity(quantity)
-                                                .createdAt(LocalDateTime.now())
-                                                .build()));
+    private void grantItem(User user, RewardItemType itemType, int quantity) {
+        itemGrantClient.grantByType(user.getId(), itemType.name(), quantity);
     }
 }

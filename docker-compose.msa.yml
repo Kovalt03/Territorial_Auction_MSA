@@ -155,6 +155,22 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── item-service 전용 DB (분리) ───────────────────────────
+  item-postgres:
+    image: postgres:16-alpine
+    container_name: msa-item-postgres
+    environment:
+      POSTGRES_DB: item
+      POSTGRES_USER: item
+      POSTGRES_PASSWORD: item
+    volumes:
+      - msa-item-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U item -d item"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # ── 모놀리식 ──────────────────────────────────────────────
   backend:
     build:
@@ -177,6 +193,7 @@ services:
       USER_SERVICE_BASE_URL: http://user-service:8080
       COMBAT_SERVICE_BASE_URL: http://combat-service:8080
       SOCIAL_SERVICE_BASE_URL: http://social-service:8080
+      ITEM_SERVICE_BASE_URL: http://item-service:8080
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       ADMIN_IP_ALLOWLIST: ""
@@ -325,6 +342,31 @@ services:
       kafka:
         condition: service_healthy
 
+  # ── item-service ─────────────────────────────────────────
+  item-service:
+    build:
+      context: .
+      dockerfile: services/item-service/Dockerfile
+    container_name: msa-item-service
+    environment:
+      TZ: Asia/Seoul
+      DB_HOST: item-postgres
+      DB_PORT: 5432
+      DB_NAME: item
+      DB_USERNAME: item
+      DB_PASSWORD: item
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      USER_SERVICE_BASE_URL: http://user-service:8080
+      COMBAT_SERVICE_BASE_URL: http://combat-service:8080
+      MONOLITH_BASE_URL: http://backend:8080
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
+    depends_on:
+      item-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   # ── API 게이트웨이 ────────────────────────────────────────
   gateway:
     build:
@@ -340,6 +382,7 @@ services:
       COMBAT_SERVICE_URL: http://combat-service:8080
       SOCIAL_SERVICE_URL: http://social-service:8080
       NOTIFICATION_SERVICE_URL: http://notification-service:8080
+      ITEM_SERVICE_URL: http://item-service:8080
       MONOLITH_URL: http://backend:8080
       MONOLITH_WS_URL: ws://backend:8080
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
@@ -352,6 +395,7 @@ services:
       - combat-service
       - social-service
       - notification-service
+      - item-service
 
   # ── 프론트 (게이트웨이로 프록시) ──────────────────────────
   frontend:
@@ -377,3 +421,4 @@ volumes:
   msa-combat-pg-data:
   msa-social-pg-data:
   msa-notification-pg-data:
+  msa-item-pg-data:

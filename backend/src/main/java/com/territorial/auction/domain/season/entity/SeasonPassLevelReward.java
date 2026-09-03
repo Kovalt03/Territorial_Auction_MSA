@@ -1,6 +1,5 @@
 package com.territorial.auction.domain.season.entity;
 
-import com.territorial.auction.domain.item.entity.Item;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -46,7 +45,7 @@ public class SeasonPassLevelReward {
     // ITEM 보상일 때 지급할 아이템 타입. GP 보상이면 null.
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
-    private Item.ItemType itemType;
+    private RewardItemType itemType;
 
     // ITEM: 지급 개수, GP: 지급 GP 수량, BUILD_TIME_REDUCTION: 추가 감소 %
     @Column(nullable = false)
@@ -59,7 +58,7 @@ public class SeasonPassLevelReward {
             RewardTrack track,
             String rewardName,
             RewardKind rewardKind,
-            Item.ItemType itemType,
+            RewardItemType itemType,
             Integer quantity) {
         this.season = season;
         this.level = level;

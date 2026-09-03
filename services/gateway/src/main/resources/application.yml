@@ -52,6 +52,11 @@ spring:
           uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8086}
           predicates:
             - Path=/api/v1/notifications/**
+        # 아이템(상점·인벤토리·사용)은 item-service로
+        - id: item-service
+          uri: ${ITEM_SERVICE_URL:http://localhost:8087}
+          predicates:
+            - Path=/api/v1/items/**
         # WebSocket(실시간 허브)은 모놀리식
         - id: monolith-ws
           uri: ${MONOLITH_WS_URL:ws://localhost:8081}

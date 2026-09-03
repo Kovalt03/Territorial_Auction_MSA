@@ -98,5 +98,8 @@ combat-service:
 # 분리된 social-service — admin 채팅 검열을 /internal로 위임 호출
 social-service:
   base-url: ${SOCIAL_SERVICE_BASE_URL:http://localhost:8085}
+# 분리된 item-service — season 보상 지급·admin 아이템 관리를 /internal로 위임 호출
+item-service:
+  base-url: ${ITEM_SERVICE_BASE_URL:http://localhost:8087}
 internal-api:
   secret: ${INTERNAL_API_SECRET:local-internal-secret}
