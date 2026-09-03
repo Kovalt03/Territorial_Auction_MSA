@@ -1,6 +1,6 @@
 package com.territorial.auction.domain.admin.dto;
 
-import com.territorial.auction.domain.item.entity.Item;
+import com.territorial.auction.domain.admin.client.ItemAdminClient.ItemView;
 
 public record AdminItemResponse(
         Long itemId,
@@ -13,16 +13,16 @@ public record AdminItemResponse(
         Integer gpReward,
         String iconUrl) {
 
-    public static AdminItemResponse from(Item item) {
+    public static AdminItemResponse from(ItemView item) {
         return new AdminItemResponse(
-                item.getId(),
-                item.getName(),
-                item.getItemType().name(),
-                item.getDescription(),
-                item.getCostAp(),
-                item.getCostGp(),
-                item.getDailyLimit(),
-                item.getGpReward(),
-                item.getIconUrl());
+                item.itemId(),
+                item.name(),
+                item.itemType(),
+                item.description(),
+                item.costAp(),
+                item.costGp(),
+                item.dailyLimit(),
+                item.gpReward(),
+                item.iconUrl());
     }
 }
