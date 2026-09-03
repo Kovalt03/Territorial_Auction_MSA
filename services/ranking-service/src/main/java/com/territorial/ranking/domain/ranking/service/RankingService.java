@@ -227,6 +227,9 @@ public class RankingService {
      * 경매 낙찰(auction.settled) 처리. XP·미션은 season-service에 위임하고, 활성 시즌이면 경매소비 랭킹 증분 + 영토점유 시작을 기록한다.
      * 활성 시즌 판단은 여기서 하되 XP는 season-service가 자체 재판단한다(best-effort).
      */
+    // 클래스 기본 readOnly를 덮어 쓰기 트랜잭션으로 연다 — 내부에서 hold INSERT가 일어난다.
+    // hold 저장을 먼저 하고 ZSet 증분을 나중에 해, 저장 실패 시 재시도에서 ZSet 중복 증분을 줄인다.
+    @Transactional
     public void onAuctionSettled(Long winnerId, Long territoryId, String grade, int finalPrice) {
         seasonGameEventClient.sendGameEvent(winnerId, "AUCTION_WIN");
 
@@ -235,8 +238,8 @@ public class RankingService {
         if (seasonId == null) {
             return; // 시즌 외 기간엔 랭킹·시즌 귀속 없음
         }
-        recordAuctionSpend(winnerId, seasonId, finalPrice);
         recordTerritoryHoldStarted(winnerId, seasonId, territoryId, grade, LocalDateTime.now());
+        recordAuctionSpend(winnerId, seasonId, finalPrice);
     }
 
     private void recordAuctionSpend(Long userId, Long seasonId, int finalPrice) {
