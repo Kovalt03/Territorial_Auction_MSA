@@ -10,6 +10,7 @@ public record TerritoryCombatContextResponse(
         int coordY,
         String status,
         LocalDateTime protectedUntil,
+        String grade,
         int gridSize,
         int zone1Radius,
         int zone2Radius) {
@@ -22,6 +23,7 @@ public record TerritoryCombatContextResponse(
                 territory.getCoordY(),
                 territory.getStatus().name(),
                 territory.getProtectedUntil(),
+                territory.getGrade().getGrade(),
                 territory.getGrade().getGridSize(),
                 territory.getGrade().getZone1Radius(),
                 territory.getGrade().getZone2Radius());
