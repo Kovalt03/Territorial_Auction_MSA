@@ -24,4 +24,7 @@ public final class SeasonInternalDtos {
 
     // 시즌패스 혜택(map/LandTax 토지세 면제 보너스 등).
     public record SeasonPassBenefitView(int taxExemptBonus) {}
+
+    // 활성 시즌패스 요약(user 프로필: 추가 건축가·만료 시각). 활성 패스 없으면 204.
+    public record UserPassSummaryView(LocalDateTime expiresAt, int extraBuilders) {}
 }

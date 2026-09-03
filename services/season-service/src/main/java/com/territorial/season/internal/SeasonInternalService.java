@@ -11,6 +11,7 @@ import com.territorial.season.domain.season.service.SeasonXpService;
 import com.territorial.season.internal.dto.SeasonInternalDtos.ActiveSeasonView;
 import com.territorial.season.internal.dto.SeasonInternalDtos.SeasonPassBenefitView;
 import com.territorial.season.internal.dto.SeasonInternalDtos.TrophyView;
+import com.territorial.season.internal.dto.SeasonInternalDtos.UserPassSummaryView;
 import com.territorial.season.internal.dto.SeasonInternalDtos.UserScoreView;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -77,6 +78,17 @@ public class SeasonInternalService {
         return userTrophyRepository.sumScoreGroupByUserIds(userIds).stream()
                 .map(row -> new UserScoreView((Long) row[0], (long) row[1]))
                 .toList();
+    }
+
+    /** user 프로필용 활성 시즌패스 요약 — 만료 필터 없이 최신 활성 패스를 그대로 노출(모놀 기존 동작 보존). */
+    public Optional<UserPassSummaryView> getUserPassSummary(Long userId) {
+        return userSeasonPassRepository
+                .findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(userId)
+                .map(
+                        pass ->
+                                new UserPassSummaryView(
+                                        pass.getExpiresAt(),
+                                        pass.getSeasonPass().getExtraBuilders()));
     }
 
     public SeasonPassBenefitView getSeasonPassBenefit(Long userId) {
