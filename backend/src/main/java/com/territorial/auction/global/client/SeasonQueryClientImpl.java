@@ -24,11 +24,7 @@ public class SeasonQueryClientImpl implements SeasonQueryClient {
     @Override
     public Optional<ActiveSeason> getActiveSeason() {
         ActiveSeason season =
-                restClient
-                        .get()
-                        .uri(ROOT + "/active")
-                        .retrieve()
-                        .body(ActiveSeason.class);
+                restClient.get().uri(ROOT + "/active").retrieve().body(ActiveSeason.class);
         return Optional.ofNullable(season);
     }
 

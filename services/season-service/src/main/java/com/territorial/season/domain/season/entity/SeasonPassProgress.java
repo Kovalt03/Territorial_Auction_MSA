@@ -1,7 +1,7 @@
 package com.territorial.season.domain.season.entity;
 
-import com.territorial.season.domain.season.SeasonPassPolicy;
 import com.territorial.auction.global.exception.CustomException;
+import com.territorial.season.domain.season.SeasonPassPolicy;
 import com.territorial.season.global.exception.ErrorCode;
 import jakarta.persistence.*;
 import lombok.*;

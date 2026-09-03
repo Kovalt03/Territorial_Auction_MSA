@@ -194,8 +194,7 @@ public class RankingService {
 
         int effectiveSize = Math.min(size, MAX_SIZE);
         List<Trophy> trophies = seasonTrophyClient.getBand(lower, upper, page, effectiveSize);
-        Trophy myTrophy =
-                userId != null ? seasonTrophyClient.getTrophy(userId).orElse(null) : null;
+        Trophy myTrophy = userId != null ? seasonTrophyClient.getTrophy(userId).orElse(null) : null;
         Optional<ActiveSeason> seasonOpt = seasonQueryClient.getActiveSeason();
 
         return new ContinentRankingResponse(

@@ -1,5 +1,6 @@
 package com.territorial.season.domain.season.service;
 
+import com.territorial.auction.global.exception.CustomException;
 import com.territorial.season.domain.season.dto.ClaimMissionResponse;
 import com.territorial.season.domain.season.dto.MissionListResponse;
 import com.territorial.season.domain.season.entity.Season;
@@ -11,7 +12,6 @@ import com.territorial.season.domain.season.entity.UserMissionProgress;
 import com.territorial.season.domain.season.repository.SeasonMissionRepository;
 import com.territorial.season.domain.season.repository.SeasonRepository;
 import com.territorial.season.domain.season.repository.UserMissionProgressRepository;
-import com.territorial.auction.global.exception.CustomException;
 import com.territorial.season.global.exception.ErrorCode;
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
@@ -35,7 +35,8 @@ public class MissionService {
 
     private final SeasonMissionRepository seasonMissionRepository;
     private final UserMissionProgressRepository userMissionProgressRepository;
-    private final SeasonRepository seasonRepository;    private final SeasonXpService seasonXpService;
+    private final SeasonRepository seasonRepository;
+    private final SeasonXpService seasonXpService;
     private final RedisTemplate<String, Object> redisTemplate;
 
     public MissionListResponse getMissions(Long userId) {

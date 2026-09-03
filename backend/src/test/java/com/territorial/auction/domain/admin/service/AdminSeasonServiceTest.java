@@ -65,7 +65,11 @@ class AdminSeasonServiceTest {
         given(seasonAdminClient.endSeason(5L))
                 .willReturn(
                         new SeasonView(
-                                5L, 3, LocalDateTime.now().minusDays(1), LocalDateTime.now(), null));
+                                5L,
+                                3,
+                                LocalDateTime.now().minusDays(1),
+                                LocalDateTime.now(),
+                                null));
 
         AdminSeasonResponse res = adminSeasonService.endSeason(10L, 5L);
 

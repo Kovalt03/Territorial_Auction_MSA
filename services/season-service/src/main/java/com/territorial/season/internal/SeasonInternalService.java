@@ -2,10 +2,9 @@ package com.territorial.season.internal;
 
 import com.territorial.season.domain.season.SeasonPassPolicy;
 import com.territorial.season.domain.season.entity.SeasonMission.MissionTrigger;
-import com.territorial.season.domain.season.entity.UserTrophy;
+import com.territorial.season.domain.season.repository.SeasonRepository;
 import com.territorial.season.domain.season.repository.UserSeasonPassRepository;
 import com.territorial.season.domain.season.repository.UserTrophyRepository;
-import com.territorial.season.domain.season.repository.SeasonRepository;
 import com.territorial.season.domain.season.service.MissionService;
 import com.territorial.season.domain.season.service.SeasonXpService;
 import com.territorial.season.internal.dto.SeasonInternalDtos.ActiveSeasonView;

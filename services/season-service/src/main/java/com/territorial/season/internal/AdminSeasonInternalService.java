@@ -1,5 +1,6 @@
 package com.territorial.season.internal;
 
+import com.territorial.auction.global.exception.CustomException;
 import com.territorial.season.domain.season.entity.Season;
 import com.territorial.season.domain.season.entity.SeasonPass;
 import com.territorial.season.domain.season.repository.SeasonPassRepository;
@@ -9,7 +10,6 @@ import com.territorial.season.internal.dto.AdminSeasonInternalDtos.AdminCreateSe
 import com.territorial.season.internal.dto.AdminSeasonInternalDtos.AdminSeasonPassView;
 import com.territorial.season.internal.dto.AdminSeasonInternalDtos.AdminSeasonView;
 import com.territorial.season.internal.dto.AdminSeasonInternalDtos.AdminUpdateSeasonPassRequest;
-import com.territorial.auction.global.exception.CustomException;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;

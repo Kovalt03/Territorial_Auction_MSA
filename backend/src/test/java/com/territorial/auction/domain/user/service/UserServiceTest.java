@@ -127,7 +127,8 @@ class UserServiceTest {
             given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(300, 0));
             given(combatResourceClient.getUserSummary(1L)).willReturn(new UserSummary(0, 1L, 1));
             given(seasonQueryClient.getUserPassSummary(1L))
-                    .willReturn(Optional.of(new UserPassSummary(LocalDateTime.now().plusDays(30), 1)));
+                    .willReturn(
+                            Optional.of(new UserPassSummary(LocalDateTime.now().plusDays(30), 1)));
             given(territoryRepository.countByOwnerId(1L)).willReturn(0L);
 
             MyProfileResponse response = userService.getMyProfile(1L);

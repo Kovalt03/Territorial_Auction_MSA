@@ -18,7 +18,10 @@ public final class AdminSeasonInternalDtos {
             LocalDateTime processedAt) {
         public static AdminSeasonView from(Season s) {
             return new AdminSeasonView(
-                    s.getId(), s.getSeasonNumber(), s.getStartedAt(), s.getEndedAt(),
+                    s.getId(),
+                    s.getSeasonNumber(),
+                    s.getStartedAt(),
+                    s.getEndedAt(),
                     s.getProcessedAt());
         }
     }

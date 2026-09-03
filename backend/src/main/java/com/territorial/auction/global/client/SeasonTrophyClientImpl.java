@@ -26,11 +26,7 @@ public class SeasonTrophyClientImpl implements SeasonTrophyClient {
     @Override
     public Optional<Trophy> getTrophy(Long userId) {
         return Optional.ofNullable(
-                restClient
-                        .get()
-                        .uri(ROOT + "/{userId}", userId)
-                        .retrieve()
-                        .body(Trophy.class));
+                restClient.get().uri(ROOT + "/{userId}", userId).retrieve().body(Trophy.class));
     }
 
     @Override

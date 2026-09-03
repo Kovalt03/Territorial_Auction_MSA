@@ -1,8 +1,10 @@
 package com.territorial.season.domain.season.service;
 
+import com.territorial.auction.global.exception.CustomException;
 import com.territorial.season.client.CombatResourceClient;
-import com.territorial.season.domain.season.SeasonPassPolicy;
 import com.territorial.season.client.ItemGrantClient;
+import com.territorial.season.client.WalletClient;
+import com.territorial.season.domain.season.SeasonPassPolicy;
 import com.territorial.season.domain.season.dto.ClaimRewardResponse;
 import com.territorial.season.domain.season.dto.CombatSeasonBenefitResponse;
 import com.territorial.season.domain.season.dto.MySeasonPassResponse;
@@ -22,8 +24,6 @@ import com.territorial.season.domain.season.repository.SeasonPassRepository;
 import com.territorial.season.domain.season.repository.SeasonPassRewardClaimRepository;
 import com.territorial.season.domain.season.repository.SeasonRepository;
 import com.territorial.season.domain.season.repository.UserSeasonPassRepository;
-import com.territorial.season.client.WalletClient;
-import com.territorial.auction.global.exception.CustomException;
 import com.territorial.season.global.exception.ErrorCode;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -51,7 +51,8 @@ public class SeasonPassService {
     private final UserSeasonPassRepository userSeasonPassRepository;
     private final SeasonPassProgressRepository seasonPassProgressRepository;
     private final SeasonPassLevelRewardRepository seasonPassLevelRewardRepository;
-    private final SeasonPassRewardClaimRepository seasonPassRewardClaimRepository;    private final WalletClient walletClient;
+    private final SeasonPassRewardClaimRepository seasonPassRewardClaimRepository;
+    private final WalletClient walletClient;
     private final CombatResourceClient combatResourceClient;
     private final ItemGrantClient itemGrantClient;
     private final RedisTemplate<String, Object> redisTemplate;
@@ -329,8 +330,7 @@ public class SeasonPassService {
                             reward.getQuantity(),
                             "SEASON_PASS_REWARD:" + userId + ":" + reward.getId());
             case ITEM -> grantItem(userId, reward.getItemType(), reward.getQuantity());
-            case BUILD_TIME_REDUCTION ->
-                    grantBuildTimeReduction(userId, reward.getQuantity());
+            case BUILD_TIME_REDUCTION -> grantBuildTimeReduction(userId, reward.getQuantity());
         }
         log.info(
                 "시즌 패스 보상 지급. userId={}, kind={}, reward={}",
