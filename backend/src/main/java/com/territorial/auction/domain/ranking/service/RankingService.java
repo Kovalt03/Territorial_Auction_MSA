@@ -17,12 +17,12 @@ import com.territorial.auction.domain.ranking.event.AuctionSettledEvent;
 import com.territorial.auction.domain.ranking.event.TerritoryHoldClosedEvent;
 import com.territorial.auction.domain.ranking.event.TerritoryHoldStartedEvent;
 import com.territorial.auction.domain.ranking.repository.SeasonTerritoryHoldRepository;
-import com.territorial.auction.domain.season.entity.Season;
-import com.territorial.auction.domain.season.entity.UserTrophy;
-import com.territorial.auction.domain.season.repository.SeasonRepository;
-import com.territorial.auction.domain.season.repository.UserTrophyRepository;
 import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.repository.UserRepository;
+import com.territorial.auction.global.client.SeasonQueryClient;
+import com.territorial.auction.global.client.SeasonQueryClient.ActiveSeason;
+import com.territorial.auction.global.client.SeasonTrophyClient;
+import com.territorial.auction.global.client.SeasonTrophyClient.Trophy;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import java.time.Duration;
@@ -38,8 +38,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
@@ -64,26 +62,26 @@ public class RankingService {
             Map.of("S", 5, "A", 4, "B", 3, "C", 2, "D", 1);
 
     private final SeasonTerritoryHoldRepository seasonTerritoryHoldRepository;
-    private final SeasonRepository seasonRepository;
+    private final SeasonQueryClient seasonQueryClient;
     private final TerritoryRepository territoryRepository;
     private final ContinentRepository continentRepository;
     private final StringRedisTemplate stringRedisTemplate;
     private final UserRepository userRepository;
-    private final UserTrophyRepository userTrophyRepository;
+    private final SeasonTrophyClient seasonTrophyClient;
 
     @Cacheable(
             value = "ranking",
             key = "'territory-hold:p' + #page + ':s' + #size + ':u' + #userId")
     public TerritoryHoldRankingResponse getTerritoryHoldRanking(Long userId, int page, int size) {
         int effectiveSize = Math.min(size, MAX_SIZE);
-        Optional<Season> seasonOpt = seasonRepository.findActiveSeason(LocalDateTime.now());
+        Optional<ActiveSeason> seasonOpt = seasonQueryClient.getActiveSeason();
         if (seasonOpt.isEmpty()) {
             return new TerritoryHoldRankingResponse(
                     null, null, "TERRITORY_HOLD", List.of(), null, null, null);
         }
-        Season season = seasonOpt.get();
-        String key = String.format(TERRITORY_HOLD_KEY, season.getId());
-        LocalDateTime updatedAt = parseUpdatedAt(season.getId());
+        ActiveSeason season = seasonOpt.get();
+        String key = String.format(TERRITORY_HOLD_KEY, season.seasonId());
+        LocalDateTime updatedAt = parseUpdatedAt(season.seasonId());
 
         long start = (long) page * effectiveSize;
         long stop = start + effectiveSize - 1;
@@ -91,15 +89,15 @@ public class RankingService {
                 stringRedisTemplate.opsForZSet().reverseRangeWithScores(key, start, stop);
 
         List<SeasonTerritoryHold> allHolds =
-                seasonTerritoryHoldRepository.findAllBySeasonId(season.getId());
+                seasonTerritoryHoldRepository.findAllBySeasonId(season.seasonId());
         List<TerritoryHoldRankingResponse.RankEntry> rankings =
                 buildTerritoryHoldEntries(tuples, allHolds, start);
         Integer myRank = userId != null ? findMyRank(key, String.valueOf(userId)) : null;
         Long myScore = userId != null ? getMyScore(key, String.valueOf(userId)) : null;
 
         return new TerritoryHoldRankingResponse(
-                season.getId(),
-                season.getSeasonNumber(),
+                season.seasonId(),
+                season.seasonNumber(),
                 "TERRITORY_HOLD",
                 rankings,
                 myRank,
@@ -110,13 +108,13 @@ public class RankingService {
     @Cacheable(value = "ranking", key = "'auction-spend:p' + #page + ':s' + #size + ':u' + #userId")
     public AuctionSpendRankingResponse getAuctionSpendRanking(Long userId, int page, int size) {
         int effectiveSize = Math.min(size, MAX_SIZE);
-        Optional<Season> seasonOpt = seasonRepository.findActiveSeason(LocalDateTime.now());
+        Optional<ActiveSeason> seasonOpt = seasonQueryClient.getActiveSeason();
         if (seasonOpt.isEmpty()) {
             return new AuctionSpendRankingResponse(
                     null, null, "AUCTION_SPEND", List.of(), null, null, LocalDateTime.now());
         }
-        Season season = seasonOpt.get();
-        String key = String.format(AUCTION_SPEND_KEY, season.getId());
+        ActiveSeason season = seasonOpt.get();
+        String key = String.format(AUCTION_SPEND_KEY, season.seasonId());
 
         long start = (long) page * effectiveSize;
         long stop = start + effectiveSize - 1;
@@ -128,8 +126,8 @@ public class RankingService {
         Long myScore = userId != null ? getMyScore(key, String.valueOf(userId)) : null;
 
         return new AuctionSpendRankingResponse(
-                season.getId(),
-                season.getSeasonNumber(),
+                season.seasonId(),
+                season.seasonNumber(),
                 "AUCTION_SPEND",
                 rankings,
                 myRank,
@@ -141,23 +139,24 @@ public class RankingService {
     // 트로피 변동 시점에 캐시를 무효화할 트리거가 없어 @Cacheable은 적용하지 않는다.
     public TrophyRankingResponse getTrophyRanking(Long userId, int page, int size) {
         int effectiveSize = Math.min(size, MAX_SIZE);
-        Optional<Season> seasonOpt = seasonRepository.findActiveSeason(LocalDateTime.now());
-        Long seasonId = seasonOpt.map(Season::getId).orElse(null);
-        Integer seasonNumber = seasonOpt.map(Season::getSeasonNumber).orElse(null);
+        Optional<ActiveSeason> seasonOpt = seasonQueryClient.getActiveSeason();
+        Long seasonId = seasonOpt.map(ActiveSeason::seasonId).orElse(null);
+        Integer seasonNumber = seasonOpt.map(ActiveSeason::seasonNumber).orElse(null);
 
-        Page<UserTrophy> trophyPage =
-                userTrophyRepository.findAllByOrderByScoreDesc(PageRequest.of(page, effectiveSize));
+        List<Trophy> trophies = seasonTrophyClient.getRanking(page, effectiveSize);
+        Map<Long, String> nicknameByUser =
+                batchLoadNicknames(trophies.stream().map(Trophy::userId).toList());
         long start = (long) page * effectiveSize;
         List<TrophyRankingResponse.RankEntry> rankings = new ArrayList<>();
         int index = 0;
-        for (UserTrophy trophy : trophyPage.getContent()) {
+        for (Trophy trophy : trophies) {
             rankings.add(
                     new TrophyRankingResponse.RankEntry(
                             (int) (start + index + 1),
-                            trophy.getUser().getId(),
-                            trophy.getUser().getNickname(),
-                            trophy.getScore(),
-                            trophy.getLeague().name()));
+                            trophy.userId(),
+                            nicknameByUser.getOrDefault(trophy.userId(), "알 수 없음"),
+                            trophy.score(),
+                            trophy.league()));
             index++;
         }
 
@@ -165,11 +164,11 @@ public class RankingService {
         Long myScore = null;
         String myLeague = null;
         if (userId != null) {
-            UserTrophy mine = userTrophyRepository.findById(userId).orElse(null);
+            Trophy mine = seasonTrophyClient.getTrophy(userId).orElse(null);
             if (mine != null) {
-                myScore = (long) mine.getScore();
-                myLeague = mine.getLeague().name();
-                myRank = (int) userTrophyRepository.countByScoreGreaterThan(mine.getScore()) + 1;
+                myScore = (long) mine.score();
+                myLeague = mine.league();
+                myRank = (int) seasonTrophyClient.countAbove(mine.score()) + 1;
             }
         }
 
@@ -194,17 +193,14 @@ public class RankingService {
         int upper = resolveUpperBound(lower);
 
         int effectiveSize = Math.min(size, MAX_SIZE);
-        List<UserTrophy> trophies =
-                userTrophyRepository.findInScoreBandOrderByScoreDesc(
-                        lower, upper, PageRequest.of(page, effectiveSize));
-        UserTrophy myTrophy =
-                userId != null ? userTrophyRepository.findById(userId).orElse(null) : null;
-        Optional<Season> seasonOpt = seasonRepository.findActiveSeason(LocalDateTime.now());
+        List<Trophy> trophies = seasonTrophyClient.getBand(lower, upper, page, effectiveSize);
+        Trophy myTrophy = userId != null ? seasonTrophyClient.getTrophy(userId).orElse(null) : null;
+        Optional<ActiveSeason> seasonOpt = seasonQueryClient.getActiveSeason();
 
         return new ContinentRankingResponse(
                 continentId,
-                seasonOpt.map(Season::getId).orElse(null),
-                seasonOpt.map(Season::getSeasonNumber).orElse(null),
+                seasonOpt.map(ActiveSeason::seasonId).orElse(null),
+                seasonOpt.map(ActiveSeason::seasonNumber).orElse(null),
                 "CONTINENT_TROPHY",
                 buildBandTrophyEntries(trophies, (long) page * effectiveSize),
                 calculateBandRank(myTrophy, lower, upper),
@@ -214,25 +210,25 @@ public class RankingService {
 
     @Cacheable(value = "ranking", key = "'my:u' + #userId")
     public MyRankingResponse getMyRanking(Long userId) {
-        Optional<Season> seasonOpt = seasonRepository.findActiveSeason(LocalDateTime.now());
+        Optional<ActiveSeason> seasonOpt = seasonQueryClient.getActiveSeason();
         if (seasonOpt.isEmpty()) {
             return new MyRankingResponse(null, null, null, null);
         }
-        Season season = seasonOpt.get();
-        String holdKey = String.format(TERRITORY_HOLD_KEY, season.getId());
-        String spendKey = String.format(AUCTION_SPEND_KEY, season.getId());
+        ActiveSeason season = seasonOpt.get();
+        String holdKey = String.format(TERRITORY_HOLD_KEY, season.seasonId());
+        String spendKey = String.format(AUCTION_SPEND_KEY, season.seasonId());
         String userIdStr = String.valueOf(userId);
 
         Integer holdRank = findMyRank(holdKey, userIdStr);
         Long holdScore = getMyScore(holdKey, userIdStr);
-        Map<String, Long> gradeBreakdown = buildGradeBreakdownForUser(season.getId(), userId);
+        Map<String, Long> gradeBreakdown = buildGradeBreakdownForUser(season.seasonId(), userId);
 
         Integer spendRank = findMyRank(spendKey, userIdStr);
         Long spendScore = getMyScore(spendKey, userIdStr);
 
         return new MyRankingResponse(
-                season.getId(),
-                season.getSeasonNumber(),
+                season.seasonId(),
+                season.seasonNumber(),
                 new TerritoryHoldSummary(holdRank, holdScore, gradeBreakdown),
                 new AuctionSpendSummary(spendRank, spendScore));
     }
@@ -259,10 +255,6 @@ public class RankingService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handleTerritoryHoldStarted(TerritoryHoldStartedEvent event) {
         try {
-            Season season =
-                    seasonRepository
-                            .findById(event.seasonId())
-                            .orElseThrow(() -> new CustomException(ErrorCode.SEASON_NOT_FOUND));
             User user =
                     userRepository
                             .findById(event.userId())
@@ -274,7 +266,7 @@ public class RankingService {
 
             seasonTerritoryHoldRepository.save(
                     SeasonTerritoryHold.builder()
-                            .season(season)
+                            .seasonId(event.seasonId())
                             .user(user)
                             .territory(territory)
                             .grade(event.grade())
@@ -356,37 +348,36 @@ public class RankingService {
     }
 
     private List<ContinentRankingResponse.RankEntry> buildBandTrophyEntries(
-            List<UserTrophy> trophies, long start) {
+            List<Trophy> trophies, long start) {
+        Map<Long, String> nicknameByUser =
+                batchLoadNicknames(trophies.stream().map(Trophy::userId).toList());
         List<ContinentRankingResponse.RankEntry> entries = new ArrayList<>();
         int index = 0;
-        for (UserTrophy trophy : trophies) {
+        for (Trophy trophy : trophies) {
             entries.add(
                     new ContinentRankingResponse.RankEntry(
                             (int) (start + index + 1),
-                            trophy.getUser().getId(),
-                            trophy.getUser().getNickname(),
-                            trophy.getScore()));
+                            trophy.userId(),
+                            nicknameByUser.getOrDefault(trophy.userId(), "알 수 없음"),
+                            trophy.score()));
             index++;
         }
         return entries;
     }
 
-    private boolean isInBand(UserTrophy trophy, int lower, int upper) {
-        return trophy != null && trophy.getScore() >= lower && trophy.getScore() < upper;
+    private boolean isInBand(Trophy trophy, int lower, int upper) {
+        return trophy != null && trophy.score() >= lower && trophy.score() < upper;
     }
 
-    private Integer calculateBandRank(UserTrophy trophy, int lower, int upper) {
+    private Integer calculateBandRank(Trophy trophy, int lower, int upper) {
         if (!isInBand(trophy, lower, upper)) {
             return null;
         }
-        return (int)
-                        userTrophyRepository.countByScoreGreaterThanAndScoreLessThan(
-                                trophy.getScore(), upper)
-                + 1;
+        return (int) seasonTrophyClient.countBand(trophy.score(), upper) + 1;
     }
 
-    private Long bandScore(UserTrophy trophy, int lower, int upper) {
-        return isInBand(trophy, lower, upper) ? (long) trophy.getScore() : null;
+    private Long bandScore(Trophy trophy, int lower, int upper) {
+        return isInBand(trophy, lower, upper) ? (long) trophy.score() : null;
     }
 
     private Map<Long, Long> calculateScoresByUser(List<SeasonTerritoryHold> holds) {

@@ -2,7 +2,6 @@ package com.territorial.auction.domain.combat.event;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 
@@ -11,20 +10,15 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.territorial.auction.domain.map.service.TerritoryService;
 import com.territorial.auction.domain.notification.NotificationType;
 import com.territorial.auction.domain.notification.service.NotificationService;
-import com.territorial.auction.domain.season.entity.Season;
-import com.territorial.auction.domain.season.repository.SeasonRepository;
+import com.territorial.auction.global.client.SeasonGameEventClient;
 import com.territorial.auction.global.event.CombatEventReceiptService;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class CombatEventSubscriberTest {
@@ -32,8 +26,7 @@ class CombatEventSubscriberTest {
     @Mock private CombatEventReceiptService receiptService;
     @Mock private NotificationService notificationService;
     @Mock private TerritoryService territoryService;
-    @Mock private SeasonRepository seasonRepository;
-    @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private SeasonGameEventClient seasonGameEventClient;
     @Mock private SimpMessagingTemplate messagingTemplate;
     private CombatEventSubscriber subscriber;
 
@@ -46,8 +39,7 @@ class CombatEventSubscriberTest {
                         receiptService,
                         notificationService,
                         territoryService,
-                        seasonRepository,
-                        eventPublisher,
+                        seasonGameEventClient,
                         messagingTemplate);
         org.mockito.Mockito.lenient()
                 .doAnswer(
@@ -91,23 +83,14 @@ class CombatEventSubscriberTest {
     }
 
     @Test
-    void victoryEventPublishesCurrentSeasonEvent() {
-        Season season =
-                Season.builder()
-                        .seasonNumber(1)
-                        .startedAt(LocalDateTime.now().minusDays(1))
-                        .endedAt(LocalDateTime.now().plusDays(1))
-                        .build();
-        ReflectionTestUtils.setField(season, "id", 9L);
-        given(seasonRepository.findActiveSeason(any(LocalDateTime.class)))
-                .willReturn(Optional.of(season));
-
+    void victoryEventDelegatesSiegeWinToSeasonService() {
         subscriber.handleSeason(
                 "{\"siegeId\":100,\"attackerId\":1}",
                 bytes("combat.siege.victory"),
                 bytes("event-3"));
 
-        then(eventPublisher).should().publishEvent(new SiegeVictoryEvent(1L, 9L));
+        then(receiptService).should().processOnce(eq("season:event-3"), any());
+        then(seasonGameEventClient).should().sendGameEvent(1L, "SIEGE_WIN");
     }
 
     @Test

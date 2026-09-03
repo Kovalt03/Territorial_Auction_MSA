@@ -5,10 +5,6 @@ import com.territorial.auction.domain.combat.client.CombatResourceClient.UserSum
 import com.territorial.auction.domain.map.TerritoryPolicy;
 import com.territorial.auction.domain.map.entity.Territory;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
-import com.territorial.auction.domain.season.entity.UserSeasonPass;
-import com.territorial.auction.domain.season.entity.UserTrophy;
-import com.territorial.auction.domain.season.repository.UserSeasonPassRepository;
-import com.territorial.auction.domain.season.repository.UserTrophyRepository;
 import com.territorial.auction.domain.user.client.WalletClient;
 import com.territorial.auction.domain.user.client.WalletSnapshot;
 import com.territorial.auction.domain.user.dto.*;
@@ -16,6 +12,10 @@ import com.territorial.auction.domain.user.dto.MyWalletResponse;
 import com.territorial.auction.domain.user.entity.*;
 import com.territorial.auction.domain.user.repository.UserProfileRepository;
 import com.territorial.auction.domain.user.repository.UserRepository;
+import com.territorial.auction.global.client.SeasonQueryClient;
+import com.territorial.auction.global.client.SeasonQueryClient.UserPassSummary;
+import com.territorial.auction.global.client.SeasonTrophyClient;
+import com.territorial.auction.global.client.SeasonTrophyClient.Trophy;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import java.time.LocalDateTime;
@@ -39,10 +39,10 @@ public class UserService {
     private final UserRepository userRepository;
     private final WalletClient walletClient;
     private final CombatResourceClient combatResourceClient;
-    private final UserSeasonPassRepository userSeasonPassRepository;
+    private final SeasonQueryClient seasonQueryClient;
     private final TerritoryRepository territoryRepository;
     private final UserProfileRepository userProfileRepository;
-    private final UserTrophyRepository userTrophyRepository;
+    private final SeasonTrophyClient seasonTrophyClient;
     private final StringRedisTemplate stringRedisTemplate;
 
     public User findById(Long userId) {
@@ -69,10 +69,9 @@ public class UserService {
 
         // TODO: Redis 캐시 우선 조회 후 미존재 시 DB 조회로 전환 필요 (TTL 30분)
         //       명세: https://www.notion.so/33c2efa4278d81a88cf3eff675a30e46 비고 참고
-        Optional<UserSeasonPass> activePass =
-                userSeasonPassRepository.findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(userId);
+        Optional<UserPassSummary> activePass = seasonQueryClient.getUserPassSummary(userId);
 
-        int builderCount = 1 + activePass.map(p -> p.getSeasonPass().getExtraBuilders()).orElse(0);
+        int builderCount = 1 + activePass.map(UserPassSummary::extraBuilders).orElse(0);
 
         int territoryCount = (int) territoryRepository.countByOwnerId(userId);
 
@@ -89,10 +88,7 @@ public class UserService {
                         Math.toIntExact(combat.vaultGp()), wallet.availableAp(), wallet.lockedAp()),
                 islandInfo,
                 activePass
-                        .map(
-                                p ->
-                                        new MyProfileResponse.SeasonPassInfo(
-                                                p.getIsActive(), p.getExpiresAt()))
+                        .map(p -> new MyProfileResponse.SeasonPassInfo(true, p.expiresAt()))
                         .orElse(new MyProfileResponse.SeasonPassInfo(false, null)),
                 territoryCount);
     }
@@ -111,8 +107,7 @@ public class UserService {
 
         int level = combatResourceClient.getUserSummary(userId).islandLevel();
 
-        int trophyPoints =
-                userTrophyRepository.findById(userId).map(UserTrophy::getScore).orElse(0);
+        int trophyPoints = seasonTrophyClient.getTrophy(userId).map(Trophy::score).orElse(0);
 
         int territoryCount = (int) territoryRepository.countByOwnerId(userId);
 

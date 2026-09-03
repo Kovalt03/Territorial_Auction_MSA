@@ -57,6 +57,11 @@ spring:
           uri: ${ITEM_SERVICE_URL:http://localhost:8087}
           predicates:
             - Path=/api/v1/items/**
+        # 시즌패스·미션·보상은 season-service로 (트로피 랭킹·시즌 관리는 모놀리식 /** 폴백)
+        - id: season-service
+          uri: ${SEASON_SERVICE_URL:http://localhost:8088}
+          predicates:
+            - Path=/api/v1/season-pass/**
         # WebSocket(실시간 허브)은 모놀리식
         - id: monolith-ws
           uri: ${MONOLITH_WS_URL:ws://localhost:8081}

@@ -2,7 +2,8 @@ package com.territorial.auction.global.internal;
 
 import com.territorial.auction.domain.map.entity.Territory;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
-import com.territorial.auction.domain.season.repository.UserTrophyRepository;
+import com.territorial.auction.global.client.SeasonTrophyClient;
+import com.territorial.auction.global.client.SeasonTrophyClient.UserScore;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -23,7 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class MemberStatsInternalController {
 
     private final TerritoryRepository territoryRepository;
-    private final UserTrophyRepository userTrophyRepository;
+    private final SeasonTrophyClient seasonTrophyClient;
 
     @PostMapping("/stats")
     public ResponseEntity<List<MemberStat>> stats(@RequestBody MemberStatsRequest request) {
@@ -39,10 +40,8 @@ public class MemberStatsInternalController {
                                 Collectors.toMap(
                                         r -> (Long) r[0], r -> ((Number) r[1]).longValue()));
         Map<Long, Long> trophy =
-                userTrophyRepository.sumScoreGroupByUserIds(ids).stream()
-                        .collect(
-                                Collectors.toMap(
-                                        r -> (Long) r[0], r -> ((Number) r[1]).longValue()));
+                seasonTrophyClient.sumScores(ids).stream()
+                        .collect(Collectors.toMap(UserScore::userId, UserScore::totalScore));
         List<MemberStat> stats =
                 ids.stream()
                         .map(

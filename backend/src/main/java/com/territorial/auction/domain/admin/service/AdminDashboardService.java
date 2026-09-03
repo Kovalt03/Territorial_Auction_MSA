@@ -5,12 +5,11 @@ import com.territorial.auction.domain.admin.client.CombatAdminClient;
 import com.territorial.auction.domain.admin.dto.AdminDashboardResponse;
 import com.territorial.auction.domain.map.entity.Territory;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
-import com.territorial.auction.domain.season.entity.Season;
-import com.territorial.auction.domain.season.repository.SeasonRepository;
 import com.territorial.auction.domain.user.client.WalletClient;
 import com.territorial.auction.domain.user.entity.UserStatus;
 import com.territorial.auction.domain.user.repository.UserRepository;
-import java.time.LocalDateTime;
+import com.territorial.auction.global.client.SeasonQueryClient;
+import com.territorial.auction.global.client.SeasonQueryClient.ActiveSeason;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,11 +24,10 @@ public class AdminDashboardService {
     private final TerritoryRepository territoryRepository;
     private final WalletClient walletClient;
     private final CombatAdminClient combatAdminClient;
-    private final SeasonRepository seasonRepository;
+    private final SeasonQueryClient seasonQueryClient;
 
     public AdminDashboardResponse getDashboard() {
-        LocalDateTime now = LocalDateTime.now();
-        Season season = seasonRepository.findActiveSeason(now).orElse(null);
+        ActiveSeason season = seasonQueryClient.getActiveSeason().orElse(null);
         return new AdminDashboardResponse(
                 userRepository.count(),
                 userRepository.countByStatus(UserStatus.ACTIVE),
@@ -40,8 +38,8 @@ public class AdminDashboardService {
                 territoryRepository.countByStatus(Territory.TerritoryStatus.IDLE),
                 walletClient.sumAvailableAp(),
                 combatAdminClient.getTotalStoredGp(),
-                season != null ? season.getSeasonNumber() : null,
-                season != null ? season.getStartedAt() : null,
-                season != null ? season.getEndedAt() : null);
+                season != null ? season.seasonNumber() : null,
+                season != null ? season.startedAt() : null,
+                season != null ? season.endedAt() : null);
     }
 }

@@ -1,6 +1,6 @@
 package com.territorial.auction.domain.admin.dto;
 
-import com.territorial.auction.domain.season.entity.SeasonPass;
+import com.territorial.auction.domain.admin.client.SeasonAdminClient.SeasonPassView;
 
 public record AdminSeasonPassResponse(
         Long seasonPassId,
@@ -12,15 +12,15 @@ public record AdminSeasonPassResponse(
         int taxExemptBonus,
         int buildTimeReductionPct) {
 
-    public static AdminSeasonPassResponse from(SeasonPass pass) {
+    public static AdminSeasonPassResponse from(SeasonPassView pass) {
         return new AdminSeasonPassResponse(
-                pass.getId(),
-                pass.getName(),
-                pass.getCostAp(),
-                pass.getDurationDays(),
-                pass.getIslandBonusPct(),
-                pass.getExtraBuilders(),
-                pass.getTaxExemptBonus(),
-                pass.getBuildTimeReductionPct());
+                pass.seasonPassId(),
+                pass.name(),
+                pass.costAp(),
+                pass.durationDays(),
+                pass.islandBonusPct(),
+                pass.extraBuilders(),
+                pass.taxExemptBonus(),
+                pass.buildTimeReductionPct());
     }
 }

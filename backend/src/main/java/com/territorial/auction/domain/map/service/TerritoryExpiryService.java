@@ -5,8 +5,8 @@ import com.territorial.auction.domain.map.entity.Territory;
 import com.territorial.auction.domain.map.event.TerritoryLostEvent;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
 import com.territorial.auction.domain.ranking.event.TerritoryHoldClosedEvent;
-import com.territorial.auction.domain.season.entity.Season;
-import com.territorial.auction.domain.season.repository.SeasonRepository;
+import com.territorial.auction.global.client.SeasonQueryClient;
+import com.territorial.auction.global.client.SeasonQueryClient.ActiveSeason;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -31,7 +31,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class TerritoryExpiryService {
 
     private final TerritoryRepository territoryRepository;
-    private final SeasonRepository seasonRepository;
+    private final SeasonQueryClient seasonQueryClient;
     private final ApplicationEventPublisher eventPublisher;
     private final SimpMessagingTemplate messagingTemplate;
 
@@ -44,7 +44,7 @@ public class TerritoryExpiryService {
         LocalDateTime now = LocalDateTime.now();
         List<Territory> expired =
                 territoryRepository.findAllExpiredOccupied(Territory.TerritoryStatus.OCCUPIED, now);
-        Optional<Season> seasonOpt = seasonRepository.findActiveSeason(now);
+        Optional<ActiveSeason> seasonOpt = seasonQueryClient.getActiveSeason();
         for (Territory territory : expired) {
             publishHoldClosedEvent(territory, seasonOpt, now);
             if (territory.getOwner() != null) {
@@ -58,12 +58,12 @@ public class TerritoryExpiryService {
     }
 
     private void publishHoldClosedEvent(
-            Territory territory, Optional<Season> seasonOpt, LocalDateTime now) {
+            Territory territory, Optional<ActiveSeason> seasonOpt, LocalDateTime now) {
         if (seasonOpt.isEmpty() || territory.getOwner() == null) return;
         eventPublisher.publishEvent(
                 new TerritoryHoldClosedEvent(
                         territory.getOwner().getId(),
-                        seasonOpt.get().getId(),
+                        seasonOpt.get().seasonId(),
                         territory.getId(),
                         now));
     }
