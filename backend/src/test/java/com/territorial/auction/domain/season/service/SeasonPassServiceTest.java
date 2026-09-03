@@ -11,8 +11,7 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 
-import com.territorial.auction.domain.building.entity.GlobalVault;
-import com.territorial.auction.domain.building.repository.GlobalVaultRepository;
+import com.territorial.auction.domain.combat.client.CombatResourceClient;
 import com.territorial.auction.domain.item.entity.Item;
 import com.territorial.auction.domain.item.entity.UserItem;
 import com.territorial.auction.domain.item.repository.ItemRepository;
@@ -68,7 +67,7 @@ class SeasonPassServiceTest {
     @Mock private SeasonPassRewardClaimRepository seasonPassRewardClaimRepository;
     @Mock private UserRepository userRepository;
     @Mock private WalletClient walletClient;
-    @Mock private GlobalVaultRepository globalVaultRepository;
+    @Mock private CombatResourceClient combatResourceClient;
     @Mock private ItemRepository itemRepository;
     @Mock private UserItemRepository userItemRepository;
     @Mock private RedisTemplate<String, Object> redisTemplate;
@@ -78,6 +77,51 @@ class SeasonPassServiceTest {
     void setUpRedis() {
         // 예외 발생 테스트에서 Redis 호출 전에 throw되므로 lenient 처리
         Mockito.lenient().when(redisTemplate.opsForValue()).thenReturn(valueOps);
+    }
+
+    @Test
+    @DisplayName("combat benefit은 활성 시즌 패스의 건설 혜택만 반환한다")
+    void getCombatBenefit_activePass() {
+        SeasonPass pass = buildSeasonPass(1L, 100, 30);
+        ReflectionTestUtils.setField(pass, "buildTimeReductionPct", 20);
+        User user =
+                User.builder().username("u").email("u@x").passwordHash("h").nickname("u").build();
+        UserSeasonPass active =
+                UserSeasonPass.builder()
+                        .user(user)
+                        .seasonPass(pass)
+                        .startedAt(LocalDateTime.now().minusDays(1))
+                        .expiresAt(LocalDateTime.now().plusDays(1))
+                        .build();
+        given(userSeasonPassRepository.findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(1L))
+                .willReturn(Optional.of(active));
+
+        var response = seasonPassService.getCombatBenefit(1L);
+
+        assertThat(response.buildTimeReductionPct()).isEqualTo(20);
+        assertThat(response.extraBuilders()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("combat benefit은 시즌 패스가 만료됐으면 기본값이다")
+    void getCombatBenefit_expiredPass() {
+        SeasonPass pass = buildSeasonPass(1L, 100, 30);
+        User user =
+                User.builder().username("u").email("u@x").passwordHash("h").nickname("u").build();
+        UserSeasonPass expired =
+                UserSeasonPass.builder()
+                        .user(user)
+                        .seasonPass(pass)
+                        .startedAt(LocalDateTime.now().minusDays(2))
+                        .expiresAt(LocalDateTime.now().minusDays(1))
+                        .build();
+        given(userSeasonPassRepository.findTopByUserIdAndIsActiveTrueOrderByStartedAtDesc(1L))
+                .willReturn(Optional.of(expired));
+
+        var response = seasonPassService.getCombatBenefit(1L);
+
+        assertThat(response.buildTimeReductionPct()).isZero();
+        assertThat(response.extraBuilders()).isZero();
     }
 
     // ─── 공통 픽스처 ─────────────────────────────────────────────────────────
@@ -471,9 +515,6 @@ class SeasonPassServiceTest {
                             .quantity(500)
                             .build();
             ReflectionTestUtils.setField(reward, "id", 1L);
-            GlobalVault vault = GlobalVault.builder().user(user).build();
-            ReflectionTestUtils.setField(vault, "storedGp", 100);
-
             given(seasonPassLevelRewardRepository.findById(1L)).willReturn(Optional.of(reward));
             given(seasonPassProgressRepository.findByUser_IdAndSeason_Id(1L, 1L))
                     .willReturn(Optional.of(progressAtLevel(user, season, 10)));
@@ -481,11 +522,9 @@ class SeasonPassServiceTest {
                     .willReturn(false);
             given(user.getId()).willReturn(1L);
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(globalVaultRepository.findByIdWithLock(1L)).willReturn(Optional.of(vault));
-
             seasonPassService.claimReward(1L, 1L);
 
-            assertThat(vault.getStoredGp()).isEqualTo(600);
+            then(combatResourceClient).should().creditGp(1L, 500, "SEASON_PASS_REWARD:1:1");
             then(itemRepository).should(never()).findByItemType(any());
         }
 

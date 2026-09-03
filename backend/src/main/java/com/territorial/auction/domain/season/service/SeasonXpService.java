@@ -1,6 +1,6 @@
 package com.territorial.auction.domain.season.service;
 
-import com.territorial.auction.domain.military.event.SiegeVictoryEvent;
+import com.territorial.auction.domain.combat.event.SiegeVictoryEvent;
 import com.territorial.auction.domain.ranking.event.AuctionSettledEvent;
 import com.territorial.auction.domain.season.SeasonPassPolicy;
 import com.territorial.auction.domain.season.entity.Season;

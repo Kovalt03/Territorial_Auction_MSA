@@ -1,13 +1,10 @@
 package com.territorial.auction.domain.user.service;
 
-import com.territorial.auction.domain.building.entity.GlobalVault;
-import com.territorial.auction.domain.building.entity.HomeIsland;
-import com.territorial.auction.domain.building.repository.GlobalVaultRepository;
-import com.territorial.auction.domain.building.repository.HomeIslandRepository;
+import com.territorial.auction.domain.combat.client.CombatResourceClient;
+import com.territorial.auction.domain.combat.client.CombatResourceClient.UserSummary;
 import com.territorial.auction.domain.map.TerritoryPolicy;
 import com.territorial.auction.domain.map.entity.Territory;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
-import com.territorial.auction.domain.military.repository.UnitInstanceRepository;
 import com.territorial.auction.domain.season.entity.UserSeasonPass;
 import com.territorial.auction.domain.season.entity.UserTrophy;
 import com.territorial.auction.domain.season.repository.UserSeasonPassRepository;
@@ -41,14 +38,12 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final WalletClient walletClient;
-    private final GlobalVaultRepository globalVaultRepository;
-    private final HomeIslandRepository homeIslandRepository;
+    private final CombatResourceClient combatResourceClient;
     private final UserSeasonPassRepository userSeasonPassRepository;
     private final TerritoryRepository territoryRepository;
     private final UserProfileRepository userProfileRepository;
     private final UserTrophyRepository userTrophyRepository;
     private final StringRedisTemplate stringRedisTemplate;
-    private final UnitInstanceRepository unitInstanceRepository;
 
     public User findById(Long userId) {
         return userRepository
@@ -70,7 +65,7 @@ public class UserService {
 
         WalletSnapshot wallet = walletClient.getWallet(userId);
 
-        Optional<HomeIsland> islandOpt = homeIslandRepository.findByUserId(userId);
+        UserSummary combat = combatResourceClient.getUserSummary(userId);
 
         // TODO: Redis 캐시 우선 조회 후 미존재 시 DB 조회로 전환 필요 (TTL 30분)
         //       명세: https://www.notion.so/33c2efa4278d81a88cf3eff675a30e46 비고 참고
@@ -82,21 +77,16 @@ public class UserService {
         int territoryCount = (int) territoryRepository.countByOwnerId(userId);
 
         MyProfileResponse.IslandInfo islandInfo =
-                islandOpt
-                        .map(
-                                island ->
-                                        new MyProfileResponse.IslandInfo(
-                                                island.getId(),
-                                                island.getLevel(),
-                                                0, // TODO: 섬 건물 합산 생산량 계산으로 교체 필요
-                                                builderCount))
-                        .orElse(null);
+                combat.islandId() == null
+                        ? null
+                        : new MyProfileResponse.IslandInfo(
+                                combat.islandId(), combat.islandLevel(), 0, builderCount);
 
         return new MyProfileResponse(
                 user.getId(),
                 user.getNickname(),
                 new MyProfileResponse.WalletInfo(
-                        vaultGp(user.getId()), wallet.availableAp(), wallet.lockedAp()),
+                        Math.toIntExact(combat.vaultGp()), wallet.availableAp(), wallet.lockedAp()),
                 islandInfo,
                 activePass
                         .map(
@@ -119,7 +109,7 @@ public class UserService {
                         .map(UserProfile::getProfileImageUrl)
                         .orElse(null);
 
-        int level = homeIslandRepository.findByUserId(userId).map(HomeIsland::getLevel).orElse(1);
+        int level = combatResourceClient.getUserSummary(userId).islandLevel();
 
         int trophyPoints =
                 userTrophyRepository.findById(userId).map(UserTrophy::getScore).orElse(0);
@@ -169,10 +159,11 @@ public class UserService {
 
     private Map<Long, Long> buildUnitCountMap(List<Long> territoryIds) {
         if (territoryIds.isEmpty()) return Map.of();
-        return unitInstanceRepository.sumQuantityGroupByTerritoryIds(territoryIds).stream()
+        return combatResourceClient.getTerritoryUnitCounts(territoryIds).stream()
                 .collect(
                         Collectors.toMap(
-                                row -> (Long) row[0], row -> ((Number) row[1]).longValue()));
+                                CombatResourceClient.TerritoryUnitCount::territoryId,
+                                CombatResourceClient.TerritoryUnitCount::unitCount));
     }
 
     private Set<Long> buildInvincibleSet(List<Long> territoryIds) {
@@ -185,10 +176,7 @@ public class UserService {
     public MyWalletResponse getMyWallet(Long userId) {
         WalletSnapshot wallet = walletClient.getWallet(userId);
         // GP 는 위치별 저장소·금고로 이관됐다 — 지갑 화면의 GP 는 금고 잔액을 보여준다.
-        return new MyWalletResponse(vaultGp(userId), wallet.availableAp(), wallet.lockedAp());
-    }
-
-    private int vaultGp(Long userId) {
-        return globalVaultRepository.findById(userId).map(GlobalVault::getStoredGp).orElse(0);
+        int vaultGp = Math.toIntExact(combatResourceClient.getUserSummary(userId).vaultGp());
+        return new MyWalletResponse(vaultGp, wallet.availableAp(), wallet.lockedAp());
     }
 }

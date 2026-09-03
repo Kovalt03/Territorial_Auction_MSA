@@ -1,0 +1,2 @@
+ALTER TABLE global_vaults
+    ALTER COLUMN capacity SET DEFAULT 10000;

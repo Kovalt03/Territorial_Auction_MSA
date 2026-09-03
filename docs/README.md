@@ -93,6 +93,12 @@
 |---|---|
 | [msa/README.md](./design/msa/README.md) | MSA 전환 허브 — 목표 토폴로지, Strangler 로드맵, PR 전략 |
 | [msa/local-run.md](./design/msa/local-run.md) | 로컬 MSA 구동 — Strangler 토폴로지, 서비스당 DB, 자원 절감 |
+| [msa/auction-extraction.md](./design/msa/auction-extraction.md) | auction-service 소유권·동기 계약·이벤트·cutover 설계 |
+| [msa/auction-migration-tracking.md](./design/msa/auction-migration-tracking.md) | auction-service 단계별 이관 기록 |
+| [msa/user-extraction.md](./design/msa/user-extraction.md) | user-service 신원·인증·AP 지갑 추출 설계 |
+| [msa/combat-extraction.md](./design/msa/combat-extraction.md) | combat-service building·military 추출 설계 |
+| [msa/combat-migration-tracking.md](./design/msa/combat-migration-tracking.md) | combat-service 단계·브랜치·검증 추적 |
+| [api/internal.md](./api/internal.md) | 서비스 간 내부 HTTP·이벤트 계약 |
 
 ---
 

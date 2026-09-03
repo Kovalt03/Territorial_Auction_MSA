@@ -16,7 +16,7 @@
 >
 > **설계와 실제 구현의 차이 (읽는 순서상 먼저):**
 > - **맵 읽기 = 동기 호출이 아니라 이벤트 프로젝션.** 그리드 '경매중' 표시는 auction을 매번 조회하는 대신, 모놀리식이 `auction.opened/bid/closed` 이벤트로 유지하는 로컬 read-model(`territory_auction_status`)을 읽는다. 핫패스를 auction-service 장애/지연에서 격리하고 쿼리도 가볍다(부하 실측 p99 ~10배 개선).
-> - **알림·랭킹·시즌 = 인프로세스 이벤트가 아니라 Redis 이벤트 + 브리지.** 정산이 별도 프로세스로 가면서 OUTBID/WIN/LOSE 알림·경매소비 랭킹·시즌 XP·트로피가 끊기므로, 모놀리식이 `auction.settled`/`auction.bid`를 구독해 realtime push + 인프로세스 Spring 이벤트로 재발행한다.
+> - **상태 반영 이벤트 = Kafka, realtime = Redis.** 모놀리식 프로젝션·랭킹·시즌 bridge는 Kafka `auction-events`를 소비하고, OUTBID/WIN/LOSE와 WebSocket push는 Redis `auction.bid`/`auction.settled`를 병행 구독한다.
 > - **관리자 경매 관리 = 모놀리식 잔류 + 위임.** `/api/v1/admin/auctions`(목록·강제정산·강제취소)는 모놀리식이 인증·감사 로그를 유지하되 데이터·작업은 auction-service `/internal`에 위임.
 > - **영토 만료·경매 순환 편입 = map 소유.** `releaseExpiredTerritories`·`IdleAuctionScheduleSeeder`는 영토 수명주기라 map 도메인으로 이관(경매 '생성'만 auction-service).
 > - **미구현(후속)**: 정산 saga 보상(§3).
@@ -129,7 +129,7 @@ auction: 경매 종료 감지 → 자기 DB에 Auction.status=SETTLING 기록(�
 ```
 
 - **동기(1~3)**: 정합성이 중요한 상태 변경(AP 소비·영토 점유). 하나라도 실패하면 **보상**: 이미 성공한 단계 역연산(예: 2 실패 시 1의 AP 소비를 되돌리는 `refund-consumed`), auction status=SETTLE_FAILED로 두고 재시도 큐/관리자 개입.
-- **비동기(5)**: 지연 허용(알림·랭킹·브로드캐스트). Redis pub/sub 이벤트로 발행, 소비 서비스가 각자 처리. 실패해도 정산 자체는 성립.
+- **비동기(5)**: 지연 허용 상태 반영은 Kafka durable 이벤트로 발행하고, WebSocket 저지연 전달은 Redis pub/sub을 병행한다. 실패해도 정산 자체는 성립하며 Kafka 소비자는 재처리할 수 있다.
 
 > 어디까지 동기로 할지가 설계의 핵심. **돈·소유권(AP·영토)은 동기+보상**, **파생·통지(랭킹·알림·실시간)는 비동기**로 가르는 게 기준이다.
 
@@ -139,7 +139,7 @@ auction: 경매 종료 감지 → 자기 DB에 Auction.status=SETTLING 기록(�
 
 ### 난제 4 — 인바운드 이벤트 & STOMP 소유권
 
-- **military → auction**: 현재 `TerritoryLostEvent`를 auction이 in-process로 수신(성 파괴 → 재경매 트리거 등). 이건 **서비스 간 이벤트 구독**으로 바뀐다 — military(현재 모놀리식)가 Redis로 발행, auction이 구독.
+- **military → auction**: 현재 `TerritoryLostEvent`를 auction이 in-process로 수신(성 파괴 → 재경매 트리거 등). combat 분리 시에는 **Kafka 서비스 이벤트 구독**으로 바꾼다.
 - **STOMP 브로드캐스트**: `/sub/auction/{id}`(입찰), `/sub/user/{id}/auction-result`(정산)는 auction이 소유·발행한다. 단, 로컬 SimpleBroker는 **인스턴스 로컬**이라 서비스가 갈리면 브로커 공유가 안 된다 → [chat-broker-strategy](../chat-broker-strategy.md)의 Redis STOMP relay 전환이 이 시점에 필요해질 수 있다(1단계에선 auction이 자기 STOMP 엔드포인트를 갖는 선에서 시작, 크로스 서비스 브로드캐스트가 필요해지면 relay 도입).
 
 ---
@@ -159,13 +159,13 @@ auction: 경매 종료 감지 → 자기 DB에 Auction.status=SETTLING 기록(�
 | 영토 점유 | `POST /internal/territories/{id}/occupy` | winnerId, occupiedUntil, protectedUntil | 200 / 409 |
 | 점유 보상 | `POST /internal/territories/{id}/release` | auctionId | 200 |
 
-### 비동기 이벤트 (Redis pub/sub)
+### 비동기 이벤트 (Kafka durable, Redis realtime 병행)
 
 | 이벤트 | 발행 | 구독 | 페이로드(초안) |
 |---|---|---|---|
-| `auction.settled` | auction | season·ranking·notification | auctionId, winnerId, seasonId, finalPrice, territoryId, grade, wonAt |
-| `auction.settled.map` | auction | (STOMP relay) | territoryId, coordX, coordY, winnerId, winnerNickname |
-| `territory.lost` | military | auction | territoryId, reason, at |
+| `auction.settled` | auction | Kafka: season·ranking / Redis: notification·WebSocket | auctionId, winnerId, finalPrice, territoryId, grade, wonAt |
+| `auction.bid` | auction | Kafka: map projection / Redis: notification·WebSocket | auctionId, bidderId, currentPrice, previousBidderId, coordX, coordY |
+| `territory.lost` | combat(후속) | auction | territoryId, reason, at |
 
 기존 in-process `AuctionSettledEvent`·`TerritoryHoldStartedEvent`가 `auction.settled`로 승격된다. [websocket 카탈로그](../../../frontend/.claude/rules/websocket.md)와 짝을 유지할 것.
 
@@ -195,9 +195,9 @@ Strangler라 **모놀리식은 계속 돌아간다**. auction만 떼되, 각 단
    - 검증: auction-service가 auction-postgres에만 붙어 기동.
 4. **입찰 경로 치환** → Wallet 직접 접근 제거 → `/internal/wallets/bid-escrow` 동기 호출 + 보상. 모놀리식(user)에 해당 엔드포인트 구현.
    - 검증: 격리 테스트(escrow 목킹) + **계약 테스트**([9절]).
-5. **정산 경로 치환** → 단일 트랜잭션 → 사가(동기 명령 + 이벤트). 모놀리식에 occupy/consume 엔드포인트 + Redis 구독자.
+5. **정산 경로 치환** → 단일 트랜잭션 → 사가(동기 명령 + 이벤트). 모놀리식에 occupy/consume 엔드포인트 + Kafka 상태 소비자와 Redis realtime 구독자.
    - 검증: 계약 테스트 + 로컬 풀스택 스모크(경매 1건 낙찰 e2e).
-6. **인바운드 이벤트/STOMP** → military `TerritoryLostEvent` → Redis 구독으로 전환. auction STOMP 엔드포인트 정리.
+6. **인바운드 이벤트/STOMP** → military `TerritoryLostEvent` → Kafka 구독으로 전환. auction STOMP 엔드포인트 정리.
 7. **모놀리식에서 auction 제거** → 프론트/게이트웨이 라우팅을 `/api/v1/auctions/**` → auction-service로. 모놀리식의 auction 패키지 삭제.
    - 검증: 회귀(경매 목록·입찰·정산·내 입찰) 전 경로 수동 QA + 스모크.
 

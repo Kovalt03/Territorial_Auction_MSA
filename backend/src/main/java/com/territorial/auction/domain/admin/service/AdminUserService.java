@@ -1,5 +1,7 @@
 package com.territorial.auction.domain.admin.service;
 
+import com.territorial.auction.domain.admin.client.CombatAdminClient;
+import com.territorial.auction.domain.admin.client.CombatAdminClient.UserResourceSnapshot;
 import com.territorial.auction.domain.admin.dto.AdminAdjustWalletRequest;
 import com.territorial.auction.domain.admin.dto.AdminBulkAdjustWalletRequest;
 import com.territorial.auction.domain.admin.dto.AdminBulkChangeStatusRequest;
@@ -8,9 +10,7 @@ import com.territorial.auction.domain.admin.dto.AdminChangeUserStatusRequest;
 import com.territorial.auction.domain.admin.dto.AdminUserDetailResponse;
 import com.territorial.auction.domain.admin.dto.AdminUserListResponse;
 import com.territorial.auction.domain.admin.dto.AdminUserResponse;
-import com.territorial.auction.domain.building.entity.GlobalVault;
-import com.territorial.auction.domain.building.repository.BuildingInstanceRepository;
-import com.territorial.auction.domain.building.repository.GlobalVaultRepository;
+import com.territorial.auction.domain.map.entity.Territory;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
 import com.territorial.auction.domain.user.client.UserProvisioningClient;
 import com.territorial.auction.domain.user.client.WalletClient;
@@ -37,8 +37,7 @@ public class AdminUserService {
     private final UserRepository userRepository;
     private final WalletClient walletClient;
     private final UserProvisioningClient userProvisioningClient;
-    private final GlobalVaultRepository globalVaultRepository;
-    private final BuildingInstanceRepository buildingInstanceRepository;
+    private final CombatAdminClient combatAdminClient;
     private final TerritoryRepository territoryRepository;
     private final AdminAuditLogger adminAuditLogger;
 
@@ -91,7 +90,7 @@ public class AdminUserService {
                         ? walletClient.adjust(
                                 userId, apDelta, "ADMIN_ADJUST:" + java.util.UUID.randomUUID())
                         : walletClient.getWallet(userId);
-        if (gpDelta != 0) adjustVaultGp(user, gpDelta);
+        if (gpDelta != 0) adjustVaultGp(user.getId(), gpDelta);
 
         Map<String, Object> detail = new HashMap<>();
         detail.put("apDelta", apDelta);
@@ -116,7 +115,10 @@ public class AdminUserService {
                 walletClient.adjust(
                         userId, apDelta, "ADMIN_BULK_ADJUST:" + java.util.UUID.randomUUID());
             }
-            if (gpDelta != 0) adjustVaultGp(findUserOrThrow(userId), gpDelta);
+            if (gpDelta != 0) {
+                findUserOrThrow(userId);
+                adjustVaultGp(userId, gpDelta);
+            }
 
             Map<String, Object> detail = new HashMap<>();
             detail.put("apDelta", apDelta);
@@ -175,19 +177,18 @@ public class AdminUserService {
     }
 
     // GP 는 금고에서 관리되므로 관리자 GP 지급/차감도 금고에 반영한다.
-    private void adjustVaultGp(User user, int gpDelta) {
-        GlobalVault vault =
-                globalVaultRepository
-                        .findByIdWithLock(user.getId())
-                        .orElseGet(
-                                () ->
-                                        globalVaultRepository.save(
-                                                GlobalVault.builder().user(user).build()));
-        vault.receiveGp(gpDelta);
+    private void adjustVaultGp(Long userId, int gpDelta) {
+        combatAdminClient.adjustGp(
+                userId, gpDelta, "ADMIN_ADJUST_GP:" + java.util.UUID.randomUUID());
     }
 
     private AdminUserDetailResponse toDetail(User user, WalletSnapshot wallet) {
-        long territoryCount = territoryRepository.countByOwnerId(user.getId());
+        List<Long> territoryIds =
+                territoryRepository.findByOwnerId(user.getId()).stream()
+                        .map(Territory::getId)
+                        .toList();
+        UserResourceSnapshot resources =
+                combatAdminClient.getUserResources(user.getId(), territoryIds);
         return new AdminUserDetailResponse(
                 user.getId(),
                 user.getUsername(),
@@ -198,11 +199,8 @@ public class AdminUserService {
                 user.getCreatedAt(),
                 wallet.availableAp(),
                 wallet.lockedAp(),
-                globalVaultRepository
-                        .findById(user.getId())
-                        .map(GlobalVault::getStoredGp)
-                        .orElse(0),
-                buildingInstanceRepository.sumStoredFoodByOwnerId(user.getId()),
-                territoryCount);
+                resources.availableGp(),
+                resources.availableFood(),
+                territoryIds.size());
     }
 }

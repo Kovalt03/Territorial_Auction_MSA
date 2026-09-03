@@ -8,11 +8,11 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 
-import com.territorial.auction.domain.building.service.UserBootstrapService;
 import com.territorial.auction.domain.user.client.OAuthProvisionResult;
 import com.territorial.auction.domain.user.client.UserProvisioningClient;
 import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.repository.UserRepository;
+import com.territorial.auction.domain.user.service.UserProjectionService;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -31,7 +31,7 @@ class CustomOAuth2UserServiceTest {
 
     @Mock private UserRepository userRepository;
     @Mock private UserProvisioningClient userProvisioningClient;
-    @Mock private UserBootstrapService userBootstrapService;
+    @Mock private UserProjectionService userProjectionService;
 
     private OAuth2UserInfo userInfo;
 
@@ -102,7 +102,7 @@ class CustomOAuth2UserServiceTest {
 
             // then
             assertThat(result.getId()).isEqualTo(1000000001L);
-            then(userBootstrapService)
+            then(userProjectionService)
                     .should()
                     .bootstrap(
                             eq(1000000001L),
@@ -134,7 +134,7 @@ class CustomOAuth2UserServiceTest {
             then(userProvisioningClient)
                     .should(never())
                     .provisionOAuth(anyString(), anyString(), anyString());
-            then(userBootstrapService)
+            then(userProjectionService)
                     .should(never())
                     .bootstrap(any(), anyString(), anyString(), anyString());
         }

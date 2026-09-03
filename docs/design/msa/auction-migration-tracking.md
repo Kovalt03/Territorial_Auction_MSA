@@ -40,7 +40,7 @@
 | 엔드포인트 | 하는 일 | 호출부 | 상태 |
 |---|---|---|---|
 | `POST /internal/wallets/bid-escrow` | 이전 입찰자 환불 + 신규 입찰자 잠금(원자적), 닉네임 반환 | `WalletClient.bidEscrow` | ✅ |
-| `POST /internal/wallets/bid-escrow/cancel` | escrow 보상(롤백) | (보상) | ⬜ (saga §3) |
+| `POST /internal/wallets/bid-escrow-compensate` | escrow 성공 후 auction 저장 롤백 시 역연산 | `WalletClient.compensateBidEscrow` | ✅ |
 | `POST /internal/wallets/consume-locked` | 낙찰자 lockedAp 소비 | `WalletClient.consumeLocked` | ✅ |
 | `POST /internal/wallets/refund-locked` | 잠금 AP 환불(관리자 강제 취소) | `WalletClient.refundLocked` | ✅ |
 | `POST /internal/territories/{id}/occupy` | 영토 점유(winner, occupiedUntil, protectedUntil) | `TerritoryClient.occupy` | ✅ |
@@ -62,7 +62,7 @@
 
 | 항목 | 내용 | 상태 |
 |---|---|---|
-| 입찰 escrow 보상 | escrow 성공 후 auction 트랜잭션 롤백 시 escrow 취소 | ⬜ |
+| 입찰 escrow 보상 | escrow 성공 후 auction 트랜잭션 롤백 시 `bid-escrow-compensate` 호출 | ✅ |
 | 정산 보상 | occupy 성공 후 consume/castle 실패 시 occupy 되돌리기(release) | ⬜ |
 
 ## 4. auction에서 **제거**하고 다른 곳으로 넘긴 흐름

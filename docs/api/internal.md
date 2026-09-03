@@ -12,7 +12,7 @@
 
 ## 1. user-service `/internal/*` (다른 서비스가 호출)
 
-지갑 **AP**와 **신원**(User·Wallet)은 user-service가 소유한다. GP/금고(GlobalVault)는 building/모놀리식 소유.
+지갑 **AP**와 **신원**(User·Wallet)은 user-service가 소유한다. GP/금고(GlobalVault)는 combat-service가 소유한다.
 
 ### 1-1. 지갑 — 경매 escrow (auction-service가 호출)
 
@@ -55,9 +55,9 @@
 - **status 소유**: 유저 상태(ACTIVE/SUSPENDED/WITHDRAWN)는 user-service가 소유한다(로그인 차단이 여기서 먹힌다). 셀프 탈퇴는 `DELETE /api/v1/users/me`(게이트웨이→user-service), admin 정지/탈퇴는 모놀리식 admin이 이 `status` 엔드포인트를 호출한다. 변경은 `user.status-changed`로 프로젝션에 전파.
 - **토큰 무효화**: 탈퇴 시 access token을 공유 Redis 블랙리스트(`jwt:blacklist:<token>`)에 넣고, 모놀리식·user-service JWT 필터가 모두 확인해 즉시 무효화한다.
 
-## 2. 모놀리식 `/internal/*` (auction-service가 호출)
+## 2. 모놀리식 `/internal/*` (auction/combat-service가 호출)
 
-영토·건물 상태는 아직 모놀리식이 소유한다.
+영토·시즌 상태는 아직 모놀리식이 소유한다.
 
 ### 영토 (map 도메인)
 
@@ -65,14 +65,17 @@
 |---|---|---|---|---|
 | POST | `/internal/territories/{id}/occupy` | `{winnerId, occupiedUntil, protectedUntil}` | 200 | 404 TERRITORY_NOT_FOUND |
 | POST | `/internal/territories/{id}/release` | `{nextAuctionAt}` | 200 | 404 TERRITORY_NOT_FOUND |
+| GET | `/internal/territories/{id}/combat-context` | — | `{territoryId, ownerId, coordX, coordY, grade, status, protectedUntil, gridSize, zone1Radius, zone2Radius}` | 404 TERRITORY_NOT_FOUND |
+| GET | `/internal/territories/owners/{userId}/combat-contexts` | — | 위 DTO 배열 | — |
 
-### 건물 (building 도메인)
+### 시즌 (season 도메인)
 
 | Method | Path | Body | 응답 | 오류 |
 |---|---|---|---|---|
-| POST | `/internal/buildings/initial-castle` | `{territoryId}` | 200 | 404 TERRITORY_NOT_FOUND / BUILDING_TYPE_NOT_FOUND |
+| GET | `/internal/seasons/users/{userId}/combat-benefit` | — | `{buildTimeReductionPct, extraBuilders}` | — |
 
-- **initial-castle**: 낙찰 영토 Zone1 중심에 초기 성 생성. 이미 성이 있으면 스킵(**idempotent** → 200).
+- combat-context는 combat-service의 건물·유닛·공성 port가 함께 쓰는 영토 스냅샷이다.
+- combat-benefit은 활성 시즌 패스가 없으면 두 값 모두 0이다.
 
 ---
 
@@ -93,29 +96,93 @@
 
 ---
 
-## 4. 이벤트 (Redis — 공유 인스턴스)
+## 4. combat-service `/internal/*`
 
-Auction 이벤트는 Redis pub/sub JSON 문자열로 발행한다. `user.created`는 Redis Stream `stream:user-events`로 전달하고 소비 후 ACK한다. 소비자는 필드명만 일치하는 자체 record로 역직렬화한다(클래스 공유 아님).
+### 경매 정산 후 초기 성
 
-| Topic | 발행 | 페이로드 | 소비 (현행) |
+| Method | Path | Body | 응답 | 오류 |
+|---|---|---|---|---|
+| POST | `/internal/buildings/initial-castle` | `{territoryId}` | 200 | 404 TERRITORY_NOT_FOUND / BUILDING_TYPE_NOT_FOUND |
+
+- auction-service가 직접 호출한다. 낙찰 영토 Zone1 중심에 초기 성을 만들며 이미 성이 있으면 200으로 멱등 처리한다.
+
+### 관리자 combat 위임
+
+모놀리식이 `/api/v1/admin/**` 인증과 감사 로그를 유지하고 아래 원시 DTO 계약으로 데이터 작업만 위임한다.
+
+| Method | Path | 용도 |
+|---|---|---|
+| GET/POST | `/internal/admin/combat/building-types` | 건물 타입 목록·생성 |
+| PATCH/DELETE | `/internal/admin/combat/building-types/{id}` | 건물 타입 수정·삭제 |
+| GET/PATCH | `/internal/admin/combat/building-types/{id}/level-specs` | 건물 레벨 스펙 |
+| GET/PATCH | `/internal/admin/combat/building-types/{id}/castle-limits` | 성 레벨별 건물 제한 |
+| GET | `/internal/admin/combat/unit-types` | 유닛 타입 목록 |
+| PATCH | `/internal/admin/combat/unit-types/{id}` | 유닛 타입 수정 |
+| GET/PATCH | `/internal/admin/combat/unit-types/{id}/level-specs` | 유닛 연구 스펙 |
+| GET | `/internal/admin/combat/resources/total-gp` | 전체 금고·저장소 GP 합계 |
+| GET | `/internal/admin/combat/users/{userId}/resources?territoryIds=...` | 사용자 금고 GP·저장 식량 |
+| POST | `/internal/admin/combat/resources/gp-adjustments` | `{userId, delta, commandKey}` 관리자 GP 조정 |
+
+- GP 조정은 `combat_commands`에 command key와 fingerprint를 기록한다. 같은 key·같은 요청은 한 번만 반영하고 다른 요청은 409로 거절한다.
+- 모든 요청은 gateway에 노출되지 않으며 `X-Internal-Service-Token`이 필수다.
+
+### 잔여 모놀리식의 combat 조회·자원 명령
+
+map·user projection·item·season이 combat DB를 직접 읽거나 쓰지 않고 아래 계약을 호출한다.
+
+| Method | Path | Body / Query | 응답 |
 |---|---|---|---|
-| `territory.auction-ready` | 모놀리식(map) | `{territoryId, coordX, coordY, continentName, continentId, grade}` | auction-service → 경매 생성 |
-| `auction.opened` | auction-service | `{auctionId, territoryId, currentPrice, endAt}` | 모놀리식 프로젝션 upsert |
-| `auction.bid` | auction-service | `{auctionId, currentPrice, bidderId, bidderNickname, bidAt, endAt, previousBidderId, coordX, coordY}` | 프로젝션 갱신 · realtime 허브(`/sub/auction/{id}` push + OUTBID 알림) |
-| `auction.settled` | auction-service | `{auctionId, territoryId, coordX, coordY, winnerId, winnerNickname, finalPrice, grade, runnerUpIds}` | realtime 허브(WIN/LOSE push+알림 · map OCCUPIED) · 랭킹·시즌 브리지 |
-| `auction.closed` | auction-service | `{auctionId, territoryId}` | 프로젝션 제거 (낙찰·무낙찰 공통) |
-| `user.created` | user-service outbox | `{userId, username, email, nickname}` | 모놀리식 User 읽기 프로젝션·NotificationSetting·UserProfile·HomeIsland·기본 성 생성 |
-| `user.updated` | user-service outbox | `{userId, nickname}` | 모놀리식 User 프로젝션 `nickname` 갱신(15개 도메인 표시 반영) |
-| `user.status-changed` | user-service outbox | `{userId, status}` | 모놀리식 User 프로젝션 `status` 갱신(admin 목록/표시) |
+| GET | `/internal/combat/users/{userId}/summary` | — | `{vaultGp, islandId, islandLevel}` |
+| GET | `/internal/combat/territories/unit-counts` | `territoryIds=1,2` | `[{territoryId, unitCount}]` |
+| GET | `/internal/combat/territories/{territoryId}/storage` | — | `{buildings, storedGp, storageCapacity}` |
+| POST | `/internal/combat/resources/gp-credits` | `{userId, amount, commandKey}` | `{vaultGp}` |
+| POST | `/internal/combat/resources/attack-token-credits` | `{userId, normalCount, precisionCount, commandKey}` | `{normalCount, precisionCount}` |
+| POST | `/internal/combat/resources/tax-charges` | `{userId, amount, territoryIds, commandKey}` | `{paid}` |
+| POST | `/internal/combat/territories/{territoryId}/income-credits` | `{amount, commandKey}` | `{creditedGp, storedGp, storageCapacity}` |
 
-- `user.created`·`user.updated`는 User DB transactional outbox(`stream:user-events`)로 발행하고, 모놀리식 구독자가 `topic` 필드로 분기한다(created→프로젝션 부트스트랩, updated→닉네임 갱신). 소비자는 `userId` 기준으로 멱등 처리한다.
+- 모든 상태 명령은 `combat_commands`에 `commandKey`, 명령 종류, request fingerprint와 최초 응답을 기록한다. 같은 key·같은 요청은 최초 응답을 반환하고 다른 요청은 409 `WALLET_COMMAND_CONFLICT`로 거절한다.
+- tax charge는 금고와 대상 영토 저장 GP를 한 combat DB 트랜잭션에서 잠그고 차감한다. 잔액 부족은 `{paid:false}`이며 부분 차감하지 않는다.
+- 공개 `/api/**`는 gateway만 넣을 수 있는 `X-Gateway-Service-Token`을 검증한 뒤 `X-User-Id`를 인증 주체로 변환한다. 두 헤더는 외부 요청에서 gateway가 먼저 제거한다.
+
+---
+
+## 5. 이벤트 (Kafka durable + Redis realtime)
+
+상태 반영·재처리가 필요한 이벤트는 Kafka로 전달한다. 논리 이벤트 종류는 `event-topic` header에 담고, payload는 JSON 문자열로 직렬화한다. 소비자는 필드명만 일치하는 자체 record로 역직렬화하며 Java 클래스를 공유하지 않는다.
+
+- `territory-auction-ready`: map → auction-service 경매 생성 trigger
+- `auction-events`: auction-service → map projection·랭킹/시즌 bridge. record key는 논리 이벤트명이며 `event-topic` header도 함께 사용한다.
+- `user-events`: user-service transactional outbox → monolith user projection·HomeIsland bootstrap. record key는 outbox event ID다.
+- `combat-events`: combat-service transactional outbox → map·season·notification/realtime bridge. record key는 aggregate ID다.
+- `territory-events`: 모놀리식 map → combat-service 영토 상실 처리. record key는 territory ID다.
+- Redis pub/sub `auction.bid`, `auction.settled`: 모놀리식 realtime hub의 WebSocket 저지연 전달 전용. durable 소비자는 Kafka를 사용한다.
+
+| Kafka topic / event-topic | 발행 | 페이로드 | 소비 (현행) |
+|---|---|---|---|
+| `territory-auction-ready` | 모놀리식(map) | `{territoryId, coordX, coordY, continentName, continentId, grade}` | auction-service `auction-territory-ready` group → 경매 생성 |
+| `auction-events` / `auction.opened` | auction-service | `{auctionId, territoryId, currentPrice, endAt}` | `backend-map-projection` → 프로젝션 upsert |
+| `auction-events` / `auction.bid` | auction-service | `{auctionId, currentPrice, bidderId, bidderNickname, bidAt, endAt, previousBidderId, coordX, coordY}` | `backend-map-projection` 갱신. Redis realtime hub도 동시 수신 |
+| `auction-events` / `auction.settled` | auction-service | `{auctionId, territoryId, coordX, coordY, winnerId, winnerNickname, finalPrice, grade, runnerUpIds}` | `backend-ranking-relay` → 랭킹·시즌 bridge. Redis realtime hub도 동시 수신 |
+| `auction-events` / `auction.closed` | auction-service | `{auctionId, territoryId}` | `backend-map-projection` → 프로젝션 제거 |
+| `user-events` / `user.created` | user-service outbox | `{userId, username, email, nickname}` | `backend-user-projection` → User 읽기 프로젝션·NotificationSetting·UserProfile, `combat-user-projection` → HomeIsland·기본 성 생성 |
+| `user-events` / `user.updated` | user-service outbox | `{userId, nickname}` | `backend-user-projection` → User 프로젝션 nickname 갱신 |
+| `user-events` / `user.status-changed` | user-service outbox | `{userId, status}` | `backend-user-projection` → User 프로젝션 status 갱신 |
+| `combat-events` / `combat.siege.declared` | combat-service outbox | `{siegeId, territoryId, coordX, coordY, attackZone, attackerId, attackerNickname, defenderId, defenderNickname, resolveAt}` | `backend-combat-notification` → 알림·WebSocket |
+| `combat-events` / `combat.siege.resolved` | combat-service outbox | `{siegeId, territoryId, coordX, coordY, attackZone, attackerId, attackerNickname, defenderId, defenderNickname, isAttackerWin, resultType, attackerUnitsLost, defenderUnitsLost, lootedGp, resolvedAt}` | `backend-combat-notification` → 결과 알림·WebSocket |
+| `combat-events` / `combat.territory.takeover-requested` | combat-service outbox | `{siegeId, territoryId, newOwnerId, formerOwnerId, recoveredGp}` | `backend-combat-map` → 영토 인계 |
+| `combat-events` / `combat.siege.victory` | combat-service outbox | `{siegeId, attackerId}` | `backend-combat-season` → 시즌 XP |
+| `combat-events` / `combat.island.expanded` | combat-service outbox | `{userId, newLevel}` | `backend-combat-notification` → 섬 확장 알림 |
+| `territory-events` / `territory.lost` | 모놀리식 map | `{territoryId, formerOwnerId}` | `combat-territory-loss` → 저장 자원 환수·주둔 유닛 퇴각 |
+
+- `user.created`·`user.updated`·`user.status-changed`는 User DB transactional outbox에서 Kafka `user-events`로 발행한다. 모놀리식 구독자는 `event-topic` header로 분기하고 소비자는 `userId` 기준으로 멱등 처리한다.
+- combat 공성 이벤트는 Combat DB 변경과 같은 트랜잭션에서 `combat_outbox`에 적재하고 Kafka `combat-events`로 발행한다. `event-topic` header로 논리 이벤트를 구분하며, 발행 성공 전에는 `published_at`을 기록하지 않아 재시도할 수 있다.
+- combat outbox 발행기는 `event-id` header도 전송한다. 모놀리식은 `combat_event_receipts`에 `consumerGroup:eventId`를 저장해 알림·시즌·map 부작용을 중복 적용하지 않는다.
 - **프로필 쓰기 소유**: 신원 프로필(닉네임·비밀번호)은 user-service가 소유한다. 게이트웨이가 `PATCH /api/v1/users/me/{nickname,password}`만 user-service로 라우팅하고, 나머지 `/api/v1/users/**`(프로필·지갑 조회, AP 충전)는 모놀리식이 서빙한다. 닉네임 변경은 `user.updated`로 프로젝션에 전파한다.
 
 > 정산 시 `grade`는 랭킹이 쓰므로 `auction.settled`에 반드시 포함. 자세한 소비자별 동작은 [이관 추적 §1](../design/msa/auction-migration-tracking.md).
 
 ---
 
-## 5. 미구현 (후속)
+## 6. 미구현 (후속)
 
 - **정산 saga 보상**: `occupy` 성공 후 `consume-locked`/`initial-castle` 실패 시 `occupy` 되돌리기(release). 현재는 로깅만.
-- **escrow 보상**: escrow 성공 후 경매 트랜잭션 롤백 시 취소.

@@ -8,7 +8,7 @@ spring:
     gateway:
       routes:
         # 지갑 표시/충전(/api/v1/users/me/wallet·/ap/charge)은 모놀리식이 서빙한다:
-        # AP는 user-service(walletClient), GP/금고는 모놀리식 소유 → 모놀리식이 합성. (/** 폴백)
+        # AP는 user-service, GP/금고는 combat-service 소유 → 모놀리식이 내부 계약으로 합성. (/** 폴백)
         - id: user-service-auth
           uri: ${USER_SERVICE_URL:http://localhost:8083}
           predicates:
@@ -35,14 +35,21 @@ spring:
           uri: ${AUCTION_SERVICE_URL:http://localhost:8082}
           predicates:
             - Path=/api/v1/auctions/**
+        # combat 공개 API는 gateway가 발급한 서비스 토큰과 검증된 userId만 신뢰한다.
+        - id: combat-service
+          uri: ${COMBAT_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/v1/buildings/**,/api/v1/building-types,/api/v1/building-shop/**,/api/v1/island/**,/api/v1/inventory/**,/api/v1/global-vault/**,/api/v1/military/**,/api/v1/siege/**,/api/v1/map/territories/*/buildings
+          filters:
+            - AddRequestHeader=X-Gateway-Service-Token, ${INTERNAL_API_SECRET}
         # 채팅·길드·소셜은 social-service로
         - id: social-service
-          uri: ${SOCIAL_SERVICE_URL:http://localhost:8084}
+          uri: ${SOCIAL_SERVICE_URL:http://localhost:8085}
           predicates:
             - Path=/api/v1/chat/**,/api/v1/guilds/**,/api/v1/social/**
         # 알림은 notification-service로
         - id: notification-service
-          uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8085}
+          uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8086}
           predicates:
             - Path=/api/v1/notifications/**
         # WebSocket(실시간 허브)은 모놀리식

@@ -13,8 +13,13 @@ public class TerritoryClientImpl implements TerritoryClient {
     private final RestClient restClient;
 
     public TerritoryClientImpl(
-            RestClient.Builder builder, @Value("${monolith.base-url}") String baseUrl) {
-        this.restClient = builder.baseUrl(baseUrl).build();
+            RestClient.Builder builder,
+            @Value("${monolith.base-url}") String baseUrl,
+            @Value("${internal-api.secret}") String internalApiSecret) {
+        this.restClient =
+                builder.baseUrl(baseUrl)
+                        .defaultHeader("X-Internal-Service-Token", internalApiSecret)
+                        .build();
     }
 
     @Override

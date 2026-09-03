@@ -4,8 +4,6 @@ import com.territorial.auction.domain.admin.dto.AdminAuctionSettingResponse;
 import com.territorial.auction.domain.admin.dto.AdminBalanceSettingResponse;
 import com.territorial.auction.domain.admin.entity.AdminSetting;
 import com.territorial.auction.domain.admin.repository.AdminSettingRepository;
-import com.territorial.auction.domain.building.BuildingPolicy;
-import com.territorial.auction.domain.military.MilitaryPolicy;
 import com.territorial.auction.global.config.BalanceConfig;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
@@ -20,6 +18,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class AdminSettingService {
 
+    private static final int DEFAULT_REPAIR_GP_PER_HP = 2;
+    private static final int DEFAULT_GARRISON_CAP_CASTLE = 5;
+    private static final int DEFAULT_GARRISON_CAP_RESIDENCE = 5;
+    private static final int DEFAULT_GARRISON_CAP_TOWER = 3;
+    private static final int DEFAULT_GARRISON_CAP_WALL = 2;
+
     // 관리자가 튜닝할 수 있는 밸런스 상수 카탈로그. 기본값은 각 도메인 Policy 상수와 일치한다.
     private record BalanceItem(String key, int defaultValue, String label) {}
 
@@ -27,23 +31,23 @@ public class AdminSettingService {
             List.of(
                     new BalanceItem(
                             BalanceConfig.KEY_REPAIR_GP_PER_HP,
-                            BuildingPolicy.REPAIR_GP_PER_HP,
+                            DEFAULT_REPAIR_GP_PER_HP,
                             "건물 HP 1 회복당 GP"),
                     new BalanceItem(
                             BalanceConfig.KEY_GARRISON_CAP_CASTLE,
-                            MilitaryPolicy.GARRISON_CAP_CASTLE,
+                            DEFAULT_GARRISON_CAP_CASTLE,
                             "성 주둔 수용량(레벨당)"),
                     new BalanceItem(
                             BalanceConfig.KEY_GARRISON_CAP_RESIDENCE,
-                            MilitaryPolicy.GARRISON_CAP_RESIDENCE,
+                            DEFAULT_GARRISON_CAP_RESIDENCE,
                             "숙소 주둔 수용량(레벨당)"),
                     new BalanceItem(
                             BalanceConfig.KEY_GARRISON_CAP_TOWER,
-                            MilitaryPolicy.GARRISON_CAP_TOWER,
+                            DEFAULT_GARRISON_CAP_TOWER,
                             "타워 주둔 수용량(레벨당)"),
                     new BalanceItem(
                             BalanceConfig.KEY_GARRISON_CAP_WALL,
-                            MilitaryPolicy.GARRISON_CAP_WALL,
+                            DEFAULT_GARRISON_CAP_WALL,
                             "방벽 주둔 수용량(레벨당)"));
 
     private final AdminSettingRepository adminSettingRepository;

@@ -1,0 +1,114 @@
+unitTypes:
+  - name: INFANTRY
+    displayName: 보병
+    icon: 🗡
+    colorHex: "#e0e8ff"
+    attackPower: 10
+    defensePower: 10
+    costGp: 100
+    foodCost: 1
+    buildingDamage: 2
+    level: 1
+    levelSpecs:
+      - level: 2
+        attackPower: 13
+        defensePower: 13
+        trainCostFood: 50
+        requiredBarracksLevel: 2
+      - level: 3
+        attackPower: 17
+        defensePower: 17
+        trainCostFood: 120
+        requiredBarracksLevel: 3
+  - name: ARCHER
+    displayName: 궁수
+    icon: 🏹
+    colorHex: "#00ff88"
+    attackPower: 8
+    defensePower: 18
+    costGp: 180
+    foodCost: 2
+    buildingDamage: 1
+    level: 1
+    levelSpecs:
+      - level: 2
+        attackPower: 10
+        defensePower: 23
+        trainCostFood: 70
+        requiredBarracksLevel: 2
+      - level: 3
+        attackPower: 14
+        defensePower: 31
+        trainCostFood: 160
+        requiredBarracksLevel: 3
+  - name: KNIGHT
+    displayName: 기사
+    icon: ⚔
+    colorHex: "#ffd700"
+    attackPower: 30
+    defensePower: 12
+    costGp: 400
+    foodCost: 4
+    buildingDamage: 6
+    level: 2
+    levelSpecs:
+      - level: 2
+        attackPower: 39
+        defensePower: 16
+        trainCostFood: 150
+        requiredBarracksLevel: 2
+      - level: 3
+        attackPower: 51
+        defensePower: 20
+        trainCostFood: 350
+        requiredBarracksLevel: 3
+  - name: CAVALRY
+    displayName: 기병
+    icon: 🐎
+    colorHex: "#ff8c00"
+    attackPower: 22
+    defensePower: 10
+    costGp: 300
+    foodCost: 3
+    buildingDamage: 4
+    level: 2
+  - name: SIEGE_ENGINE
+    displayName: 공성 병기
+    icon: 🛠
+    colorHex: "#8b50ff"
+    attackPower: 5
+    defensePower: 5
+    costGp: 600
+    foodCost: 6
+    buildingDamage: 50
+    level: 3
+  - name: GUARD
+    displayName: 수성 방어구
+    icon: 🛡
+    colorHex: "#00f5ff"
+    attackPower: 6
+    defensePower: 28
+    costGp: 250
+    foodCost: 3
+    buildingDamage: 0
+    level: 2
+  - name: CATAPULT
+    displayName: 투석기
+    icon: 🪨
+    colorHex: "#7788a5"
+    attackPower: 4
+    defensePower: 4
+    costGp: 500
+    foodCost: 5
+    buildingDamage: 35
+    level: 3
+  - name: SCOUT
+    displayName: 정찰
+    icon: 🔭
+    colorHex: "#8892b0"
+    attackPower: 6
+    defensePower: 6
+    costGp: 80
+    foodCost: 1
+    buildingDamage: 0
+    level: 1

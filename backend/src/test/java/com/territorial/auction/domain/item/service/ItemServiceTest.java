@@ -2,10 +2,10 @@ package com.territorial.auction.domain.item.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.then;
 
+import com.territorial.auction.domain.combat.client.CombatResourceClient;
+import com.territorial.auction.domain.combat.client.CombatResourceClient.AttackTokenBalance;
 import com.territorial.auction.domain.item.dto.UseItemRequest;
 import com.territorial.auction.domain.item.dto.UseItemResponse;
 import com.territorial.auction.domain.item.entity.Item;
@@ -15,8 +15,6 @@ import com.territorial.auction.domain.item.repository.ItemPurchaseRepository;
 import com.territorial.auction.domain.item.repository.ItemRepository;
 import com.territorial.auction.domain.item.repository.UserItemRepository;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
-import com.territorial.auction.domain.military.entity.AttackToken;
-import com.territorial.auction.domain.military.repository.AttackTokenRepository;
 import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.repository.UserRepository;
 import com.territorial.auction.global.exception.CustomException;
@@ -45,14 +43,13 @@ class ItemServiceTest {
     @Mock private UserItemRepository userItemRepository;
     @Mock private UserRepository userRepository;
     @Mock private TerritoryRepository territoryRepository;
-    @Mock private AttackTokenRepository attackTokenRepository;
+    @Mock private CombatResourceClient combatResourceClient;
     @Mock private RedisTemplate<String, Object> redisTemplate;
     @Mock private ValueOperations<String, Object> valueOperations;
 
     private User user;
     private Item normalTokenItem;
     private Item precisionTokenItem;
-    private AttackToken attackToken;
 
     @BeforeEach
     void setUp() {
@@ -76,10 +73,6 @@ class ItemServiceTest {
                         .costAp(200)
                         .build();
         ReflectionTestUtils.setField(precisionTokenItem, "id", 11L);
-
-        attackToken = AttackToken.builder().user(user).build();
-        ReflectionTestUtils.setField(attackToken, "normalCount", 2);
-        ReflectionTestUtils.setField(attackToken, "precisionCount", 1);
     }
 
     private UserItem makeUserItem(Item item, int quantity) {
@@ -106,8 +99,8 @@ class ItemServiceTest {
             given(itemRepository.findById(10L)).willReturn(Optional.of(normalTokenItem));
             given(userItemRepository.findByUser_IdAndItem_Id(1L, 10L))
                     .willReturn(Optional.of(userItem));
-            given(attackTokenRepository.findByUserIdWithLock(1L))
-                    .willReturn(Optional.of(attackToken));
+            given(combatResourceClient.creditAttackTokens(1L, 1, 0, "ITEM_USE:1:99:3"))
+                    .willReturn(new AttackTokenBalance(3, 1));
 
             UseItemResponse response = itemService.useItem(1L, new UseItemRequest(10L, null));
 
@@ -126,8 +119,8 @@ class ItemServiceTest {
             given(itemRepository.findById(11L)).willReturn(Optional.of(precisionTokenItem));
             given(userItemRepository.findByUser_IdAndItem_Id(1L, 11L))
                     .willReturn(Optional.of(userItem));
-            given(attackTokenRepository.findByUserIdWithLock(1L))
-                    .willReturn(Optional.of(attackToken));
+            given(combatResourceClient.creditAttackTokens(1L, 0, 1, "ITEM_USE:1:99:1"))
+                    .willReturn(new AttackTokenBalance(2, 2));
 
             UseItemResponse response = itemService.useItem(1L, new UseItemRequest(11L, null));
 
@@ -141,18 +134,14 @@ class ItemServiceTest {
         @DisplayName("AttackToken 행이 없으면 → 신규 생성 후 normalCount +1")
         void useNormalToken_noExistingToken_createsAndIncrements() {
             UserItem userItem = makeUserItem(normalTokenItem, 1);
-            AttackToken newToken = AttackToken.builder().user(user).build();
-
             given(itemRepository.findById(10L)).willReturn(Optional.of(normalTokenItem));
             given(userItemRepository.findByUser_IdAndItem_Id(1L, 10L))
                     .willReturn(Optional.of(userItem));
-            given(attackTokenRepository.findByUserIdWithLock(1L)).willReturn(Optional.empty());
-            given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(attackTokenRepository.save(any(AttackToken.class))).willReturn(newToken);
+            given(combatResourceClient.creditAttackTokens(1L, 1, 0, "ITEM_USE:1:99:1"))
+                    .willReturn(new AttackTokenBalance(1, 0));
 
             UseItemResponse response = itemService.useItem(1L, new UseItemRequest(10L, null));
 
-            then(attackTokenRepository).should().save(any(AttackToken.class));
             assertThat(response.result().normalCount()).isEqualTo(1); // 0 + 1
             assertThat(response.result().precisionCount()).isEqualTo(0);
         }

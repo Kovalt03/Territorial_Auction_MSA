@@ -1,9 +1,6 @@
 package com.territorial.auction.domain.season.service;
 
-import com.territorial.auction.domain.building.entity.GlobalVault;
-import com.territorial.auction.domain.building.repository.GlobalVaultRepository;
-import com.territorial.auction.domain.military.entity.AttackToken;
-import com.territorial.auction.domain.military.repository.AttackTokenRepository;
+import com.territorial.auction.domain.combat.client.CombatResourceClient;
 import com.territorial.auction.domain.season.entity.Season;
 import com.territorial.auction.domain.season.entity.SeasonReward;
 import com.territorial.auction.domain.season.entity.UserTrophy;
@@ -12,7 +9,6 @@ import com.territorial.auction.domain.season.repository.SeasonRepository;
 import com.territorial.auction.domain.season.repository.SeasonRewardRepository;
 import com.territorial.auction.domain.season.repository.UserSeasonPassRepository;
 import com.territorial.auction.domain.season.repository.UserTrophyRepository;
-import com.territorial.auction.domain.user.repository.UserRepository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -40,9 +36,7 @@ public class SeasonEndBatchService {
     private final SeasonRepository seasonRepository;
     private final UserTrophyRepository userTrophyRepository;
     private final SeasonRewardRepository seasonRewardRepository;
-    private final GlobalVaultRepository globalVaultRepository;
-    private final UserRepository userRepository;
-    private final AttackTokenRepository attackTokenRepository;
+    private final CombatResourceClient combatResourceClient;
     private final UserSeasonPassRepository userSeasonPassRepository;
 
     @Transactional
@@ -74,8 +68,8 @@ public class SeasonEndBatchService {
             }
             RewardSpec spec = REWARD_TABLE.get(trophy.getLeague());
             saveRewardRecord(trophy, season, spec);
-            creditVault(trophy.getUserId(), spec);
-            creditAttackTokens(trophy.getUserId(), spec);
+            creditVault(trophy.getUserId(), season.getId(), spec);
+            creditAttackTokens(trophy.getUserId(), season.getId(), spec);
         }
     }
 
@@ -93,30 +87,19 @@ public class SeasonEndBatchService {
     }
 
     // 시즌 보상 GP는 위치가 없으므로 금고로 적립한다. 금고가 없으면 만든다.
-    private void creditVault(Long userId, RewardSpec spec) {
+    private void creditVault(Long userId, Long seasonId, RewardSpec spec) {
         if (spec.gp() <= 0) return;
-        globalVaultRepository
-                .findByIdWithLock(userId)
-                .orElseGet(
-                        () ->
-                                globalVaultRepository.save(
-                                        GlobalVault.builder()
-                                                .user(userRepository.getReferenceById(userId))
-                                                .build()))
-                .receiveGp(spec.gp());
+        combatResourceClient.creditGp(
+                userId, spec.gp(), "SEASON_END:" + seasonId + ":" + userId + ":GP");
     }
 
-    private void creditAttackTokens(Long userId, RewardSpec spec) {
+    private void creditAttackTokens(Long userId, Long seasonId, RewardSpec spec) {
         if (spec.normalToken() == 0 && spec.precisionToken() == 0) return;
-        AttackToken token =
-                attackTokenRepository
-                        .findByUserIdWithLock(userId)
-                        .orElseThrow(
-                                () ->
-                                        new IllegalStateException(
-                                                "AttackToken not found for userId=" + userId));
-        token.addNormal(spec.normalToken());
-        token.addPrecision(spec.precisionToken());
+        combatResourceClient.creditAttackTokens(
+                userId,
+                spec.normalToken(),
+                spec.precisionToken(),
+                "SEASON_END:" + seasonId + ":" + userId + ":ATTACK_TOKEN");
     }
 
     private void resetTrophies(Season season, List<UserTrophy> trophies) {

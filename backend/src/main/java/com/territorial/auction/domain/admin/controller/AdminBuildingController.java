@@ -1,12 +1,12 @@
 package com.territorial.auction.domain.admin.controller;
 
+import com.territorial.auction.domain.admin.dto.AdminBuildingTypeCatalogResponse;
+import com.territorial.auction.domain.admin.dto.AdminBuildingTypeCatalogResponse.BuildingTypeInfo;
 import com.territorial.auction.domain.admin.dto.AdminCreateBuildingTypeRequest;
 import com.territorial.auction.domain.admin.dto.AdminLevelSpecsRequest;
 import com.territorial.auction.domain.admin.dto.AdminLevelSpecsRequest.LevelSpecValues;
 import com.territorial.auction.domain.admin.dto.AdminUpdateBuildingTypeRequest;
 import com.territorial.auction.domain.admin.service.AdminBuildingService;
-import com.territorial.auction.domain.building.dto.BuildingTypeCatalogResponse;
-import com.territorial.auction.domain.building.dto.BuildingTypeCatalogResponse.BuildingTypeInfo;
 import com.territorial.auction.global.common.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +29,7 @@ public class AdminBuildingController {
     private final AdminBuildingService adminBuildingService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<BuildingTypeCatalogResponse>> getBuildingTypes() {
+    public ResponseEntity<ApiResponse<AdminBuildingTypeCatalogResponse>> getBuildingTypes() {
         return ResponseEntity.ok(ApiResponse.ok(adminBuildingService.getBuildingTypes()));
     }
 

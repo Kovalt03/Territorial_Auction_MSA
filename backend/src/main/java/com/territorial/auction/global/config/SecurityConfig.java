@@ -1,6 +1,7 @@
 package com.territorial.auction.global.config;
 
 import com.territorial.auction.global.security.CustomUserDetailsService;
+import com.territorial.auction.global.security.InternalApiSecretFilter;
 import com.territorial.auction.global.security.jwt.JwtAuthenticationFilter;
 import com.territorial.auction.global.security.jwt.JwtTokenProvider;
 import com.territorial.auction.global.security.oauth2.CustomOAuth2UserService;
@@ -8,6 +9,7 @@ import com.territorial.auction.global.security.oauth2.OAuth2FailureHandler;
 import com.territorial.auction.global.security.oauth2.OAuth2SuccessHandler;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -40,7 +42,9 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http, @Value("${internal-api.secret}") String internalApiSecret)
+            throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
                 .sessionManagement(
@@ -90,6 +94,9 @@ public class SecurityConfig {
                                                                 customOAuth2UserService))
                                         .successHandler(oAuth2SuccessHandler)
                                         .failureHandler(oAuth2FailureHandler))
+                .addFilterBefore(
+                        new InternalApiSecretFilter(internalApiSecret),
+                        UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(
                         new JwtAuthenticationFilter(jwtTokenProvider, stringRedisTemplate),
                         UsernamePasswordAuthenticationFilter.class);

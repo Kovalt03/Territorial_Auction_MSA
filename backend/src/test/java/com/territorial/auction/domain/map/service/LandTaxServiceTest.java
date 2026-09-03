@@ -2,6 +2,9 @@ package com.territorial.auction.domain.map.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -9,9 +12,7 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 
-import com.territorial.auction.domain.building.entity.GlobalVault;
-import com.territorial.auction.domain.building.repository.BuildingInstanceRepository;
-import com.territorial.auction.domain.building.repository.GlobalVaultRepository;
+import com.territorial.auction.domain.combat.client.CombatResourceClient;
 import com.territorial.auction.domain.map.LandTaxPolicy;
 import com.territorial.auction.domain.map.dto.TaxLogResponse;
 import com.territorial.auction.domain.map.dto.TaxStatusResponse;
@@ -56,8 +57,7 @@ class LandTaxServiceTest {
     @Mock private TerritoryRepository territoryRepository;
     @Mock private LandTaxLogRepository landTaxLogRepository;
     @Mock private UserSeasonPassRepository userSeasonPassRepository;
-    @Mock private GlobalVaultRepository globalVaultRepository;
-    @Mock private BuildingInstanceRepository buildingInstanceRepository;
+    @Mock private CombatResourceClient combatResourceClient;
     @Mock private UserRepository userRepository;
     @Mock private NotificationService notificationService;
     @Mock private RedisTemplate<String, Object> redisTemplate;
@@ -386,12 +386,6 @@ class LandTaxServiceTest {
                     .thenReturn(Optional.empty());
         }
 
-        private GlobalVault vaultWith(int gp) {
-            GlobalVault vault = mock(GlobalVault.class);
-            lenient().when(vault.getStoredGp()).thenReturn(gp);
-            return vault;
-        }
-
         private Territory mockTerritory(String gradeStr) {
             TerritoryGrade grade = mock(TerritoryGrade.class);
             given(grade.getGrade()).willReturn(gradeStr);
@@ -418,7 +412,9 @@ class LandTaxServiceTest {
             landTaxService.processUserTax(1L);
 
             then(landTaxLogRepository).should().save(any(LandTaxLog.class));
-            then(globalVaultRepository).should(never()).findById(any());
+            then(combatResourceClient)
+                    .should(never())
+                    .chargeTax(any(), anyInt(), anyList(), anyString());
         }
 
         @Test
@@ -426,16 +422,14 @@ class LandTaxServiceTest {
         void processUserTax_gpSufficient_savesPaidLog() {
             // taxableCount = 4-3 = 1 → taxAmount = 50
             given(territoryRepository.countByOwnerId(1L)).willReturn(4L);
-            GlobalVault vault = vaultWith(100);
-            // 잔액 조회는 findById(읽기), 차감은 findByIdWithLock(쓰기 — 갱신 유실 방지 락)
-            given(globalVaultRepository.findById(1L)).willReturn(Optional.of(vault));
-            given(globalVaultRepository.findByIdWithLock(1L)).willReturn(Optional.of(vault));
             given(territoryRepository.findAllOccupiedByOwnerId(eq(1L), any()))
                     .willReturn(new ArrayList<>());
+            given(combatResourceClient.chargeTax(eq(1L), eq(50), anyList(), anyString()))
+                    .willReturn(true);
 
             landTaxService.processUserTax(1L);
 
-            then(vault).should().withdrawGp(50);
+            then(combatResourceClient).should().chargeTax(eq(1L), eq(50), anyList(), anyString());
             then(landTaxLogRepository).should().save(any(LandTaxLog.class));
             then(redisTemplate).should().delete("land_tax:grace:1");
         }
