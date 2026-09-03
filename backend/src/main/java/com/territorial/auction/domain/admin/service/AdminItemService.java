@@ -1,55 +1,48 @@
 package com.territorial.auction.domain.admin.service;
 
+import com.territorial.auction.domain.admin.client.ItemAdminClient;
+import com.territorial.auction.domain.admin.client.ItemAdminClient.GrantResult;
+import com.territorial.auction.domain.admin.client.ItemAdminClient.ItemView;
 import com.territorial.auction.domain.admin.dto.AdminGrantItemRequest;
 import com.territorial.auction.domain.admin.dto.AdminItemListResponse;
 import com.territorial.auction.domain.admin.dto.AdminItemResponse;
 import com.territorial.auction.domain.admin.dto.AdminUpdateItemRequest;
-import com.territorial.auction.domain.item.entity.Item;
-import com.territorial.auction.domain.item.entity.UserItem;
-import com.territorial.auction.domain.item.repository.ItemRepository;
-import com.territorial.auction.domain.item.repository.UserItemRepository;
-import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.repository.UserRepository;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
+/** 아이템 소유는 item-service. admin은 감사 로그만 모놀리식에 남기고 실제 아이템 조작은 위임한다. */
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class AdminItemService {
 
-    private final ItemRepository itemRepository;
-    private final UserItemRepository userItemRepository;
+    private final ItemAdminClient itemAdminClient;
     private final UserRepository userRepository;
     private final AdminAuditLogger adminAuditLogger;
 
     public AdminItemListResponse getItems() {
         List<AdminItemResponse> items =
-                itemRepository.findAll().stream().map(AdminItemResponse::from).toList();
+                itemAdminClient.listItems().stream().map(AdminItemResponse::from).toList();
         return new AdminItemListResponse(items);
     }
 
-    @Transactional
     public AdminItemResponse updateItem(
             Long adminUserId, Long itemId, AdminUpdateItemRequest request) {
-        Item item =
-                itemRepository
-                        .findById(itemId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.ITEM_NOT_FOUND));
+        ItemView current = findItemOrThrow(itemId);
 
         Map<String, Object> before = new HashMap<>();
-        before.put("costAp", item.getCostAp());
-        before.put("costGp", item.getCostGp());
-        before.put("dailyLimit", item.getDailyLimit());
+        before.put("costAp", current.costAp());
+        before.put("costGp", current.costGp());
+        before.put("dailyLimit", current.dailyLimit());
 
-        item.updatePolicy(request.costAp(), request.costGp(), request.dailyLimit());
+        ItemView updated =
+                itemAdminClient.updatePolicy(
+                        itemId, request.costAp(), request.costGp(), request.dailyLimit());
 
         Map<String, Object> detail = new HashMap<>();
         detail.put("before", before);
@@ -57,43 +50,33 @@ public class AdminItemService {
         detail.put("costGp", request.costGp());
         detail.put("dailyLimit", request.dailyLimit());
         adminAuditLogger.record(adminUserId, "ITEM_POLICY_UPDATE", "ITEM", itemId, detail);
-        return AdminItemResponse.from(item);
+        return AdminItemResponse.from(updated);
     }
 
-    // CS 보상용 아이템 직접 지급. 기존 보유분에 수량을 더한다(없으면 신규 생성).
-    @Transactional
+    // CS 보상용 아이템 직접 지급. 지급은 item-service가 수행, 감사 로그는 모놀리식 유지.
     public void grantItem(Long adminUserId, AdminGrantItemRequest request) {
-        User user =
-                userRepository
-                        .findById(request.userId())
-                        .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        Item item =
-                itemRepository
-                        .findById(request.itemId())
-                        .orElseThrow(() -> new CustomException(ErrorCode.ITEM_NOT_FOUND));
-
-        userItemRepository
-                .findByUser_IdAndItem_Id(user.getId(), item.getId())
-                .ifPresentOrElse(
-                        existing -> existing.add(request.quantity()),
-                        () ->
-                                userItemRepository.save(
-                                        UserItem.builder()
-                                                .user(user)
-                                                .item(item)
-                                                .quantity(request.quantity())
-                                                .createdAt(LocalDateTime.now())
-                                                .build()));
+        if (!userRepository.existsById(request.userId())) {
+            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        }
+        GrantResult result =
+                itemAdminClient.grantById(request.userId(), request.itemId(), request.quantity());
 
         adminAuditLogger.record(
                 adminUserId,
                 "ITEM_GRANT",
                 "USER",
-                user.getId(),
+                request.userId(),
                 Map.of(
-                        "itemId", item.getId(),
-                        "itemName", item.getName(),
+                        "itemId", result.itemId(),
+                        "itemName", result.itemName(),
                         "quantity", request.quantity(),
                         "reason", request.reason()));
+    }
+
+    private ItemView findItemOrThrow(Long itemId) {
+        return itemAdminClient.listItems().stream()
+                .filter(i -> i.itemId().equals(itemId))
+                .findFirst()
+                .orElseThrow(() -> new CustomException(ErrorCode.ITEM_NOT_FOUND));
     }
 }

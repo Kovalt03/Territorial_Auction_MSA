@@ -12,14 +12,12 @@ import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 
 import com.territorial.auction.domain.combat.client.CombatResourceClient;
-import com.territorial.auction.domain.item.entity.Item;
-import com.territorial.auction.domain.item.entity.UserItem;
-import com.territorial.auction.domain.item.repository.ItemRepository;
-import com.territorial.auction.domain.item.repository.UserItemRepository;
+import com.territorial.auction.domain.season.client.ItemGrantClient;
 import com.territorial.auction.domain.season.dto.MySeasonPassResponse;
 import com.territorial.auction.domain.season.dto.PurchaseLevelResponse;
 import com.territorial.auction.domain.season.dto.PurchaseSeasonPassResponse;
 import com.territorial.auction.domain.season.dto.SeasonPassResponse;
+import com.territorial.auction.domain.season.entity.RewardItemType;
 import com.territorial.auction.domain.season.entity.Season;
 import com.territorial.auction.domain.season.entity.SeasonPass;
 import com.territorial.auction.domain.season.entity.SeasonPassLevelReward;
@@ -68,8 +66,7 @@ class SeasonPassServiceTest {
     @Mock private UserRepository userRepository;
     @Mock private WalletClient walletClient;
     @Mock private CombatResourceClient combatResourceClient;
-    @Mock private ItemRepository itemRepository;
-    @Mock private UserItemRepository userItemRepository;
+    @Mock private ItemGrantClient itemGrantClient;
     @Mock private RedisTemplate<String, Object> redisTemplate;
     @Mock private ValueOperations<String, Object> valueOps;
 
@@ -421,9 +418,10 @@ class SeasonPassServiceTest {
         }
 
         @Test
-        @DisplayName("ITEM 보상 - 인벤토리에 아이템 지급(신규 UserItem 저장) + 수령 기록")
-        void itemReward_grantsItem() {
+        @DisplayName("ITEM 보상 - item-service로 지급 위임(타입·수량) + 수령 기록")
+        void itemReward_delegatesToItemService() {
             User user = Mockito.mock(User.class);
+            given(user.getId()).willReturn(1L);
             Season season = buildSeason(1L, 1);
             SeasonPassLevelReward reward =
                     SeasonPassLevelReward.builder()
@@ -432,12 +430,10 @@ class SeasonPassServiceTest {
                             .track(SeasonPassLevelReward.RewardTrack.FREE)
                             .rewardName("일반 공격권 x2")
                             .rewardKind(SeasonPassLevelReward.RewardKind.ITEM)
-                            .itemType(Item.ItemType.ATTACK_NORMAL)
+                            .itemType(RewardItemType.ATTACK_NORMAL)
                             .quantity(2)
                             .build();
             ReflectionTestUtils.setField(reward, "id", 1L);
-            Item item = Item.builder().name("일반 공격권").itemType(Item.ItemType.ATTACK_NORMAL).build();
-            ReflectionTestUtils.setField(item, "id", 2L);
 
             given(seasonPassLevelRewardRepository.findById(1L)).willReturn(Optional.of(reward));
             given(seasonPassProgressRepository.findByUser_IdAndSeason_Id(1L, 1L))
@@ -445,59 +441,11 @@ class SeasonPassServiceTest {
             given(seasonPassRewardClaimRepository.existsByUser_IdAndReward_Id(1L, 1L))
                     .willReturn(false);
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(itemRepository.findByItemType(Item.ItemType.ATTACK_NORMAL))
-                    .willReturn(Optional.of(item));
-            given(userItemRepository.findByUser_IdAndItem_Id(any(), any()))
-                    .willReturn(Optional.empty());
 
             seasonPassService.claimReward(1L, 1L);
 
             then(seasonPassRewardClaimRepository).should().save(any());
-            then(userItemRepository).should().save(any(UserItem.class));
-        }
-
-        @Test
-        @DisplayName("ITEM 보상 - 기존 보유 시 수량 증가")
-        void itemReward_incrementsExisting() {
-            User user = Mockito.mock(User.class);
-            Season season = buildSeason(1L, 1);
-            SeasonPassLevelReward reward =
-                    SeasonPassLevelReward.builder()
-                            .season(season)
-                            .level(5)
-                            .track(SeasonPassLevelReward.RewardTrack.FREE)
-                            .rewardName("무적권 x3")
-                            .rewardKind(SeasonPassLevelReward.RewardKind.ITEM)
-                            .itemType(Item.ItemType.INVINCIBILITY)
-                            .quantity(3)
-                            .build();
-            ReflectionTestUtils.setField(reward, "id", 1L);
-            Item item =
-                    Item.builder().name("무적 시간 추가권").itemType(Item.ItemType.INVINCIBILITY).build();
-            ReflectionTestUtils.setField(item, "id", 2L);
-            UserItem existing =
-                    UserItem.builder()
-                            .user(user)
-                            .item(item)
-                            .quantity(1)
-                            .createdAt(LocalDateTime.now())
-                            .build();
-
-            given(seasonPassLevelRewardRepository.findById(1L)).willReturn(Optional.of(reward));
-            given(seasonPassProgressRepository.findByUser_IdAndSeason_Id(1L, 1L))
-                    .willReturn(Optional.of(progressAtLevel(user, season, 10)));
-            given(seasonPassRewardClaimRepository.existsByUser_IdAndReward_Id(1L, 1L))
-                    .willReturn(false);
-            given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(itemRepository.findByItemType(Item.ItemType.INVINCIBILITY))
-                    .willReturn(Optional.of(item));
-            given(userItemRepository.findByUser_IdAndItem_Id(any(), any()))
-                    .willReturn(Optional.of(existing));
-
-            seasonPassService.claimReward(1L, 1L);
-
-            assertThat(existing.getQuantity()).isEqualTo(4);
-            then(userItemRepository).should(never()).save(any());
+            then(itemGrantClient).should().grantByType(1L, "ATTACK_NORMAL", 2);
         }
 
         @Test
@@ -525,7 +473,9 @@ class SeasonPassServiceTest {
             seasonPassService.claimReward(1L, 1L);
 
             then(combatResourceClient).should().creditGp(1L, 500, "SEASON_PASS_REWARD:1:1");
-            then(itemRepository).should(never()).findByItemType(any());
+            then(itemGrantClient)
+                    .should(never())
+                    .grantByType(any(), any(), org.mockito.ArgumentMatchers.anyInt());
         }
 
         @Test
@@ -540,7 +490,7 @@ class SeasonPassServiceTest {
                             .track(SeasonPassLevelReward.RewardTrack.FREE)
                             .rewardName("일반 공격권 x1")
                             .rewardKind(SeasonPassLevelReward.RewardKind.ITEM)
-                            .itemType(Item.ItemType.ATTACK_NORMAL)
+                            .itemType(RewardItemType.ATTACK_NORMAL)
                             .quantity(1)
                             .build();
             ReflectionTestUtils.setField(reward, "id", 1L);
@@ -555,7 +505,7 @@ class SeasonPassServiceTest {
                     .isInstanceOf(CustomException.class)
                     .extracting(e -> ((CustomException) e).getErrorCode())
                     .isEqualTo(ErrorCode.REWARD_ALREADY_CLAIMED);
-            then(userItemRepository).should(never()).save(any());
+            then(itemGrantClient).should(never()).grantByType(any(), any(), anyInt());
         }
     }
 
