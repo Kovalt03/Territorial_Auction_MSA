@@ -4,6 +4,7 @@ import com.territorial.auction.global.exception.CustomException;
 import com.territorial.user.domain.user.dto.ChangeNicknameResponse;
 import com.territorial.user.domain.user.dto.NotificationSettingResponse;
 import com.territorial.user.domain.user.dto.UpdateNotificationSettingRequest;
+import com.territorial.user.domain.user.dto.UserNicknameResponse;
 import com.territorial.user.domain.user.entity.NotificationSetting;
 import com.territorial.user.domain.user.entity.User;
 import com.territorial.user.domain.user.repository.NotificationSettingRepository;
@@ -17,6 +18,7 @@ import com.territorial.user.global.security.JwtTokenProvider;
 import com.territorial.user.global.security.RefreshTokenService;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -42,6 +44,16 @@ public class UserService {
     private final RefreshTokenService refreshTokenService;
     private final JwtTokenProvider jwtTokenProvider;
     private final StringRedisTemplate redisTemplate;
+
+    // 표시용 닉네임 배치 조회 — ranking-service 등이 userId 목록으로 조회. 목록 조회라 없으면 빈 리스트.
+    public List<UserNicknameResponse> getNicknames(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return List.of();
+        }
+        return userRepository.findAllById(userIds).stream()
+                .map(UserNicknameResponse::from)
+                .toList();
+    }
 
     /** 셀프 탈퇴. 상태=WITHDRAWN → 로그인 즉시 차단, refresh 삭제, access 토큰 블랙리스트(공유). */
     @Transactional

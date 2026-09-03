@@ -1,8 +1,10 @@
 package com.territorial.user.domain.user.controller;
 
 import com.territorial.user.domain.user.dto.OAuthProvisionResult;
+import com.territorial.user.domain.user.dto.UserNicknameResponse;
 import com.territorial.user.domain.user.service.UserProvisioningService;
 import com.territorial.user.domain.user.service.UserService;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -34,6 +36,13 @@ public class UserProvisioningInternalController {
             @PathVariable Long userId, @RequestBody ChangeStatusRequest request) {
         userService.changeStatus(userId, request.status());
         return ResponseEntity.ok().build();
+    }
+
+    /** 표시용 닉네임 배치 조회. ranking-service가 랭킹 응답에 닉네임을 붙일 때 호출한다. */
+    @PostMapping("/nicknames")
+    public ResponseEntity<List<UserNicknameResponse>> getNicknames(
+            @RequestBody List<Long> userIds) {
+        return ResponseEntity.ok(userService.getNicknames(userIds));
     }
 
     public record ProvisionOAuthRequest(String username, String email, String nickname) {}
