@@ -1,8 +1,7 @@
 package com.territorial.auction.domain.map.service;
 
-import com.territorial.auction.domain.building.StoragePolicy;
-import com.territorial.auction.domain.building.entity.BuildingInstance;
-import com.territorial.auction.domain.building.repository.BuildingInstanceRepository;
+import com.territorial.auction.domain.combat.client.CombatResourceClient;
+import com.territorial.auction.domain.combat.client.CombatResourceClient.TerritoryStorageView;
 import com.territorial.auction.domain.map.dto.GridMapResponse;
 import com.territorial.auction.domain.map.dto.TerritoryDetailResponse;
 import com.territorial.auction.domain.map.entity.ColorHistory;
@@ -33,7 +32,7 @@ public class MapService {
 
     private final TerritoryRepository territoryRepository;
     private final TerritoryAuctionStatusRepository territoryAuctionStatusRepository;
-    private final BuildingInstanceRepository buildingInstanceRepository;
+    private final CombatResourceClient combatResourceClient;
     private final ColorHistoryRepository colorHistoryRepository;
     private final TerritoryIncomeService territoryIncomeService;
 
@@ -80,16 +79,17 @@ public class MapService {
                         .findByIdWithDetails(territoryId)
                         .orElseThrow(() -> new CustomException(ErrorCode.TERRITORY_NOT_FOUND));
 
+        TerritoryStorageView combat = combatResourceClient.getTerritoryStorage(territoryId);
         List<TerritoryDetailResponse.BuildingInfo> buildingInfos =
-                buildingInstanceRepository.findByTerritoryId(territoryId).stream()
+                combat.buildings().stream()
                         .map(
                                 b ->
                                         new TerritoryDetailResponse.BuildingInfo(
-                                                b.getId(),
-                                                b.getBuildingType().getName(),
-                                                b.getLevel(),
-                                                b.getHp(),
-                                                b.getBuildingType().getMaxHp()))
+                                                b.buildingId(),
+                                                b.name(),
+                                                b.level(),
+                                                b.hp(),
+                                                b.maxHp()))
                         .toList();
 
         TerritoryDetailResponse.OwnerInfo owner =
@@ -112,18 +112,14 @@ public class MapService {
                         .orElse(null);
 
         // 성·저장소가 함께 GP 를 담는다. 점유 중이면 성이 있어 목록이 비지 않는다.
-        List<BuildingInstance> storages =
-                (territory.getStatus() == TerritoryStatus.OCCUPIED)
-                        ? buildingInstanceRepository.findStorageBuildingsByTerritoryId(territoryId)
-                        : List.of();
-        boolean hasStorage = !storages.isEmpty();
+        boolean hasStorage =
+                territory.getStatus() == TerritoryStatus.OCCUPIED && combat.storageCapacity() > 0;
 
         Integer productionRatePerMin =
                 hasStorage ? territoryIncomeService.calculateEffectiveRate(territory) : null;
         LocalDateTime lastProducedAt = hasStorage ? territory.getLastProducedAt() : null;
-        Integer storedGp = hasStorage ? StoragePolicy.totalGp(storages) : null;
-        Integer storageCapacity =
-                hasStorage ? storages.stream().mapToInt(StoragePolicy::capacity).sum() : null;
+        Integer storedGp = hasStorage ? combat.storedGp() : null;
+        Integer storageCapacity = hasStorage ? combat.storageCapacity() : null;
 
         return new TerritoryDetailResponse(
                 territory.getId(),

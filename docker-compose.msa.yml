@@ -214,8 +214,7 @@ services:
       kafka:
         condition: service_healthy
 
-  # ── combat-service scaffold ─────────────────────────────
-  # 공개 API는 cutover 전까지 backend가 담당한다. 현재는 DB·내부 보안·health만 검증한다.
+  # ── combat-service ──────────────────────────────────────
   combat-service:
     build:
       context: .
@@ -232,6 +231,8 @@ services:
       REDIS_PORT: 6379
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MONOLITH_BASE_URL: http://backend:8080
+      USER_SERVICE_BASE_URL: http://user-service:8080
     ports:
       - "8084:8080"
     depends_on:
@@ -254,14 +255,17 @@ services:
       TZ: Asia/Seoul
       AUCTION_SERVICE_URL: http://auction-service:8080
       USER_SERVICE_URL: http://user-service:8080
+      COMBAT_SERVICE_URL: http://combat-service:8080
       MONOLITH_URL: http://backend:8080
       MONOLITH_WS_URL: ws://backend:8080
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
     ports:
       - "8090:8080"
     depends_on:
       - backend
       - auction-service
       - user-service
+      - combat-service
 
   # ── 프론트 (게이트웨이로 프록시) ──────────────────────────
   frontend:

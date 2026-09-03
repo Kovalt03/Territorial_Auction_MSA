@@ -1,6 +1,6 @@
 # 시스템 아키텍처
 
-> 모놀리식 Spring Boot로 시작해 도메인 경계를 확립하고, 부하 측정 결과를 근거로 **MSA 전환에 착수**했다. 현재 auction-service와 user-service 추출이 완료됐으며 combat-service는 building·unit/research·siege core와 outbox, 외부 계약·이벤트 bridge까지 이관했다. 아래 "MSA 런타임(현재)"과 [전환 허브](./msa/README.md)를 기준으로 한다.
+> 모놀리식 Spring Boot로 시작해 도메인 경계를 확립하고, 부하 측정 결과를 근거로 **MSA 전환에 착수**했다. 현재 auction-service와 user-service 추출이 완료됐으며 combat-service는 building·island/vault·unit/research·siege 공개 API와 데이터 소유권까지 이관해 cutover 검증 중이다. 아래 "MSA 런타임(현재)"과 [전환 허브](./msa/README.md)를 기준으로 한다.
 
 아래 그림은 MSA 전환 전 계층형 모놀리식 기준 구조다.
 
@@ -57,24 +57,21 @@ com.territorial.auction
 
 ## MSA 런타임 (현재)
 
-부하 테스트에서 단일 인기 경매의 지속 경합이 병목으로 확인돼 auction을 첫 서비스로 추출했고, 이어 user/auth를 user-service로 추출했다. 현재 MSA compose에는 잔여 모놀리식 + auction-service + user-service + gateway와 building·unit/research·siege 및 outbox를 소유하는 combat-service가 포함된다. combat은 내부 계약까지 연결됐고 공개 경로는 cutover 전까지 모놀리식이 처리한다([구동](./msa/local-run.md)).
+부하 테스트에서 단일 인기 경매의 지속 경합이 병목으로 확인돼 auction을 첫 서비스로 추출했고, 이어 user/auth를 user-service로 추출했다. 현재 MSA compose에는 잔여 모놀리식 + auction-service + user-service + gateway와 building·island/vault·unit/research·siege를 소유하는 combat-service가 포함된다. gateway가 combat 공개 경로를 우선 라우팅하고, 잔여 모놀리식은 내부 HTTP 계약과 Kafka 이벤트로만 combat과 협력한다([구동](./msa/local-run.md)).
 
 ```text
             ┌───────────────┐
 Client ───▶ │  API Gateway  │  JWT 검증 → X-User-Id 주입, 경로 라우팅
             └──────┬────────┘
- /api/v1/auctions/**   user 소유 경로       그 외 · /ws
-          │                  │                  │
-          ▼                  ▼                  ▼
- ┌───────────────┐  ┌──────────────┐  ┌──────────────┐
- │auction-service│  │ user-service │  │  모놀리식     │
- │  (auction DB) │  │  (user DB)   │  │(잔여 도메인 DB│
- └───────┬───────┘  └──────┬───────┘  │ + realtime WS)│
-         └──── 내부 HTTP·비동기 이벤트 ┴──┤              │
-                                         └──────────────┘
+ auction 경로       user 소유 경로       combat 경로       그 외 · /ws
+      │                   │                   │                 │
+      ▼                   ▼                   ▼                 ▼
+ auction-service     user-service       combat-service       모놀리식
+  (auction DB)        (user DB)           (combat DB)     (잔여 DB+realtime)
+      └──────────── 내부 HTTP·Kafka 이벤트로 협력 ─────────────┘
 ```
 
-- **게이트웨이**(Spring Cloud Gateway): auction 경로는 auction-service, 인증과 user-service 소유 프로필 명령은 user-service, 그 외와 `/ws`는 모놀리식으로 보낸다. 유입 `X-User-Id`를 제거하고 유효 JWT의 subject를 다시 주입한다.
+- **게이트웨이**(Spring Cloud Gateway): auction, user 소유 경로, combat 공개 경로를 각 서비스로 보내고 그 외와 `/ws`는 모놀리식으로 보낸다. 유입 인증 헤더를 제거하고 유효 JWT의 subject를 다시 주입하며 combat 요청에는 gateway 전용 토큰도 넣는다.
 - **DB 분리**: auction-service, user-service, combat-service는 각각 전용 PostgreSQL을 소유하며 다른 서비스 DB를 직접 조회하지 않는다.
 - **동기 통신**(`/internal`): combat-service는 map 영토 context, user AP, season benefit을 조회하고 모놀리식 admin은 combat 설정·집계를 위임한다. auction-service의 초기 성 생성도 combat-service를 직접 호출한다. [계약](../api/internal.md)
 - **비동기 통신**: Kafka가 경매·user projection과 combat 공성 결과·영토 상실의 durable 경로를 담당한다. Redis pub/sub은 auction 입찰·정산의 WebSocket 저지연 경로에만 병행한다. [내부 계약](../api/internal.md)

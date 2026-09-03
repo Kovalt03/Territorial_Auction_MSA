@@ -36,6 +36,26 @@ class UserIdInjectionFilterTest {
         assertThat(result.getRequest().getHeaders().containsKey("X-User-Id")).isFalse();
     }
 
+    @Test
+    void removesIncomingGatewayServiceToken() {
+        MockServerHttpRequest request =
+                MockServerHttpRequest.get("/api/v1/military/units")
+                        .header("X-Gateway-Service-Token", "forged")
+                        .build();
+        AtomicReference<ServerWebExchange> result = new AtomicReference<>();
+
+        filter.filter(
+                        MockServerWebExchange.from(request),
+                        exchange -> {
+                            result.set(exchange);
+                            return Mono.empty();
+                        })
+                .block();
+
+        assertThat(result.get().getRequest().getHeaders().containsKey("X-Gateway-Service-Token"))
+                .isFalse();
+    }
+
     private ServerWebExchange filter(String token, String incomingUserId) {
         MockServerHttpRequest request =
                 MockServerHttpRequest.get("/api/v1/auctions")

@@ -7,9 +7,9 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import com.territorial.auction.domain.building.entity.BuildingInstance;
-import com.territorial.auction.domain.building.entity.BuildingType;
-import com.territorial.auction.domain.building.repository.BuildingInstanceRepository;
+import com.territorial.auction.domain.combat.client.CombatResourceClient;
+import com.territorial.auction.domain.combat.client.CombatResourceClient.BuildingView;
+import com.territorial.auction.domain.combat.client.CombatResourceClient.TerritoryStorageView;
 import com.territorial.auction.domain.map.dto.GridMapResponse;
 import com.territorial.auction.domain.map.dto.TerritoryDetailResponse;
 import com.territorial.auction.domain.map.entity.ColorHistory;
@@ -28,6 +28,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -44,7 +45,7 @@ class MapServiceTest {
 
     @Mock private TerritoryRepository territoryRepository;
     @Mock private TerritoryAuctionStatusRepository territoryAuctionStatusRepository;
-    @Mock private BuildingInstanceRepository buildingInstanceRepository;
+    @Mock private CombatResourceClient combatResourceClient;
     @Mock private ColorHistoryRepository colorHistoryRepository;
 
     // ────────────────────────────────────────────────────────────────
@@ -107,29 +108,13 @@ class MapServiceTest {
         return t;
     }
 
-    private BuildingInstance buildingInstance(Territory territory) {
-        BuildingType castle =
-                BuildingType.builder()
-                        .name("CASTLE")
-                        .width(2)
-                        .height(2)
-                        .maxHp(1000)
-                        .baseCostGp(500)
-                        .zoneRestriction(1)
-                        .build();
-        ReflectionTestUtils.setField(castle, "id", 1L);
-
-        BuildingInstance b =
-                BuildingInstance.builder()
-                        .territory(territory)
-                        .buildingType(castle)
-                        .posX(0)
-                        .posY(0)
-                        .hp(800)
-                        .zone(1)
-                        .build();
-        ReflectionTestUtils.setField(b, "id", 1L);
-        return b;
+    @BeforeEach
+    void setUpCombatStorage() {
+        org.mockito.Mockito.lenient()
+                .when(
+                        combatResourceClient.getTerritoryStorage(
+                                org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(new TerritoryStorageView(List.of(), 0, 0));
     }
 
     private TerritoryAuctionStatus auctionStatus(Long territoryId) {
@@ -219,7 +204,6 @@ class MapServiceTest {
         void getTerritoryDetail_success() {
             Territory t = territory(1L, 3, 7);
             given(territoryRepository.findByIdWithDetails(1L)).willReturn(Optional.of(t));
-            given(buildingInstanceRepository.findByTerritoryId(1L)).willReturn(List.of());
             given(territoryAuctionStatusRepository.findByTerritoryIdAndEndAtAfter(any(), any()))
                     .willReturn(Optional.empty());
 
@@ -237,7 +221,6 @@ class MapServiceTest {
         void getTerritoryDetail_withOwner() {
             Territory t = occupiedTerritory(1L, 0, 0);
             given(territoryRepository.findByIdWithDetails(1L)).willReturn(Optional.of(t));
-            given(buildingInstanceRepository.findByTerritoryId(1L)).willReturn(List.of());
             given(territoryAuctionStatusRepository.findByTerritoryIdAndEndAtAfter(any(), any()))
                     .willReturn(Optional.empty());
 
@@ -253,7 +236,6 @@ class MapServiceTest {
         void getTerritoryDetail_noOwner_ownerNull() {
             Territory t = territory(1L, 0, 0);
             given(territoryRepository.findByIdWithDetails(1L)).willReturn(Optional.of(t));
-            given(buildingInstanceRepository.findByTerritoryId(1L)).willReturn(List.of());
             given(territoryAuctionStatusRepository.findByTerritoryIdAndEndAtAfter(any(), any()))
                     .willReturn(Optional.empty());
 
@@ -266,9 +248,13 @@ class MapServiceTest {
         @DisplayName("건물 있음 — buildings 반환")
         void getTerritoryDetail_withBuildings() {
             Territory t = territory(1L, 0, 0);
-            BuildingInstance b = buildingInstance(t);
             given(territoryRepository.findByIdWithDetails(1L)).willReturn(Optional.of(t));
-            given(buildingInstanceRepository.findByTerritoryId(1L)).willReturn(List.of(b));
+            given(combatResourceClient.getTerritoryStorage(1L))
+                    .willReturn(
+                            new TerritoryStorageView(
+                                    List.of(new BuildingView(1L, "CASTLE", 1, 800, 1000)),
+                                    0,
+                                    5000));
             given(territoryAuctionStatusRepository.findByTerritoryIdAndEndAtAfter(any(), any()))
                     .willReturn(Optional.empty());
 
@@ -285,7 +271,6 @@ class MapServiceTest {
         void getTerritoryDetail_withActiveAuction() {
             Territory t = territory(1L, 0, 0);
             given(territoryRepository.findByIdWithDetails(1L)).willReturn(Optional.of(t));
-            given(buildingInstanceRepository.findByTerritoryId(1L)).willReturn(List.of());
             given(territoryAuctionStatusRepository.findByTerritoryIdAndEndAtAfter(any(), any()))
                     .willReturn(Optional.of(auctionStatus(1L)));
 
@@ -300,7 +285,6 @@ class MapServiceTest {
         void getTerritoryDetail_noAuction_auctionNull() {
             Territory t = territory(1L, 0, 0);
             given(territoryRepository.findByIdWithDetails(1L)).willReturn(Optional.of(t));
-            given(buildingInstanceRepository.findByTerritoryId(1L)).willReturn(List.of());
             given(territoryAuctionStatusRepository.findByTerritoryIdAndEndAtAfter(any(), any()))
                     .willReturn(Optional.empty());
 

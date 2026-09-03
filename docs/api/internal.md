@@ -12,7 +12,7 @@
 
 ## 1. user-service `/internal/*` (다른 서비스가 호출)
 
-지갑 **AP**와 **신원**(User·Wallet)은 user-service가 소유한다. GP/금고(GlobalVault)는 building/모놀리식 소유.
+지갑 **AP**와 **신원**(User·Wallet)은 user-service가 소유한다. GP/금고(GlobalVault)는 combat-service가 소유한다.
 
 ### 1-1. 지갑 — 경매 escrow (auction-service가 호출)
 
@@ -65,7 +65,7 @@
 |---|---|---|---|---|
 | POST | `/internal/territories/{id}/occupy` | `{winnerId, occupiedUntil, protectedUntil}` | 200 | 404 TERRITORY_NOT_FOUND |
 | POST | `/internal/territories/{id}/release` | `{nextAuctionAt}` | 200 | 404 TERRITORY_NOT_FOUND |
-| GET | `/internal/territories/{id}/combat-context` | — | `{territoryId, ownerId, coordX, coordY, status, protectedUntil, gridSize, zone1Radius, zone2Radius}` | 404 TERRITORY_NOT_FOUND |
+| GET | `/internal/territories/{id}/combat-context` | — | `{territoryId, ownerId, coordX, coordY, grade, status, protectedUntil, gridSize, zone1Radius, zone2Radius}` | 404 TERRITORY_NOT_FOUND |
 | GET | `/internal/territories/owners/{userId}/combat-contexts` | — | 위 DTO 배열 | — |
 
 ### 시즌 (season 도메인)
@@ -126,6 +126,24 @@
 - GP 조정은 `combat_commands`에 command key와 fingerprint를 기록한다. 같은 key·같은 요청은 한 번만 반영하고 다른 요청은 409로 거절한다.
 - 모든 요청은 gateway에 노출되지 않으며 `X-Internal-Service-Token`이 필수다.
 
+### 잔여 모놀리식의 combat 조회·자원 명령
+
+map·user projection·item·season이 combat DB를 직접 읽거나 쓰지 않고 아래 계약을 호출한다.
+
+| Method | Path | Body / Query | 응답 |
+|---|---|---|---|
+| GET | `/internal/combat/users/{userId}/summary` | — | `{vaultGp, islandId, islandLevel}` |
+| GET | `/internal/combat/territories/unit-counts` | `territoryIds=1,2` | `[{territoryId, unitCount}]` |
+| GET | `/internal/combat/territories/{territoryId}/storage` | — | `{buildings, storedGp, storageCapacity}` |
+| POST | `/internal/combat/resources/gp-credits` | `{userId, amount, commandKey}` | `{vaultGp}` |
+| POST | `/internal/combat/resources/attack-token-credits` | `{userId, normalCount, precisionCount, commandKey}` | `{normalCount, precisionCount}` |
+| POST | `/internal/combat/resources/tax-charges` | `{userId, amount, territoryIds, commandKey}` | `{paid}` |
+| POST | `/internal/combat/territories/{territoryId}/income-credits` | `{amount, commandKey}` | `{creditedGp, storedGp, storageCapacity}` |
+
+- 모든 상태 명령은 `combat_commands`에 `commandKey`, 명령 종류, request fingerprint와 최초 응답을 기록한다. 같은 key·같은 요청은 최초 응답을 반환하고 다른 요청은 409 `WALLET_COMMAND_CONFLICT`로 거절한다.
+- tax charge는 금고와 대상 영토 저장 GP를 한 combat DB 트랜잭션에서 잠그고 차감한다. 잔액 부족은 `{paid:false}`이며 부분 차감하지 않는다.
+- 공개 `/api/**`는 gateway만 넣을 수 있는 `X-Gateway-Service-Token`을 검증한 뒤 `X-User-Id`를 인증 주체로 변환한다. 두 헤더는 외부 요청에서 gateway가 먼저 제거한다.
+
 ---
 
 ## 5. 이벤트 (Kafka durable + Redis realtime)
@@ -146,7 +164,7 @@
 | `auction-events` / `auction.bid` | auction-service | `{auctionId, currentPrice, bidderId, bidderNickname, bidAt, endAt, previousBidderId, coordX, coordY}` | `backend-map-projection` 갱신. Redis realtime hub도 동시 수신 |
 | `auction-events` / `auction.settled` | auction-service | `{auctionId, territoryId, coordX, coordY, winnerId, winnerNickname, finalPrice, grade, runnerUpIds}` | `backend-ranking-relay` → 랭킹·시즌 bridge. Redis realtime hub도 동시 수신 |
 | `auction-events` / `auction.closed` | auction-service | `{auctionId, territoryId}` | `backend-map-projection` → 프로젝션 제거 |
-| `user-events` / `user.created` | user-service outbox | `{userId, username, email, nickname}` | `backend-user-projection` → User 읽기 프로젝션·NotificationSetting·UserProfile·HomeIsland·기본 성 생성 |
+| `user-events` / `user.created` | user-service outbox | `{userId, username, email, nickname}` | `backend-user-projection` → User 읽기 프로젝션·NotificationSetting·UserProfile, `combat-user-projection` → HomeIsland·기본 성 생성 |
 | `user-events` / `user.updated` | user-service outbox | `{userId, nickname}` | `backend-user-projection` → User 프로젝션 nickname 갱신 |
 | `user-events` / `user.status-changed` | user-service outbox | `{userId, status}` | `backend-user-projection` → User 프로젝션 status 갱신 |
 | `combat-events` / `combat.siege.declared` | combat-service outbox | `{siegeId, territoryId, coordX, coordY, attackZone, attackerId, attackerNickname, defenderId, defenderNickname, resolveAt}` | `backend-combat-notification` → 알림·WebSocket |

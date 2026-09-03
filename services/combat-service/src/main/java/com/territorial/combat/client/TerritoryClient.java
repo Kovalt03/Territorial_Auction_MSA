@@ -54,6 +54,7 @@ public class TerritoryClient {
             int coordY,
             String status,
             LocalDateTime protectedUntil,
+            String grade,
             int gridSize,
             int zone1Radius,
             int zone2Radius) {}

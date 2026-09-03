@@ -20,6 +20,7 @@ import reactor.core.publisher.Mono;
 public class UserIdInjectionFilter implements GlobalFilter, Ordered {
 
     private static final String USER_ID_HEADER = "X-User-Id";
+    private static final String GATEWAY_TOKEN_HEADER = "X-Gateway-Service-Token";
     private static final String TOKEN_TYPE_CLAIM = "type";
     private static final String ACCESS_TOKEN_TYPE = "access";
 
@@ -37,7 +38,11 @@ public class UserIdInjectionFilter implements GlobalFilter, Ordered {
         String userId = extractUserId(request);
 
         ServerHttpRequest.Builder mutated = request.mutate();
-        mutated.headers(h -> h.remove(USER_ID_HEADER)); // 유입 헤더 제거(위조 방지)
+        mutated.headers(
+                headers -> {
+                    headers.remove(USER_ID_HEADER);
+                    headers.remove(GATEWAY_TOKEN_HEADER);
+                });
         if (userId != null) {
             mutated.header(USER_ID_HEADER, userId);
         }

@@ -23,6 +23,7 @@ public class SiegeTerritoryAdapter implements SiegeTerritoryPort {
                                         value.coordX(),
                                         value.coordY(),
                                         "OCCUPIED".equals(value.status()),
+                                        value.grade(),
                                         value.protectedUntil()));
     }
 }

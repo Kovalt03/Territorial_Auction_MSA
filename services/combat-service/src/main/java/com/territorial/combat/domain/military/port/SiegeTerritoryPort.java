@@ -13,5 +13,6 @@ public interface SiegeTerritoryPort {
             int coordX,
             int coordY,
             boolean occupied,
+            String grade,
             LocalDateTime protectedUntil) {}
 }

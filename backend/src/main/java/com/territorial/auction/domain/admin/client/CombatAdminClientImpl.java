@@ -1,13 +1,13 @@
 package com.territorial.auction.domain.admin.client;
 
+import com.territorial.auction.domain.admin.dto.AdminBuildingTypeCatalogResponse;
+import com.territorial.auction.domain.admin.dto.AdminBuildingTypeCatalogResponse.BuildingTypeInfo;
 import com.territorial.auction.domain.admin.dto.AdminCreateBuildingTypeRequest;
 import com.territorial.auction.domain.admin.dto.AdminLevelSpecsRequest.LevelSpecValues;
 import com.territorial.auction.domain.admin.dto.AdminUnitLevelSpecsRequest.UnitLevelValues;
 import com.territorial.auction.domain.admin.dto.AdminUnitTypeResponse;
 import com.territorial.auction.domain.admin.dto.AdminUpdateBuildingTypeRequest;
 import com.territorial.auction.domain.admin.dto.AdminUpdateUnitTypeRequest;
-import com.territorial.auction.domain.building.dto.BuildingTypeCatalogResponse;
-import com.territorial.auction.domain.building.dto.BuildingTypeCatalogResponse.BuildingTypeInfo;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import java.io.IOException;
@@ -40,12 +40,12 @@ public class CombatAdminClientImpl implements CombatAdminClient {
     }
 
     @Override
-    public BuildingTypeCatalogResponse getBuildingTypes() {
+    public AdminBuildingTypeCatalogResponse getBuildingTypes() {
         return restClient
                 .get()
                 .uri(ROOT + "/building-types")
                 .retrieve()
-                .body(BuildingTypeCatalogResponse.class);
+                .body(AdminBuildingTypeCatalogResponse.class);
     }
 
     @Override

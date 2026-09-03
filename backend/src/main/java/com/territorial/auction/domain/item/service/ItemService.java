@@ -1,7 +1,6 @@
 package com.territorial.auction.domain.item.service;
 
-import com.territorial.auction.domain.building.entity.GlobalVault;
-import com.territorial.auction.domain.building.repository.GlobalVaultRepository;
+import com.territorial.auction.domain.combat.client.CombatResourceClient;
 import com.territorial.auction.domain.item.dto.ItemInventoryResponse;
 import com.territorial.auction.domain.item.dto.ItemInventoryResponse.UserItemInfo;
 import com.territorial.auction.domain.item.dto.ItemListResponse;
@@ -20,8 +19,6 @@ import com.territorial.auction.domain.item.repository.ItemRepository;
 import com.territorial.auction.domain.item.repository.UserItemRepository;
 import com.territorial.auction.domain.map.entity.Territory;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
-import com.territorial.auction.domain.military.entity.AttackToken;
-import com.territorial.auction.domain.military.repository.AttackTokenRepository;
 import com.territorial.auction.domain.user.client.WalletClient;
 import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.repository.UserRepository;
@@ -56,9 +53,8 @@ public class ItemService {
     private final UserItemRepository userItemRepository;
     private final UserRepository userRepository;
     private final WalletClient walletClient;
-    private final GlobalVaultRepository globalVaultRepository;
+    private final CombatResourceClient combatResourceClient;
     private final TerritoryRepository territoryRepository;
-    private final AttackTokenRepository attackTokenRepository;
     private final RedisTemplate<String, Object> redisTemplate;
 
     public ItemListResponse getItems(Long userId) {
@@ -83,11 +79,12 @@ public class ItemService {
         validateDailyLimit(userId, item, request.quantity());
 
         int totalCost = item.getCostAp() * request.quantity();
+        String commandKey = "ITEM:" + java.util.UUID.randomUUID();
 
         int totalOwned = 0;
         if (item.getItemType() == ItemType.GP_PURCHASE) {
             int gpReward = item.getGpReward() != null ? item.getGpReward() : 0;
-            creditVault(userId, gpReward * request.quantity());
+            creditVault(userId, gpReward * request.quantity(), commandKey + ":GP");
         } else {
             totalOwned = upsertUserItem(userId, item, request.quantity());
         }
@@ -96,7 +93,7 @@ public class ItemService {
         invalidateItemCache(userId);
 
         // 로컬 지급 후 마지막에 AP 소비 — 실패 시 트랜잭션 롤백으로 지급도 취소(정합)
-        var wallet = walletClient.spend(userId, totalCost, "ITEM:" + java.util.UUID.randomUUID());
+        var wallet = walletClient.spend(userId, totalCost, commandKey);
 
         return new PurchaseItemResponse(
                 item.getId(),
@@ -130,8 +127,26 @@ public class ItemService {
         UseResult result =
                 switch (item.getItemType()) {
                     case INVINCIBILITY -> applyInvincibility(userId, request.targetTerritoryId());
-                    case ATTACK_NORMAL -> applyAttackToken(userId, false);
-                    case ATTACK_PRECISION -> applyAttackToken(userId, true);
+                    case ATTACK_NORMAL ->
+                            applyAttackToken(
+                                    userId,
+                                    false,
+                                    "ITEM_USE:"
+                                            + userId
+                                            + ":"
+                                            + userItem.getId()
+                                            + ":"
+                                            + userItem.getQuantity());
+                    case ATTACK_PRECISION ->
+                            applyAttackToken(
+                                    userId,
+                                    true,
+                                    "ITEM_USE:"
+                                            + userId
+                                            + ":"
+                                            + userItem.getId()
+                                            + ":"
+                                            + userItem.getQuantity());
                     default -> throw new CustomException(ErrorCode.ITEM_NOT_USABLE);
                 };
         userItem.use();
@@ -159,17 +174,9 @@ public class ItemService {
     }
 
     // 보상 GP는 위치가 없으므로 금고로 적립한다. 금고가 없으면 만든다.
-    private void creditVault(Long userId, int amount) {
+    private void creditVault(Long userId, int amount, String commandKey) {
         if (amount <= 0) return;
-        globalVaultRepository
-                .findByIdWithLock(userId)
-                .orElseGet(
-                        () ->
-                                globalVaultRepository.save(
-                                        GlobalVault.builder()
-                                                .user(userRepository.getReferenceById(userId))
-                                                .build()))
-                .receiveGp(amount);
+        combatResourceClient.creditGp(userId, amount, commandKey);
     }
 
     private int upsertUserItem(Long userId, Item item, int quantity) {
@@ -240,35 +247,17 @@ public class ItemService {
         return UseResult.ofInvincibility(targetTerritoryId, invincibleUntil);
     }
 
-    private UseResult applyAttackToken(Long userId, boolean isPrecision) {
-        AttackToken token =
-                attackTokenRepository
-                        .findByUserIdWithLock(userId)
-                        .orElseGet(
-                                () -> {
-                                    User user =
-                                            userRepository
-                                                    .findById(userId)
-                                                    .orElseThrow(
-                                                            () ->
-                                                                    new CustomException(
-                                                                            ErrorCode
-                                                                                    .USER_NOT_FOUND));
-                                    return attackTokenRepository.save(
-                                            AttackToken.builder().user(user).build());
-                                });
-        if (isPrecision) {
-            token.addPrecision();
-        } else {
-            token.addNormal();
-        }
+    private UseResult applyAttackToken(Long userId, boolean isPrecision, String commandKey) {
+        var token =
+                combatResourceClient.creditAttackTokens(
+                        userId, isPrecision ? 0 : 1, isPrecision ? 1 : 0, commandKey);
         log.info(
                 "공격권 지급. userId={}, type={}, normalCount={}, precisionCount={}",
                 userId,
                 isPrecision ? "PRECISION" : "NORMAL",
-                token.getNormalCount(),
-                token.getPrecisionCount());
-        return UseResult.ofAttackToken(token.getNormalCount(), token.getPrecisionCount());
+                token.normalCount(),
+                token.precisionCount());
+        return UseResult.ofAttackToken(token.normalCount(), token.precisionCount());
     }
 
     private Map<Long, Integer> buildInventoryMap(Long userId) {

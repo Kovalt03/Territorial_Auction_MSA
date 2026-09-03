@@ -15,7 +15,7 @@
 redis · postgres · backend(단일) · frontend
 ```
 
-**단계 3 (combat-service core·계약 연결 완료, 공개 cutover 전, 현재)** — `docker-compose.msa.yml`
+**단계 3 (combat-service 공개 cutover·모놀리식 코드 제거, 현재)** — `docker-compose.msa.yml`
 ```
 redis                     ← 공유 (Redisson 분산락·캐시·실시간 pub/sub)
 kafka                     ← durable 서비스 이벤트 백본 (호스트 9092)
@@ -23,11 +23,11 @@ postgres                  ← 모놀리식 전용 (호스트 5432)
 auction-postgres          ← auction-service 전용 (호스트 5433)
 user-postgres             ← user-service 전용 (컨테이너 내부 전용)
 combat-postgres           ← combat-service 전용 (호스트 5434)
-backend(모놀리식)          ← auction/user 제외 잔여 도메인 (호스트 8080)
+backend(모놀리식)          ← auction/user/combat 제외 잔여 도메인 + realtime (호스트 8080)
 auction-service           ← 경매·입찰·이력             (호스트 8082)
 user-service              ← 신원·인증·AP 지갑·알림 설정 (컨테이너 내부 전용)
-combat-service            ← DB·building·unit/research·siege·계약·outbox·내부 보안 (호스트 8084, 공개 라우팅 전)
-gateway                   ← auction/user 소유 경로→각 서비스, 그 외→모놀리식 (호스트 8090)
+combat-service            ← DB·building·unit/research·siege·공개 API·계약·outbox (호스트 8084)
+gateway                   ← auction/user/combat 소유 경로→각 서비스, 그 외→모놀리식 (호스트 8090)
 frontend                  ← 게이트웨이로 프록시          (호스트 3000)
 ```
 > 게이트웨이는 도입됨(1단계에 포함). 프론트 API/WS 프록시 대상은 **게이트웨이(8090)**다.
@@ -48,7 +48,7 @@ frontend                  ← 게이트웨이로 프록시          (호스트 3
    docker compose -f docker-compose.msa.yml up redis auction-postgres auction-service
    ```
    compose는 명시한 서비스 + 그 `depends_on`만 기동한다.
-2. **모놀리식이 "나머지 세계" 역할을 한다.** 현재는 `backend + auction-service + user-service + combat-service`가 내부 HTTP와 Kafka 이벤트로 연결된다. combat 공개 route를 gateway로 전환하기 전까지 클라이언트 요청은 모놀리식이 처리한다.
+2. **모놀리식이 "나머지 세계" 역할을 한다.** 현재는 `backend + auction-service + user-service + combat-service`가 내부 HTTP와 Kafka 이벤트로 연결된다. combat 공개 요청은 gateway가 combat-service로 보내고, 모놀리식은 필요한 combat 조회·자원 명령만 내부 계약으로 호출한다.
 3. **전체가 다 떠야 하는 검증은 로컬이 아니라 CI 러너에 맡긴다.** push하면 러너가 `compose up` → 스모크 → 폐기한다([정책 5.4](../../operations/ci-cd-policy.md#54-msa-검증-전략-테스트-피라미드)).
 4. **인터랙티브하게 무거운 스택이 필요하면 Codespaces**(클라우드 개발환경)로 노트북 부하 0.
 
@@ -94,9 +94,11 @@ frontend                  ← 게이트웨이로 프록시          (호스트 3
 | `/api/v1/auctions/**` | auction-service |
 | `/api/v1/auth/**` | user-service |
 | user-service가 소유한 프로필 쓰기·알림 설정·탈퇴 경로 | user-service |
+| building·island·inventory·global-vault·military·siege 경로 | combat-service |
+| `/api/v1/map/territories/{territoryId}/buildings` | combat-service |
 | `/ws/**`, 그 외 | 모놀리식 |
 
-게이트웨이는 라우팅 외에 **인증 경계** 역할도 한다: 유입 `X-User-Id`를 제거(위조 방지)하고 유효 Bearer JWT의 subject를 `X-User-Id`로 주입 → 내부 서비스는 이 헤더를 신뢰한다(auction-service엔 Security 없음). 계약: [internal.md](../../api/internal.md) · [access-control-matrix](../access-control-matrix.md).
+게이트웨이는 라우팅 외에 **인증 경계** 역할도 한다: 유입 `X-User-Id`와 `X-Gateway-Service-Token`을 제거하고, 유효 Bearer JWT의 subject와 gateway 전용 토큰을 다시 주입한다. combat-service는 gateway 토큰을 고정 시간 비교한 요청만 수용한 뒤 user ID를 인증 주체로 사용한다. 계약: [internal.md](../../api/internal.md) · [access-control-matrix](../access-control-matrix.md).
 
 ---
 

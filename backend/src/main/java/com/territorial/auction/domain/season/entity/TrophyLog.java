@@ -1,6 +1,5 @@
 package com.territorial.auction.domain.season.entity;
 
-import com.territorial.auction.domain.military.entity.SiegeEvent;
 import com.territorial.auction.domain.user.entity.User;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
@@ -27,9 +26,8 @@ public class TrophyLog {
     @JoinColumn(name = "season_id", nullable = false)
     private Season season;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "siege_id")
-    private SiegeEvent siege; // NULL 허용
+    @Column(name = "siege_id")
+    private Long siegeId;
 
     @Column(nullable = false)
     private Integer delta; // 변동량 (+/-)
@@ -48,13 +46,13 @@ public class TrophyLog {
     public TrophyLog(
             User user,
             Season season,
-            SiegeEvent siege,
+            Long siegeId,
             Integer delta,
             String reason,
             Integer scoreAfter) {
         this.user = user;
         this.season = season;
-        this.siege = siege;
+        this.siegeId = siegeId;
         this.delta = delta;
         this.reason = reason;
         this.scoreAfter = scoreAfter;

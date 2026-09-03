@@ -1,19 +1,19 @@
 package com.territorial.auction.domain.admin.client;
 
+import com.territorial.auction.domain.admin.dto.AdminBuildingTypeCatalogResponse;
+import com.territorial.auction.domain.admin.dto.AdminBuildingTypeCatalogResponse.BuildingTypeInfo;
 import com.territorial.auction.domain.admin.dto.AdminCreateBuildingTypeRequest;
 import com.territorial.auction.domain.admin.dto.AdminLevelSpecsRequest.LevelSpecValues;
 import com.territorial.auction.domain.admin.dto.AdminUnitLevelSpecsRequest.UnitLevelValues;
 import com.territorial.auction.domain.admin.dto.AdminUnitTypeResponse;
 import com.territorial.auction.domain.admin.dto.AdminUpdateBuildingTypeRequest;
 import com.territorial.auction.domain.admin.dto.AdminUpdateUnitTypeRequest;
-import com.territorial.auction.domain.building.dto.BuildingTypeCatalogResponse;
-import com.territorial.auction.domain.building.dto.BuildingTypeCatalogResponse.BuildingTypeInfo;
 import java.util.List;
 import java.util.Map;
 
 /** combat-service가 소유한 건물·유닛·자원 관리 계약. 인증과 감사 로그는 호출 측 admin에 남는다. */
 public interface CombatAdminClient {
-    BuildingTypeCatalogResponse getBuildingTypes();
+    AdminBuildingTypeCatalogResponse getBuildingTypes();
 
     BuildingTypeInfo createBuildingType(AdminCreateBuildingTypeRequest request);
 

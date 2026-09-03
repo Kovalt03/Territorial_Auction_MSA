@@ -22,7 +22,7 @@ class TerritoryAdapterTest {
         LocalDateTime protectedUntil = LocalDateTime.now().plusHours(1);
         TerritoryCombatContextResponse context =
                 new TerritoryCombatContextResponse(
-                        10L, 2L, 4, 5, "OCCUPIED", protectedUntil, 12, 2, 4);
+                        10L, 2L, 4, 5, "OCCUPIED", protectedUntil, "A", 12, 2, 4);
         given(client.findById(10L)).willReturn(Optional.of(context));
 
         assertThat(new BuildingTerritoryAdapter(client).findById(10L).orElseThrow().gridSize())
@@ -36,7 +36,7 @@ class TerritoryAdapterTest {
     @Test
     void mapsOwnedContextsForBuildingAndMilitary() {
         TerritoryCombatContextResponse context =
-                new TerritoryCombatContextResponse(10L, 2L, 4, 5, "OCCUPIED", null, 12, 2, 4);
+                new TerritoryCombatContextResponse(10L, 2L, 4, 5, "OCCUPIED", null, "A", 12, 2, 4);
         given(client.findOwnedByUserId(2L)).willReturn(List.of(context));
 
         assertThat(new BuildingTerritoryAdapter(client).findOwnedTerritoryIds(2L))

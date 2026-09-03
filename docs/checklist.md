@@ -466,4 +466,4 @@
 
 ## 다음 단계
 
-모놀리식 기능 구현과 우선순위 성능 검증은 완료 기준에 도달했다. 외부 Render·Supabase·Upstash 호환성 스모크도 완료했으며, Render Free의 512MB 한도로 상시 운영은 지원하지 않는다. 실제 실행 기준은 로컬 Docker Compose다. 개인섬 연구 현황 UI·확장 탭은 구현 완료했다. 단일 인스턴스 이후의 Redis Pub/Sub·경매 상세 캐시는 스케일아웃(MSA) 단계로 이관한다. 생산 랭킹, 실제 PG 결제 연동, MSA 전환은 이 모놀리식 릴리스 범위에서 제외한다.
+모놀리식 기능 구현과 우선순위 성능 검증은 완료 기준에 도달했다. MSA 전환은 auction-service와 user-service 추출을 완료했고, combat-service는 gateway 공개 cutover·모놀리식 building/military 코드 제거·full-stack compose smoke까지 완료해 통합 대기 중이다. 이후 순서는 economy → social → notification → map이며 [MSA 전환 허브](design/msa/README.md)를 기준으로 한다. 생산 랭킹과 실제 PG 결제 연동은 별도 후속 범위다.
