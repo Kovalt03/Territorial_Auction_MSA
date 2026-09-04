@@ -52,7 +52,7 @@
 
 - OAuth 신규 유저의 신원(User 무비번 + Wallet)을 user-service가 소유(**역전**)한다. 모놀리식 `CustomOAuth2UserService`가 동기 호출로 발급 ID를 받아 로컬 프로젝션(섬·성)을 만든다.
 - `username`(=`provider:providerId`) 기준 **멱등**. 생성 시 `UserCreatedEvent` outbox를 발행한다.
-- **status 소유**: 유저 상태(ACTIVE/SUSPENDED/WITHDRAWN)는 user-service가 소유한다(로그인 차단이 여기서 먹힌다). 셀프 탈퇴는 `DELETE /api/v1/users/me`(게이트웨이→user-service), admin 정지/탈퇴는 모놀리식 admin이 이 `status` 엔드포인트를 호출한다. 변경은 `user.status-changed`로 프로젝션에 전파.
+- **status 소유**: 유저 상태(ACTIVE/SUSPENDED/WITHDRAWN)는 user-service가 소유한다(로그인 차단이 여기서 먹힌다). 셀프 탈퇴는 `DELETE /api/v1/users/me`(게이트웨이→user-service), admin 정지/탈퇴는 admin-service가 이 `status` 엔드포인트를 호출한다. 변경은 `user.status-changed`로 프로젝션에 전파.
 - **토큰 무효화**: 탈퇴 시 access token을 공유 Redis 블랙리스트(`jwt:blacklist:<token>`)에 넣고, 모놀리식·user-service JWT 필터가 모두 확인해 즉시 무효화한다.
 
 ### 1-4. 신원 — 관리 콘솔 조회 (admin-service가 호출)
@@ -94,9 +94,9 @@
 
 ---
 
-## 3. auction-service `/internal/auctions/*` (모놀리식 admin이 호출)
+## 3. auction-service `/internal/auctions/*` (admin-service가 호출)
 
-관리자 경매 관리. 모놀리식이 인증·감사 로그를 유지하고 데이터·작업만 위임한다.
+관리자 경매 관리. admin-service가 인증·감사 로그를 소유하고 데이터·작업만 위임한다.
 
 | Method | Path | 응답 | 오류 |
 |---|---|---|---|
@@ -107,7 +107,7 @@
 | POST | `/internal/auctions/{auctionId}/force-settle` | 200 | 404 AUCTION_NOT_FOUND · 409 AUCTION_NO_BIDDER_TO_SETTLE |
 | POST | `/internal/auctions/{auctionId}/force-cancel` | 200 | 404 AUCTION_NOT_FOUND · 409 AUCTION_ALREADY_SETTLED |
 
-응답 DTO는 모놀리식 admin 응답과 **필드명이 일치**해 그대로 역직렬화된다(스냅샷 필드만으로 구성). force-cancel은 입찰자 잠금 AP 환불(→ user-service `refund-locked`) + 영토 재경매 예약(→ 모놀리식 `release`) + 종료.
+응답 DTO는 admin-service 관리 콘솔 응답과 **필드명이 일치**해 그대로 역직렬화된다(스냅샷 필드만으로 구성). force-cancel은 입찰자 잠금 AP 환불(→ user-service `refund-locked`) + 영토 재경매 예약(→ 모놀리식 `release`) + 종료.
 
 ---
 
@@ -123,7 +123,7 @@
 
 ### 관리자 combat 위임
 
-모놀리식이 `/api/v1/admin/**` 인증과 감사 로그를 유지하고 아래 원시 DTO 계약으로 데이터 작업만 위임한다.
+admin-service가 `/api/v1/admin/**` 인증과 감사 로그를 소유하고 아래 원시 DTO 계약으로 데이터 작업만 위임한다.
 
 | Method | Path | 용도 |
 |---|---|---|
