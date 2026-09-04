@@ -73,6 +73,13 @@ spring:
           uri: ${MAP_SERVICE_URL:http://localhost:8091}
           predicates:
             - Path=/api/v1/map/**,/api/v1/continents/**,/api/v1/territories/**,/api/v1/land-tax/**
+        # 관리 콘솔은 admin-service로 (자체 인증). admin 토큰은 게임 jwt.secret으로 검증되지 않아
+        # UserIdInjectionFilter가 X-User-Id를 주입하지 않는다 → 설계대로 admin이 자체 Bearer로만 인증.
+        # /api/v1/admin/auth/login·GET /api/v1/announcement는 admin-service가 공개로 서빙.
+        - id: admin-service
+          uri: ${ADMIN_SERVICE_URL:http://localhost:8092}
+          predicates:
+            - Path=/api/v1/admin/**,/api/v1/announcement
         # WebSocket(실시간 허브)은 모놀리식
         - id: monolith-ws
           uri: ${MONOLITH_WS_URL:ws://localhost:8081}
