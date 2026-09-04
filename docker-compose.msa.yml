@@ -321,6 +321,10 @@ services:
       REDIS_PORT: 6379
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # user-BFF 흡수: 프로필·지갑 합성용 다운스트림 조회 대상
+      COMBAT_SERVICE_BASE_URL: http://combat-service:8080
+      SEASON_SERVICE_BASE_URL: http://season-service:8080
+      MAP_SERVICE_BASE_URL: http://map-service:8080
     depends_on:
       user-postgres:
         condition: service_healthy
