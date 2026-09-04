@@ -4,14 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
-import static org.mockito.Mockito.mock;
 
 import com.territorial.auction.domain.combat.client.CombatResourceClient;
 import com.territorial.auction.domain.combat.client.CombatResourceClient.UserSummary;
-import com.territorial.auction.domain.map.entity.Continent;
-import com.territorial.auction.domain.map.entity.Territory;
-import com.territorial.auction.domain.map.entity.TerritoryGrade;
-import com.territorial.auction.domain.map.repository.TerritoryRepository;
 import com.territorial.auction.domain.user.client.WalletClient;
 import com.territorial.auction.domain.user.client.WalletSnapshot;
 import com.territorial.auction.domain.user.dto.MyProfileResponse;
@@ -22,6 +17,9 @@ import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.entity.UserProfile;
 import com.territorial.auction.domain.user.repository.UserProfileRepository;
 import com.territorial.auction.domain.user.repository.UserRepository;
+import com.territorial.auction.global.client.MapTerritoryClient;
+import com.territorial.auction.global.client.MapTerritoryClient.OwnerHolding;
+import com.territorial.auction.global.client.MapTerritoryClient.OwnerHoldingPage;
 import com.territorial.auction.global.client.SeasonQueryClient;
 import com.territorial.auction.global.client.SeasonQueryClient.UserPassSummary;
 import com.territorial.auction.global.client.SeasonTrophyClient;
@@ -41,8 +39,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -56,7 +52,7 @@ class UserServiceTest {
 
     @Mock private CombatResourceClient combatResourceClient;
     @Mock private SeasonQueryClient seasonQueryClient;
-    @Mock private TerritoryRepository territoryRepository;
+    @Mock private MapTerritoryClient mapTerritoryClient;
     @Mock private UserProfileRepository userProfileRepository;
     @Mock private SeasonTrophyClient seasonTrophyClient;
     @Mock private RefreshTokenService refreshTokenService;
@@ -105,7 +101,7 @@ class UserServiceTest {
             given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(300, 0));
             given(combatResourceClient.getUserSummary(1L)).willReturn(new UserSummary(1500, 1L, 1));
             given(seasonQueryClient.getUserPassSummary(1L)).willReturn(Optional.empty());
-            given(territoryRepository.countByOwnerId(1L)).willReturn(3L);
+            given(mapTerritoryClient.getOwnerCount(1L)).willReturn(3L);
 
             MyProfileResponse response = userService.getMyProfile(1L);
 
@@ -129,7 +125,7 @@ class UserServiceTest {
             given(seasonQueryClient.getUserPassSummary(1L))
                     .willReturn(
                             Optional.of(new UserPassSummary(LocalDateTime.now().plusDays(30), 1)));
-            given(territoryRepository.countByOwnerId(1L)).willReturn(0L);
+            given(mapTerritoryClient.getOwnerCount(1L)).willReturn(0L);
 
             MyProfileResponse response = userService.getMyProfile(1L);
 
@@ -156,7 +152,7 @@ class UserServiceTest {
             given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(300, 0));
             given(combatResourceClient.getUserSummary(1L)).willReturn(new UserSummary(0, null, 1));
             given(seasonQueryClient.getUserPassSummary(1L)).willReturn(Optional.empty());
-            given(territoryRepository.countByOwnerId(1L)).willReturn(0L);
+            given(mapTerritoryClient.getOwnerCount(1L)).willReturn(0L);
 
             MyProfileResponse response = userService.getMyProfile(1L);
 
@@ -175,7 +171,7 @@ class UserServiceTest {
         void getUserProfile_success() {
             User user = sampleUser();
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(territoryRepository.countByOwnerId(1L)).willReturn(5L);
+            given(mapTerritoryClient.getOwnerCount(1L)).willReturn(5L);
 
             UserProfileResponse response = userService.getUserProfile(1L);
 
@@ -193,7 +189,7 @@ class UserServiceTest {
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
             given(userProfileRepository.findById(1L))
                     .willReturn(Optional.of(sampleUserProfile(user)));
-            given(territoryRepository.countByOwnerId(1L)).willReturn(0L);
+            given(mapTerritoryClient.getOwnerCount(1L)).willReturn(0L);
 
             UserProfileResponse response = userService.getUserProfile(1L);
 
@@ -205,7 +201,7 @@ class UserServiceTest {
         void getUserProfile_noProfileImage_returnsNull() {
             User user = sampleUser();
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(territoryRepository.countByOwnerId(1L)).willReturn(0L);
+            given(mapTerritoryClient.getOwnerCount(1L)).willReturn(0L);
 
             UserProfileResponse response = userService.getUserProfile(1L);
 
@@ -219,7 +215,7 @@ class UserServiceTest {
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
             given(seasonTrophyClient.getTrophy(1L))
                     .willReturn(Optional.of(new Trophy(1L, 3850, "BRONZE")));
-            given(territoryRepository.countByOwnerId(1L)).willReturn(0L);
+            given(mapTerritoryClient.getOwnerCount(1L)).willReturn(0L);
 
             UserProfileResponse response = userService.getUserProfile(1L);
 
@@ -231,7 +227,7 @@ class UserServiceTest {
         void getUserProfile_noTrophy_returns0() {
             User user = sampleUser();
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(territoryRepository.countByOwnerId(1L)).willReturn(0L);
+            given(mapTerritoryClient.getOwnerCount(1L)).willReturn(0L);
 
             UserProfileResponse response = userService.getUserProfile(1L);
 
@@ -244,7 +240,7 @@ class UserServiceTest {
             User user = sampleUser();
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
             given(combatResourceClient.getUserSummary(1L)).willReturn(new UserSummary(0, 1L, 5));
-            given(territoryRepository.countByOwnerId(1L)).willReturn(0L);
+            given(mapTerritoryClient.getOwnerCount(1L)).willReturn(0L);
 
             UserProfileResponse response = userService.getUserProfile(1L);
 
@@ -302,30 +298,16 @@ class UserServiceTest {
     @DisplayName("getMyTerritories()")
     class GetMyTerritories {
 
-        private Territory sampleTerritory() {
-            TerritoryGrade grade = mock(TerritoryGrade.class);
-            given(grade.getGrade()).willReturn("A");
-
-            Continent continent = mock(Continent.class);
-            given(continent.getDisplayName()).willReturn("아시아");
-
-            Territory territory = mock(Territory.class);
-            given(territory.getId()).willReturn(10L);
-            given(territory.getCoordX()).willReturn(3);
-            given(territory.getCoordY()).willReturn(7);
-            given(territory.getGrade()).willReturn(grade);
-            given(territory.getContinent()).willReturn(continent);
-            return territory;
+        private OwnerHolding sampleHolding() {
+            return new OwnerHolding(10L, "A", 3, 7, "아시아", null, null);
         }
 
         @Test
         @DisplayName("영토가 있으면 totalCount와 territoryInfos 반환")
         void getMyTerritories_success() {
-            Territory territory = sampleTerritory();
-            Page<Territory> page = new PageImpl<>(List.of(territory));
             PageRequest pageable = PageRequest.of(0, 10);
-
-            given(territoryRepository.findAllByUserId(1L, pageable)).willReturn(page);
+            given(mapTerritoryClient.getOwnerHoldings(1L, 0, 10))
+                    .willReturn(new OwnerHoldingPage(List.of(sampleHolding()), 1));
 
             MyTerritoryResponse response = userService.getMyTerritories(1L, pageable);
 
@@ -343,10 +325,9 @@ class UserServiceTest {
         @Test
         @DisplayName("영토가 없으면 totalCount=0, 빈 목록 반환")
         void getMyTerritories_empty() {
-            Page<Territory> emptyPage = new PageImpl<>(Collections.emptyList());
             PageRequest pageable = PageRequest.of(0, 10);
-
-            given(territoryRepository.findAllByUserId(1L, pageable)).willReturn(emptyPage);
+            given(mapTerritoryClient.getOwnerHoldings(1L, 0, 10))
+                    .willReturn(new OwnerHoldingPage(Collections.emptyList(), 0));
 
             MyTerritoryResponse response = userService.getMyTerritories(1L, pageable);
 

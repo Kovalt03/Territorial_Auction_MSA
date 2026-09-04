@@ -1,6 +1,6 @@
 package com.territorial.auction.domain.admin.dto;
 
-import com.territorial.auction.domain.map.entity.Territory;
+import com.territorial.auction.global.client.MapAdminClient;
 
 public record AdminTerritoryResponse(
         Long territoryId,
@@ -11,14 +11,14 @@ public record AdminTerritoryResponse(
         String ownerNickname,
         boolean auctionEnabled) {
 
-    public static AdminTerritoryResponse from(Territory t) {
+    public static AdminTerritoryResponse from(MapAdminClient.TerritoryView v) {
         return new AdminTerritoryResponse(
-                t.getId(),
-                t.getCoordX(),
-                t.getCoordY(),
-                t.getGrade().getGrade(),
-                t.getStatus().name(),
-                t.getOwner() != null ? t.getOwner().getNickname() : null,
-                t.getAuctionEnabled());
+                v.territoryId(),
+                v.coordX(),
+                v.coordY(),
+                v.grade(),
+                v.status(),
+                v.ownerNickname(),
+                v.auctionEnabled());
     }
 }

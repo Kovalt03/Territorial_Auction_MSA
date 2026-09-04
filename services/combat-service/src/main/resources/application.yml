@@ -46,6 +46,9 @@ internal-api:
 
 monolith:
   base-url: ${MONOLITH_BASE_URL:http://localhost:8080}
+# 영토 전투 컨텍스트 조회 위임(공유 커널 map은 map-service 소유)
+map-service:
+  base-url: ${MAP_SERVICE_BASE_URL:http://localhost:8091}
 
 user-service:
   base-url: ${USER_SERVICE_BASE_URL:http://localhost:8083}

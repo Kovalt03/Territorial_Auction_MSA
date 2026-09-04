@@ -2,9 +2,6 @@ package com.territorial.auction.domain.user.service;
 
 import com.territorial.auction.domain.combat.client.CombatResourceClient;
 import com.territorial.auction.domain.combat.client.CombatResourceClient.UserSummary;
-import com.territorial.auction.domain.map.TerritoryPolicy;
-import com.territorial.auction.domain.map.entity.Territory;
-import com.territorial.auction.domain.map.repository.TerritoryRepository;
 import com.territorial.auction.domain.user.client.WalletClient;
 import com.territorial.auction.domain.user.client.WalletSnapshot;
 import com.territorial.auction.domain.user.dto.*;
@@ -12,20 +9,19 @@ import com.territorial.auction.domain.user.dto.MyWalletResponse;
 import com.territorial.auction.domain.user.entity.*;
 import com.territorial.auction.domain.user.repository.UserProfileRepository;
 import com.territorial.auction.domain.user.repository.UserRepository;
+import com.territorial.auction.global.client.MapTerritoryClient;
 import com.territorial.auction.global.client.SeasonQueryClient;
 import com.territorial.auction.global.client.SeasonQueryClient.UserPassSummary;
 import com.territorial.auction.global.client.SeasonTrophyClient;
 import com.territorial.auction.global.client.SeasonTrophyClient.Trophy;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -40,7 +36,7 @@ public class UserService {
     private final WalletClient walletClient;
     private final CombatResourceClient combatResourceClient;
     private final SeasonQueryClient seasonQueryClient;
-    private final TerritoryRepository territoryRepository;
+    private final MapTerritoryClient mapTerritoryClient;
     private final UserProfileRepository userProfileRepository;
     private final SeasonTrophyClient seasonTrophyClient;
     private final StringRedisTemplate stringRedisTemplate;
@@ -73,7 +69,7 @@ public class UserService {
 
         int builderCount = 1 + activePass.map(UserPassSummary::extraBuilders).orElse(0);
 
-        int territoryCount = (int) territoryRepository.countByOwnerId(userId);
+        int territoryCount = (int) mapTerritoryClient.getOwnerCount(userId);
 
         MyProfileResponse.IslandInfo islandInfo =
                 combat.islandId() == null
@@ -109,7 +105,7 @@ public class UserService {
 
         int trophyPoints = seasonTrophyClient.getTrophy(userId).map(Trophy::score).orElse(0);
 
-        int territoryCount = (int) territoryRepository.countByOwnerId(userId);
+        int territoryCount = (int) mapTerritoryClient.getOwnerCount(userId);
 
         return new UserProfileResponse(
                 user.getId(),
@@ -124,32 +120,34 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public MyTerritoryResponse getMyTerritories(Long userId, Pageable pageable) {
-        Page<Territory> territoryPage = territoryRepository.findAllByUserId(userId, pageable);
-        List<Long> ids = territoryPage.getContent().stream().map(Territory::getId).toList();
+        MapTerritoryClient.OwnerHoldingPage holdings =
+                mapTerritoryClient.getOwnerHoldings(
+                        userId, pageable.getPageNumber(), pageable.getPageSize());
+        List<Long> ids =
+                holdings.content().stream()
+                        .map(MapTerritoryClient.OwnerHolding::territoryId)
+                        .toList();
 
         Map<Long, Long> unitCounts = buildUnitCountMap(ids);
         Set<Long> invincibleIds = buildInvincibleSet(ids);
 
         List<MyTerritoryResponse.TerritoryInfo> territoryInfos =
-                territoryPage.getContent().stream()
+                holdings.content().stream()
                         .map(
-                                t ->
+                                h ->
                                         new MyTerritoryResponse.TerritoryInfo(
-                                                t.getId(),
-                                                t.getGrade().getGrade(),
-                                                new PositionPair(t.getCoordX(), t.getCoordY()),
-                                                t.getContinent().getDisplayName(),
-                                                deriveOccupiedAt(t),
-                                                t.getOccupiedUntil(),
-                                                unitCounts.getOrDefault(t.getId(), 0L).intValue(),
-                                                invincibleIds.contains(t.getId())))
+                                                h.territoryId(),
+                                                h.grade(),
+                                                new PositionPair(h.coordX(), h.coordY()),
+                                                h.continentName(),
+                                                h.occupiedAt(),
+                                                h.occupiedUntil(),
+                                                unitCounts
+                                                        .getOrDefault(h.territoryId(), 0L)
+                                                        .intValue(),
+                                                invincibleIds.contains(h.territoryId())))
                         .toList();
-        return new MyTerritoryResponse((int) territoryPage.getTotalElements(), territoryInfos);
-    }
-
-    private LocalDateTime deriveOccupiedAt(Territory t) {
-        if (t.getOccupiedUntil() == null) return null;
-        return t.getOccupiedUntil().minusDays(TerritoryPolicy.OCCUPATION_DURATION_DAYS);
+        return new MyTerritoryResponse((int) holdings.totalElements(), territoryInfos);
     }
 
     private Map<Long, Long> buildUnitCountMap(List<Long> territoryIds) {

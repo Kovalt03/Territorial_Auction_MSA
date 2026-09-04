@@ -107,5 +107,8 @@ season-service:
 # 분리된 ranking-service — 영토 점유 종료를 /internal로 위임 호출
 ranking-service:
   base-url: ${RANKING_SERVICE_BASE_URL:http://localhost:8089}
+# 분리된 map-service — 영토·대륙·관리자 영토관리를 /internal로 위임 호출(공유 커널)
+map-service:
+  base-url: ${MAP_SERVICE_BASE_URL:http://localhost:8091}
 internal-api:
   secret: ${INTERNAL_API_SECRET:local-internal-secret}

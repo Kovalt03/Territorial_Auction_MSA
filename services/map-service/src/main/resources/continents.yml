@@ -1,0 +1,56 @@
+continents:
+  - name: "북부 대륙"
+    themeColor: "#00f5ff"
+    displayName: "크리오 행성"
+    grade: "S"
+    minTrophyRequired: 5000
+    description: "얼음과 강철의 땅"
+
+  - name: "북서부"
+    themeColor: "#44aaff"
+    displayName: "글리치 행성"
+    grade: "B"
+    minTrophyRequired: 1000
+    description: "글리치 구역"
+
+  - name: "북동부"
+    themeColor: "#ff8c00"
+    displayName: "바이트 행성"
+    grade: "B"
+    minTrophyRequired: 1000
+    description: "바이트 필드"
+
+  - name: "서부 대륙"
+    themeColor: "#00ff88"
+    displayName: "크롬 행성"
+    grade: "B"
+    minTrophyRequired: 800
+    description: "크롬의 황야"
+
+  - name: "중앙 자유 구역"
+    themeColor: "#8b50ff"
+    displayName: "자유 행성"
+    grade: "S"
+    minTrophyRequired: ~
+    description: "개인 영토 자유 구역"
+
+  - name: "동부 대륙"
+    themeColor: "#ff1493"
+    displayName: "네온 행성"
+    grade: "A"
+    minTrophyRequired: 3000
+    description: "네온의 도시"
+
+  - name: "남부 대륙"
+    themeColor: "#ffd700"
+    displayName: "아리드 행성"
+    grade: "A"
+    minTrophyRequired: 2000
+    description: "사막의 전장"
+
+  - name: "남동부"
+    themeColor: "#ff6644"
+    displayName: "포트 행성"
+    grade: "C"
+    minTrophyRequired: 300
+    description: "디지털 포트"

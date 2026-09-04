@@ -1,9 +1,9 @@
 package com.territorial.auction.domain.combat.event;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.territorial.auction.domain.map.service.TerritoryService;
 import com.territorial.auction.domain.notification.NotificationType;
 import com.territorial.auction.domain.notification.service.NotificationService;
+import com.territorial.auction.global.client.MapTerritoryClient;
 import com.territorial.auction.global.client.SeasonGameEventClient;
 import com.territorial.auction.global.event.CombatEventReceiptService;
 import java.nio.charset.StandardCharsets;
@@ -33,7 +33,7 @@ public class CombatEventSubscriber {
     private final ObjectMapper objectMapper;
     private final CombatEventReceiptService receiptService;
     private final NotificationService notificationService;
-    private final TerritoryService territoryService;
+    private final MapTerritoryClient mapTerritoryClient;
     private final SeasonGameEventClient seasonGameEventClient;
     private final SimpMessagingTemplate messagingTemplate;
 
@@ -71,7 +71,7 @@ public class CombatEventSubscriber {
             receiptService.processOnce(
                     receiptKey("map", eventIdHeader, eventTopic, event.siegeId()),
                     () ->
-                            territoryService.takeOverFromSiege(
+                            mapTerritoryClient.takeOver(
                                     event.territoryId(),
                                     event.newOwnerId(),
                                     event.formerOwnerId()));

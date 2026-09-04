@@ -10,14 +10,13 @@ import com.territorial.auction.domain.admin.dto.AdminChangeUserStatusRequest;
 import com.territorial.auction.domain.admin.dto.AdminUserDetailResponse;
 import com.territorial.auction.domain.admin.dto.AdminUserListResponse;
 import com.territorial.auction.domain.admin.dto.AdminUserResponse;
-import com.territorial.auction.domain.map.entity.Territory;
-import com.territorial.auction.domain.map.repository.TerritoryRepository;
 import com.territorial.auction.domain.user.client.UserProvisioningClient;
 import com.territorial.auction.domain.user.client.WalletClient;
 import com.territorial.auction.domain.user.client.WalletSnapshot;
 import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.entity.UserStatus;
 import com.territorial.auction.domain.user.repository.UserRepository;
+import com.territorial.auction.global.client.MapTerritoryClient;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import java.util.HashMap;
@@ -38,7 +37,7 @@ public class AdminUserService {
     private final WalletClient walletClient;
     private final UserProvisioningClient userProvisioningClient;
     private final CombatAdminClient combatAdminClient;
-    private final TerritoryRepository territoryRepository;
+    private final MapTerritoryClient mapTerritoryClient;
     private final AdminAuditLogger adminAuditLogger;
 
     public AdminUserListResponse getUsers(String keyword, UserStatus status, Pageable pageable) {
@@ -183,10 +182,7 @@ public class AdminUserService {
     }
 
     private AdminUserDetailResponse toDetail(User user, WalletSnapshot wallet) {
-        List<Long> territoryIds =
-                territoryRepository.findByOwnerId(user.getId()).stream()
-                        .map(Territory::getId)
-                        .toList();
+        List<Long> territoryIds = mapTerritoryClient.getOwnerTerritoryIds(user.getId());
         UserResourceSnapshot resources =
                 combatAdminClient.getUserResources(user.getId(), territoryIds);
         return new AdminUserDetailResponse(

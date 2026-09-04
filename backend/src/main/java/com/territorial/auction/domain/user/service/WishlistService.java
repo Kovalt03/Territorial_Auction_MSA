@@ -1,12 +1,11 @@
 package com.territorial.auction.domain.user.service;
 
-import com.territorial.auction.domain.map.entity.Territory;
-import com.territorial.auction.domain.map.repository.TerritoryRepository;
 import com.territorial.auction.domain.user.dto.WishlistResponse;
 import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.entity.Wishlist;
 import com.territorial.auction.domain.user.repository.UserRepository;
 import com.territorial.auction.domain.user.repository.WishlistRepository;
+import com.territorial.auction.global.client.MapTerritoryClient;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class WishlistService {
 
     private final WishlistRepository wishlistRepository;
-    private final TerritoryRepository territoryRepository;
+    private final MapTerritoryClient mapTerritoryClient;
     private final UserRepository userRepository;
 
     public WishlistResponse getWishlist(Long userId) {
@@ -28,14 +27,13 @@ public class WishlistService {
 
     @Transactional
     public void addWishlist(Long userId, Long territoryId) {
-        Territory territory =
-                territoryRepository
-                        .findById(territoryId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.TERRITORY_NOT_FOUND));
+        if (!mapTerritoryClient.exists(territoryId)) {
+            throw new CustomException(ErrorCode.TERRITORY_NOT_FOUND);
+        }
         validateNotDuplicate(userId, territoryId);
 
         User user = userRepository.getReferenceById(userId);
-        Wishlist wishlist = Wishlist.builder().user(user).territory(territory).build();
+        Wishlist wishlist = Wishlist.builder().user(user).territoryId(territoryId).build();
         wishlistRepository.save(wishlist);
     }
 

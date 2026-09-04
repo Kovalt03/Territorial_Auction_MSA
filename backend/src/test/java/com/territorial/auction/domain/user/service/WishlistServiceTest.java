@@ -5,16 +5,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 
-import com.territorial.auction.domain.map.entity.Territory;
-import com.territorial.auction.domain.map.repository.TerritoryRepository;
 import com.territorial.auction.domain.user.dto.WishlistResponse;
 import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.entity.Wishlist;
 import com.territorial.auction.domain.user.repository.UserRepository;
 import com.territorial.auction.domain.user.repository.WishlistRepository;
+import com.territorial.auction.global.client.MapTerritoryClient;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import java.util.List;
@@ -35,7 +33,7 @@ class WishlistServiceTest {
     @InjectMocks private WishlistService wishlistService;
 
     @Mock private WishlistRepository wishlistRepository;
-    @Mock private TerritoryRepository territoryRepository;
+    @Mock private MapTerritoryClient mapTerritoryClient;
     @Mock private UserRepository userRepository;
 
     private User user;
@@ -46,10 +44,7 @@ class WishlistServiceTest {
     }
 
     private Wishlist sampleWishlist(Long territoryId) {
-        Territory territory = mock(Territory.class);
-        lenient().when(territory.getId()).thenReturn(territoryId);
-
-        Wishlist wishlist = Wishlist.builder().user(user).territory(territory).build();
+        Wishlist wishlist = Wishlist.builder().user(user).territoryId(territoryId).build();
         ReflectionTestUtils.setField(wishlist, "id", territoryId);
         return wishlist;
     }
@@ -94,8 +89,7 @@ class WishlistServiceTest {
         @Test
         @DisplayName("정상 추가 → save() 1회 호출")
         void addWishlist_success() {
-            Territory territory = mock(Territory.class);
-            given(territoryRepository.findById(5L)).willReturn(Optional.of(territory));
+            given(mapTerritoryClient.exists(5L)).willReturn(true);
             given(wishlistRepository.existsByUserIdAndTerritoryId(1L, 5L)).willReturn(false);
 
             wishlistService.addWishlist(1L, 5L);
@@ -106,7 +100,7 @@ class WishlistServiceTest {
         @Test
         @DisplayName("영토 미존재 → TERRITORY_NOT_FOUND")
         void addWishlist_territoryNotFound() {
-            given(territoryRepository.findById(999L)).willReturn(Optional.empty());
+            given(mapTerritoryClient.exists(999L)).willReturn(false);
 
             assertThatThrownBy(() -> wishlistService.addWishlist(1L, 999L))
                     .isInstanceOf(CustomException.class)
@@ -117,8 +111,7 @@ class WishlistServiceTest {
         @Test
         @DisplayName("중복 추가 → WISHLIST_ALREADY_EXISTS")
         void addWishlist_alreadyExists() {
-            Territory territory = mock(Territory.class);
-            given(territoryRepository.findById(5L)).willReturn(Optional.of(territory));
+            given(mapTerritoryClient.exists(5L)).willReturn(true);
             given(wishlistRepository.existsByUserIdAndTerritoryId(1L, 5L)).willReturn(true);
 
             assertThatThrownBy(() -> wishlistService.addWishlist(1L, 5L))

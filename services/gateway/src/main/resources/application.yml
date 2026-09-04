@@ -67,6 +67,12 @@ spring:
           uri: ${RANKING_SERVICE_URL:http://localhost:8089}
           predicates:
             - Path=/api/v1/rankings/**
+        # 맵·영토·대륙·토지세는 map-service로 (공유 커널 map 추출). 공개 조회 + 인증은 X-User-Id 주입.
+        # combat의 /api/v1/map/territories/*/buildings 라우트가 위에 있어 그것만 combat이 먼저 가져간다.
+        - id: map-service
+          uri: ${MAP_SERVICE_URL:http://localhost:8091}
+          predicates:
+            - Path=/api/v1/map/**,/api/v1/continents/**,/api/v1/territories/**,/api/v1/land-tax/**
         # WebSocket(실시간 허브)은 모놀리식
         - id: monolith-ws
           uri: ${MONOLITH_WS_URL:ws://localhost:8081}

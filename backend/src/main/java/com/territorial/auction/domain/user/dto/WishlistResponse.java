@@ -6,6 +6,6 @@ import java.util.List;
 public record WishlistResponse(List<Long> territoryIds) {
 
     public static WishlistResponse from(List<Wishlist> wishlists) {
-        return new WishlistResponse(wishlists.stream().map(w -> w.getTerritory().getId()).toList());
+        return new WishlistResponse(wishlists.stream().map(Wishlist::getTerritoryId).toList());
     }
 }
