@@ -8,6 +8,9 @@ import com.territorial.map.domain.map.dto.TerritoryCombatContextResponse;
 import com.territorial.map.domain.map.entity.Territory;
 import com.territorial.map.domain.map.repository.TerritoryRepository;
 import com.territorial.map.global.exception.ErrorCode;
+import com.territorial.map.internal.dto.OwnerHoldingPage;
+import com.territorial.map.internal.dto.OwnerHoldingView;
+import com.territorial.map.internal.dto.OwnerTerritoryCount;
 import com.territorial.map.realtime.MapRealtimePublisher;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -15,6 +18,8 @@ import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -43,6 +48,38 @@ public class TerritoryService {
                 .stream()
                 .map(TerritoryCombatContextResponse::from)
                 .toList();
+    }
+
+    public boolean exists(Long territoryId) {
+        return territoryRepository.existsById(territoryId);
+    }
+
+    public long getOwnerCount(Long userId) {
+        return territoryRepository.countByOwnerId(userId);
+    }
+
+    // 멤버 표시 통계용 — OCCUPIED 영토만 소유자별로 집계한다(모놀리식 MemberStats 계약과 동일).
+    public List<OwnerTerritoryCount> getOwnerCounts(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return List.of();
+        }
+        return territoryRepository
+                .countGroupByOwnerIds(userIds, Territory.TerritoryStatus.OCCUPIED)
+                .stream()
+                .map(row -> new OwnerTerritoryCount((Long) row[0], ((Number) row[1]).longValue()))
+                .toList();
+    }
+
+    public OwnerHoldingPage getOwnerHoldings(Long userId, int page, int size) {
+        Page<Territory> territoryPage =
+                territoryRepository.findAllByUserId(userId, PageRequest.of(page, size));
+        List<OwnerHoldingView> content =
+                territoryPage.getContent().stream().map(OwnerHoldingView::from).toList();
+        return new OwnerHoldingPage(content, territoryPage.getTotalElements());
+    }
+
+    public List<Long> getOwnerTerritoryIds(Long userId) {
+        return territoryRepository.findByOwnerId(userId).stream().map(Territory::getId).toList();
     }
 
     @Transactional
