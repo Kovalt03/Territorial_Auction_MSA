@@ -48,8 +48,11 @@ dependencies {
 
     implementation 'org.springframework.kafka:spring-kafka'
 
-    // 인증(security·jjwt)은 user-service 소유 — season은 게이트웨이 X-User-Id 신뢰.
-    // AP는 user-service(WalletClient), GP·공격권은 combat-service(CombatResourceClient), 영토 소유권은 map(모놀리식)으로 RestClient 조회.
+    // 맵 갱신 실시간 발행(map.update 토픽) — common의 RedissonConfig가 RedissonClient 빈을 제공한다.
+    implementation 'org.redisson:redisson:3.27.2'
+
+    // 인증(security·jjwt)은 user-service 소유 — map은 게이트웨이 X-User-Id를 신뢰한다.
+    // GP·저장소·토지세는 combat-service, 시즌 면제는 season-service, 닉네임은 user-service, 점유 종료는 ranking-service로 RestClient 위임.
 }
 
 tasks.named('test') {
