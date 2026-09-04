@@ -41,8 +41,8 @@ season-service:
 # 닉네임 배치 조회
 user-service:
   base-url: ${USER_SERVICE_BASE_URL:http://localhost:8083}
-# 대륙 트로피 밴드(공유 커널 map은 모놀리식 소유)
-monolith:
-  base-url: ${MONOLITH_BASE_URL:http://localhost:8081}
+# 대륙 트로피 밴드(공유 커널 map은 map-service 소유)
+map-service:
+  base-url: ${MAP_SERVICE_BASE_URL:http://localhost:8091}
 internal-api:
   secret: ${INTERNAL_API_SECRET:local-internal-secret}

@@ -14,7 +14,7 @@ public class TerritoryOwnershipClient {
 
     public TerritoryOwnershipClient(
             RestClient.Builder builder,
-            @Value("${monolith.base-url}") String baseUrl,
+            @Value("${map-service.base-url}") String baseUrl,
             @Value("${internal-api.secret}") String internalApiSecret) {
         this.restClient =
                 builder.baseUrl(baseUrl)
