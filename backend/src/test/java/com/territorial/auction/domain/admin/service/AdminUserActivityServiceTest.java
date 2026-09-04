@@ -13,11 +13,11 @@ import com.territorial.auction.domain.admin.dto.AdminBulkResultResponse;
 import com.territorial.auction.domain.admin.dto.AdminSendNotificationRequest;
 import com.territorial.auction.domain.admin.dto.AdminUserActiveBidListResponse;
 import com.territorial.auction.domain.admin.dto.AdminUserActiveBidResponse;
-import com.territorial.auction.domain.map.repository.TerritoryRepository;
 import com.territorial.auction.domain.notification.NotificationType;
 import com.territorial.auction.domain.notification.service.NotificationService;
 import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.repository.UserRepository;
+import com.territorial.auction.global.client.MapAdminClient;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import java.time.LocalDateTime;
@@ -36,7 +36,7 @@ class AdminUserActivityServiceTest {
 
     @Mock private UserRepository userRepository;
     @Mock private AuctionQueryClient auctionQueryClient;
-    @Mock private TerritoryRepository territoryRepository;
+    @Mock private MapAdminClient mapAdminClient;
     @Mock private NotificationService notificationService;
     @Mock private AdminAuditLogger adminAuditLogger;
 

@@ -7,9 +7,9 @@ import static org.mockito.Mockito.never;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.territorial.auction.domain.map.service.TerritoryService;
 import com.territorial.auction.domain.notification.NotificationType;
 import com.territorial.auction.domain.notification.service.NotificationService;
+import com.territorial.auction.global.client.MapTerritoryClient;
 import com.territorial.auction.global.client.SeasonGameEventClient;
 import com.territorial.auction.global.event.CombatEventReceiptService;
 import java.nio.charset.StandardCharsets;
@@ -25,7 +25,7 @@ class CombatEventSubscriberTest {
 
     @Mock private CombatEventReceiptService receiptService;
     @Mock private NotificationService notificationService;
-    @Mock private TerritoryService territoryService;
+    @Mock private MapTerritoryClient mapTerritoryClient;
     @Mock private SeasonGameEventClient seasonGameEventClient;
     @Mock private SimpMessagingTemplate messagingTemplate;
     private CombatEventSubscriber subscriber;
@@ -38,7 +38,7 @@ class CombatEventSubscriberTest {
                         objectMapper,
                         receiptService,
                         notificationService,
-                        territoryService,
+                        mapTerritoryClient,
                         seasonGameEventClient,
                         messagingTemplate);
         org.mockito.Mockito.lenient()
@@ -79,7 +79,7 @@ class CombatEventSubscriberTest {
                 bytes("event-2"));
 
         then(receiptService).should().processOnce(eq("map:event-2"), any());
-        then(territoryService).should().takeOverFromSiege(10L, 1L, 2L);
+        then(mapTerritoryClient).should().takeOver(10L, 1L, 2L);
     }
 
     @Test

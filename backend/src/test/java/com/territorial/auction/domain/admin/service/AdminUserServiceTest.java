@@ -8,7 +8,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
-import static org.mockito.Mockito.mock;
 
 import com.territorial.auction.domain.admin.client.CombatAdminClient;
 import com.territorial.auction.domain.admin.client.CombatAdminClient.UserResourceSnapshot;
@@ -19,8 +18,6 @@ import com.territorial.auction.domain.admin.dto.AdminBulkResultResponse;
 import com.territorial.auction.domain.admin.dto.AdminChangeUserStatusRequest;
 import com.territorial.auction.domain.admin.dto.AdminUserDetailResponse;
 import com.territorial.auction.domain.admin.dto.AdminUserListResponse;
-import com.territorial.auction.domain.map.entity.Territory;
-import com.territorial.auction.domain.map.repository.TerritoryRepository;
 import com.territorial.auction.domain.user.client.UserProvisioningClient;
 import com.territorial.auction.domain.user.client.WalletClient;
 import com.territorial.auction.domain.user.client.WalletSnapshot;
@@ -28,6 +25,7 @@ import com.territorial.auction.domain.user.entity.User;
 import com.territorial.auction.domain.user.entity.UserRole;
 import com.territorial.auction.domain.user.entity.UserStatus;
 import com.territorial.auction.domain.user.repository.UserRepository;
+import com.territorial.auction.global.client.MapTerritoryClient;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import java.util.List;
@@ -53,14 +51,8 @@ class AdminUserServiceTest {
     @Mock private UserProvisioningClient userProvisioningClient;
 
     @Mock private CombatAdminClient combatAdminClient;
-    @Mock private TerritoryRepository territoryRepository;
+    @Mock private MapTerritoryClient mapTerritoryClient;
     @Mock private AdminAuditLogger adminAuditLogger;
-
-    private Territory territory(long id) {
-        Territory territory = mock(Territory.class);
-        given(territory.getId()).willReturn(id);
-        return territory;
-    }
 
     private User user(long id, UserStatus status, UserRole role) {
         User u =
@@ -107,8 +99,7 @@ class AdminUserServiceTest {
             User u = user(1L, UserStatus.ACTIVE, UserRole.USER);
             given(userRepository.findById(1L)).willReturn(Optional.of(u));
             given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(500, 0));
-            List<Territory> territories = List.of(territory(11L), territory(12L), territory(13L));
-            given(territoryRepository.findByOwnerId(1L)).willReturn(territories);
+            given(mapTerritoryClient.getOwnerTerritoryIds(1L)).willReturn(List.of(11L, 12L, 13L));
             given(combatAdminClient.getUserResources(1L, List.of(11L, 12L, 13L)))
                     .willReturn(new UserResourceSnapshot(30, 40));
 
@@ -141,7 +132,7 @@ class AdminUserServiceTest {
             User u = user(1L, UserStatus.ACTIVE, UserRole.USER);
             given(userRepository.findById(1L)).willReturn(Optional.of(u));
             given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(0, 0));
-            given(territoryRepository.findByOwnerId(1L)).willReturn(List.of());
+            given(mapTerritoryClient.getOwnerTerritoryIds(1L)).willReturn(List.of());
             given(combatAdminClient.getUserResources(1L, List.of()))
                     .willReturn(new UserResourceSnapshot(0, 0));
 
@@ -204,7 +195,7 @@ class AdminUserServiceTest {
             given(walletClient.adjust(eq(1L), eq(-200), anyString()))
                     .willReturn(new WalletSnapshot(800, 0));
             given(combatAdminClient.adjustGp(eq(1L), eq(100), anyString())).willReturn(150);
-            given(territoryRepository.findByOwnerId(1L)).willReturn(List.of());
+            given(mapTerritoryClient.getOwnerTerritoryIds(1L)).willReturn(List.of());
             given(combatAdminClient.getUserResources(1L, List.of()))
                     .willReturn(new UserResourceSnapshot(150, 0));
 
