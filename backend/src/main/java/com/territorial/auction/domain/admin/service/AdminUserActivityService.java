@@ -8,17 +8,15 @@ import com.territorial.auction.domain.admin.dto.AdminUserActiveBidListResponse;
 import com.territorial.auction.domain.admin.dto.AdminUserBidListResponse;
 import com.territorial.auction.domain.admin.dto.AdminUserTerritoryListResponse;
 import com.territorial.auction.domain.admin.dto.AdminUserTerritoryResponse;
-import com.territorial.auction.domain.map.entity.Territory;
-import com.territorial.auction.domain.map.repository.TerritoryRepository;
 import com.territorial.auction.domain.notification.NotificationType;
 import com.territorial.auction.domain.notification.service.NotificationService;
 import com.territorial.auction.domain.user.repository.UserRepository;
+import com.territorial.auction.global.client.MapAdminClient;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.auction.global.exception.ErrorCode;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,7 +28,7 @@ public class AdminUserActivityService {
 
     private final UserRepository userRepository;
     private final AuctionQueryClient auctionQueryClient;
-    private final TerritoryRepository territoryRepository;
+    private final MapAdminClient mapAdminClient;
     private final NotificationService notificationService;
     private final AdminAuditLogger adminAuditLogger;
 
@@ -46,11 +44,16 @@ public class AdminUserActivityService {
 
     public AdminUserTerritoryListResponse getTerritories(Long userId, Pageable pageable) {
         validateUserExists(userId);
-        Page<Territory> page = territoryRepository.findAllByUserId(userId, pageable);
+        MapAdminClient.UserTerritoryPage page =
+                mapAdminClient.getUserTerritories(
+                        userId, pageable.getPageNumber(), pageable.getPageSize());
         List<AdminUserTerritoryResponse> territories =
-                page.getContent().stream().map(AdminUserTerritoryResponse::from).toList();
+                page.content().stream().map(AdminUserTerritoryResponse::from).toList();
         return new AdminUserTerritoryListResponse(
-                page.getTotalElements(), page.getNumber(), page.getSize(), territories);
+                page.totalElements(),
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                territories);
     }
 
     @Transactional

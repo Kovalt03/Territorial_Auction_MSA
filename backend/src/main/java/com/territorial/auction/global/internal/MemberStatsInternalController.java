@@ -1,7 +1,7 @@
 package com.territorial.auction.global.internal;
 
-import com.territorial.auction.domain.map.entity.Territory;
-import com.territorial.auction.domain.map.repository.TerritoryRepository;
+import com.territorial.auction.global.client.MapTerritoryClient;
+import com.territorial.auction.global.client.MapTerritoryClient.OwnerCount;
 import com.territorial.auction.global.client.SeasonTrophyClient;
 import com.territorial.auction.global.client.SeasonTrophyClient.UserScore;
 import java.util.List;
@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class MemberStatsInternalController {
 
-    private final TerritoryRepository territoryRepository;
+    private final MapTerritoryClient mapTerritoryClient;
     private final SeasonTrophyClient seasonTrophyClient;
 
     @PostMapping("/stats")
@@ -33,12 +33,8 @@ public class MemberStatsInternalController {
             return ResponseEntity.ok(List.of());
         }
         Map<Long, Long> territory =
-                territoryRepository
-                        .countGroupByOwnerIds(ids, Territory.TerritoryStatus.OCCUPIED)
-                        .stream()
-                        .collect(
-                                Collectors.toMap(
-                                        r -> (Long) r[0], r -> ((Number) r[1]).longValue()));
+                mapTerritoryClient.getOwnerCounts(ids).stream()
+                        .collect(Collectors.toMap(OwnerCount::ownerId, OwnerCount::count));
         Map<Long, Long> trophy =
                 seasonTrophyClient.sumScores(ids).stream()
                         .collect(Collectors.toMap(UserScore::userId, UserScore::totalScore));

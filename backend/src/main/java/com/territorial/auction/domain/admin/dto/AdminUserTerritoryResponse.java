@@ -1,7 +1,6 @@
 package com.territorial.auction.domain.admin.dto;
 
-import com.territorial.auction.domain.map.entity.Continent;
-import com.territorial.auction.domain.map.entity.Territory;
+import com.territorial.auction.global.client.MapAdminClient;
 import java.time.LocalDateTime;
 
 public record AdminUserTerritoryResponse(
@@ -13,18 +12,14 @@ public record AdminUserTerritoryResponse(
         String status,
         LocalDateTime occupiedUntil) {
 
-    public static AdminUserTerritoryResponse from(Territory t) {
+    public static AdminUserTerritoryResponse from(MapAdminClient.UserTerritoryView v) {
         return new AdminUserTerritoryResponse(
-                t.getId(),
-                t.getCoordX(),
-                t.getCoordY(),
-                continentName(t.getContinent()),
-                t.getGrade().getGrade(),
-                t.getStatus().name(),
-                t.getOccupiedUntil());
-    }
-
-    private static String continentName(Continent c) {
-        return c.getDisplayName() != null ? c.getDisplayName() : c.getName();
+                v.territoryId(),
+                v.coordX(),
+                v.coordY(),
+                v.continentName(),
+                v.grade(),
+                v.status(),
+                v.occupiedUntil());
     }
 }

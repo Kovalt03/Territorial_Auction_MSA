@@ -3,11 +3,11 @@ package com.territorial.auction.domain.admin.service;
 import com.territorial.auction.domain.admin.client.AuctionQueryClient;
 import com.territorial.auction.domain.admin.client.CombatAdminClient;
 import com.territorial.auction.domain.admin.dto.AdminDashboardResponse;
-import com.territorial.auction.domain.map.entity.Territory;
-import com.territorial.auction.domain.map.repository.TerritoryRepository;
 import com.territorial.auction.domain.user.client.WalletClient;
 import com.territorial.auction.domain.user.entity.UserStatus;
 import com.territorial.auction.domain.user.repository.UserRepository;
+import com.territorial.auction.global.client.MapAdminClient;
+import com.territorial.auction.global.client.MapAdminClient.StatusCounts;
 import com.territorial.auction.global.client.SeasonQueryClient;
 import com.territorial.auction.global.client.SeasonQueryClient.ActiveSeason;
 import lombok.RequiredArgsConstructor;
@@ -21,21 +21,22 @@ public class AdminDashboardService {
 
     private final UserRepository userRepository;
     private final AuctionQueryClient auctionQueryClient;
-    private final TerritoryRepository territoryRepository;
+    private final MapAdminClient mapAdminClient;
     private final WalletClient walletClient;
     private final CombatAdminClient combatAdminClient;
     private final SeasonQueryClient seasonQueryClient;
 
     public AdminDashboardResponse getDashboard() {
         ActiveSeason season = seasonQueryClient.getActiveSeason().orElse(null);
+        StatusCounts territoryCounts = mapAdminClient.getStatusCounts();
         return new AdminDashboardResponse(
                 userRepository.count(),
                 userRepository.countByStatus(UserStatus.ACTIVE),
                 userRepository.countByStatus(UserStatus.SUSPENDED),
                 auctionQueryClient.countActiveAuctions(),
-                territoryRepository.countByStatus(Territory.TerritoryStatus.BIDDING),
-                territoryRepository.countByStatus(Territory.TerritoryStatus.OCCUPIED),
-                territoryRepository.countByStatus(Territory.TerritoryStatus.IDLE),
+                territoryCounts.biddingCount(),
+                territoryCounts.occupiedCount(),
+                territoryCounts.idleCount(),
                 walletClient.sumAvailableAp(),
                 combatAdminClient.getTotalStoredGp(),
                 season != null ? season.seasonNumber() : null,
