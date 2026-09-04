@@ -3,11 +3,15 @@ package com.territorial.user.domain.user.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.territorial.auction.global.exception.CustomException;
+import com.territorial.user.domain.user.dto.AdminUserCountsResponse;
+import com.territorial.user.domain.user.dto.AdminUserPageResponse;
+import com.territorial.user.domain.user.dto.AdminUserView;
 import com.territorial.user.domain.user.dto.ChangeNicknameResponse;
 import com.territorial.user.domain.user.dto.NotificationSettingResponse;
 import com.territorial.user.domain.user.dto.UpdateNotificationSettingRequest;
@@ -20,6 +24,7 @@ import com.territorial.user.event.UserStatusChangedEventPublisher;
 import com.territorial.user.event.UserUpdatedEvent;
 import com.territorial.user.event.UserUpdatedEventPublisher;
 import com.territorial.user.global.exception.ErrorCode;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -161,5 +166,70 @@ class UserServiceTest {
         assertThat(user.getStatus()).isEqualTo("SUSPENDED");
         verify(refreshTokenService).delete(1L);
         verify(userStatusChangedEventPublisher).enqueue(any(UserStatusChangedEvent.class));
+    }
+
+    @Test
+    void searchUsersForAdminNormalizesBlankFilters() {
+        // blank status → null, blank keyword → "" (lower(bytea) 함정 회피)
+        given(userRepository.searchForAdmin(eq(null), eq(""), any()))
+                .willReturn(new org.springframework.data.domain.PageImpl<>(List.of(user(1L, "h"))));
+
+        AdminUserPageResponse response =
+                userService.searchUsersForAdmin(
+                        "  ", " ", org.springframework.data.domain.PageRequest.of(0, 20));
+
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).userId()).isEqualTo(1L);
+        verify(userRepository).searchForAdmin(eq(null), eq(""), any());
+    }
+
+    @Test
+    void searchUsersForAdminTrimsKeywordAndKeepsStatus() {
+        given(userRepository.searchForAdmin(eq("ACTIVE"), eq("kim"), any()))
+                .willReturn(new org.springframework.data.domain.PageImpl<>(List.of()));
+
+        userService.searchUsersForAdmin(
+                "ACTIVE", "  kim  ", org.springframework.data.domain.PageRequest.of(0, 20));
+
+        verify(userRepository).searchForAdmin(eq("ACTIVE"), eq("kim"), any());
+    }
+
+    @Test
+    void getUserViewReturnsView() {
+        given(userRepository.findById(1L)).willReturn(Optional.of(user(1L, "h")));
+
+        AdminUserView view = userService.getUserView(1L);
+
+        assertThat(view.userId()).isEqualTo(1L);
+        assertThat(view.username()).isEqualTo("u1");
+    }
+
+    @Test
+    void getUserViewRejectsMissing() {
+        given(userRepository.findById(9L)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.getUserView(9L))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    void findUserViewsShortCircuitsOnEmpty() {
+        assertThat(userService.findUserViews(List.of())).isEmpty();
+        verify(userRepository, never()).findAllById(any());
+    }
+
+    @Test
+    void getUserCountsAggregates() {
+        given(userRepository.count()).willReturn(10L);
+        given(userRepository.countByStatus("ACTIVE")).willReturn(7L);
+        given(userRepository.countByStatus("SUSPENDED")).willReturn(2L);
+
+        AdminUserCountsResponse counts = userService.getUserCounts();
+
+        assertThat(counts.total()).isEqualTo(10L);
+        assertThat(counts.active()).isEqualTo(7L);
+        assertThat(counts.suspended()).isEqualTo(2L);
     }
 }

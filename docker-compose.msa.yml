@@ -217,6 +217,22 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── admin-service 전용 DB (관리 콘솔 분리) ────────────────
+  admin-postgres:
+    image: postgres:16-alpine
+    container_name: msa-admin-postgres
+    environment:
+      POSTGRES_DB: admin
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+    volumes:
+      - msa-admin-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # ── 모놀리식 ──────────────────────────────────────────────
   backend:
     build:
@@ -504,6 +520,44 @@ services:
       kafka:
         condition: service_healthy
 
+  # ── admin-service (관리 콘솔·자체 인증) ───────────────────
+  admin-service:
+    build:
+      context: .
+      dockerfile: services/admin-service/Dockerfile
+    container_name: msa-admin-service
+    environment:
+      TZ: Asia/Seoul
+      DB_HOST: admin-postgres
+      DB_PORT: 5432
+      DB_NAME: admin
+      DB_USERNAME: admin
+      DB_PASSWORD: admin
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # 관리자 토큰 서명키 — 게임 JWT_SECRET과 분리(신원 격리, 설계 결정 B).
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:-local-admin-jwt-secret-please-override-32b}
+      # 내부망 IP 허용목록 — 로컬은 전체 허용.
+      ADMIN_ALLOWED_IPS: ""
+      AUCTION_SERVICE_BASE_URL: http://auction-service:8080
+      USER_SERVICE_BASE_URL: http://user-service:8080
+      COMBAT_SERVICE_BASE_URL: http://combat-service:8080
+      SOCIAL_SERVICE_BASE_URL: http://social-service:8080
+      ITEM_SERVICE_BASE_URL: http://item-service:8080
+      SEASON_SERVICE_BASE_URL: http://season-service:8080
+      MAP_SERVICE_BASE_URL: http://map-service:8080
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
+    ports:
+      - "8092:8080"
+    depends_on:
+      admin-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
   # ── API 게이트웨이 ────────────────────────────────────────
   gateway:
     build:
@@ -523,6 +577,7 @@ services:
       SEASON_SERVICE_URL: http://season-service:8080
       RANKING_SERVICE_URL: http://ranking-service:8080
       MAP_SERVICE_URL: http://map-service:8080
+      ADMIN_SERVICE_URL: http://admin-service:8080
       MONOLITH_URL: http://backend:8080
       MONOLITH_WS_URL: ws://backend:8080
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
@@ -539,6 +594,7 @@ services:
       - season-service
       - ranking-service
       - map-service
+      - admin-service
 
   # ── 프론트 (게이트웨이로 프록시) ──────────────────────────
   frontend:
@@ -568,3 +624,4 @@ volumes:
   msa-season-pg-data:
   msa-ranking-pg-data:
   msa-map-pg-data:
+  msa-admin-pg-data:

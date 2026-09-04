@@ -1,6 +1,9 @@
 package com.territorial.user.domain.user.service;
 
 import com.territorial.auction.global.exception.CustomException;
+import com.territorial.user.domain.user.dto.AdminUserCountsResponse;
+import com.territorial.user.domain.user.dto.AdminUserPageResponse;
+import com.territorial.user.domain.user.dto.AdminUserView;
 import com.territorial.user.domain.user.dto.ChangeNicknameResponse;
 import com.territorial.user.domain.user.dto.NotificationSettingResponse;
 import com.territorial.user.domain.user.dto.UpdateNotificationSettingRequest;
@@ -20,6 +23,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -53,6 +57,42 @@ public class UserService {
         return userRepository.findAllById(userIds).stream()
                 .map(UserNicknameResponse::from)
                 .toList();
+    }
+
+    // 관리자 유저 검색(admin-service 위임). status blank→전체, keyword blank→전체("%%").
+    // keyword는 절대 null로 넘기지 않는다([[gotcha_lower_bytea_null_param]]).
+    public AdminUserPageResponse searchUsersForAdmin(
+            String status, String keyword, Pageable pageable) {
+        String statusFilter = StringUtils.hasText(status) ? status : null;
+        String kw = StringUtils.hasText(keyword) ? keyword.trim() : "";
+        return AdminUserPageResponse.from(
+                userRepository.searchForAdmin(statusFilter, kw, pageable));
+    }
+
+    // 관리자 단건 조회(admin-service 위임). 없으면 예외.
+    public AdminUserView getUserView(Long userId) {
+        return AdminUserView.from(findUserOrThrow(userId));
+    }
+
+    // 관리자 유저 존재 검증(admin-service 위임). 지급·활동 대상 검증에 사용.
+    public boolean existsUser(Long userId) {
+        return userRepository.existsById(userId);
+    }
+
+    // 관리자 배치 조회(admin-service 위임). 목록 조회라 없으면 빈 리스트.
+    public List<AdminUserView> findUserViews(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return List.of();
+        }
+        return userRepository.findAllById(userIds).stream().map(AdminUserView::from).toList();
+    }
+
+    // 관리자 대시보드 유저 집계(admin-service 위임).
+    public AdminUserCountsResponse getUserCounts() {
+        return new AdminUserCountsResponse(
+                userRepository.count(),
+                userRepository.countByStatus("ACTIVE"),
+                userRepository.countByStatus("SUSPENDED"));
     }
 
     /** 셀프 탈퇴. 상태=WITHDRAWN → 로그인 즉시 차단, refresh 삭제, access 토큰 블랙리스트(공유). */
