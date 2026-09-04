@@ -1,0 +1,62 @@
+spring:
+  application:
+    name: admin-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:admin}?sslmode=${DB_SSL_MODE:disable}
+    username: ${DB_USERNAME:admin}
+    password: ${DB_PASSWORD:admin}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
+    open-in-view: false
+  flyway:
+    enabled: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+server:
+  port: ${PORT:8080}
+
+# 관리자 자체 인증 토큰 서명키(공개 유저 JWT와 분리 가능 — 기본은 공유 시크릿 폴백).
+admin-jwt:
+  secret: ${ADMIN_JWT_SECRET:${JWT_SECRET:local-admin-jwt-secret-please-override-32b}}
+  access-token-validity-ms: ${ADMIN_ACCESS_TOKEN_TTL:1800000}      # 30분
+  refresh-token-validity-ms: ${ADMIN_REFRESH_TOKEN_TTL:1209600000} # 14일
+
+# 관리자 접근 허용 IP(내부망). 비어 있으면 전체 허용(로컬 개발).
+admin-security:
+  allowed-ips: ${ADMIN_ALLOWED_IPS:}
+
+# 관리 콘솔 집계 대상 서비스
+auction-service:
+  base-url: ${AUCTION_SERVICE_BASE_URL:http://localhost:8082}
+user-service:
+  base-url: ${USER_SERVICE_BASE_URL:http://localhost:8083}
+combat-service:
+  base-url: ${COMBAT_SERVICE_BASE_URL:http://localhost:8084}
+social-service:
+  base-url: ${SOCIAL_SERVICE_BASE_URL:http://localhost:8085}
+item-service:
+  base-url: ${ITEM_SERVICE_BASE_URL:http://localhost:8087}
+season-service:
+  base-url: ${SEASON_SERVICE_BASE_URL:http://localhost:8088}
+map-service:
+  base-url: ${MAP_SERVICE_BASE_URL:http://localhost:8091}
+internal-api:
+  secret: ${INTERNAL_API_SECRET:local-internal-secret}
