@@ -201,6 +201,22 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── map-service 전용 DB (공유 커널 map 분리) ─────────────
+  map-postgres:
+    image: postgres:16-alpine
+    container_name: msa-map-postgres
+    environment:
+      POSTGRES_DB: map
+      POSTGRES_USER: map
+      POSTGRES_PASSWORD: map
+    volumes:
+      - msa-map-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U map -d map"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # ── 모놀리식 ──────────────────────────────────────────────
   backend:
     build:
@@ -226,6 +242,7 @@ services:
       ITEM_SERVICE_BASE_URL: http://item-service:8080
       SEASON_SERVICE_BASE_URL: http://season-service:8080
       RANKING_SERVICE_BASE_URL: http://ranking-service:8080
+      MAP_SERVICE_BASE_URL: http://map-service:8080
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       ADMIN_IP_ALLOWLIST: ""
@@ -254,7 +271,7 @@ services:
       DB_PASSWORD: auction
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      MONOLITH_BASE_URL: http://backend:8080
+      MAP_SERVICE_BASE_URL: http://map-service:8080
       USER_SERVICE_BASE_URL: http://user-service:8080
       COMBAT_SERVICE_BASE_URL: http://combat-service:8080
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
@@ -314,6 +331,7 @@ services:
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       MONOLITH_BASE_URL: http://backend:8080
+      MAP_SERVICE_BASE_URL: http://map-service:8080
       USER_SERVICE_BASE_URL: http://user-service:8080
     ports:
       - "8084:8080"
@@ -391,7 +409,7 @@ services:
       REDIS_PORT: 6379
       USER_SERVICE_BASE_URL: http://user-service:8080
       COMBAT_SERVICE_BASE_URL: http://combat-service:8080
-      MONOLITH_BASE_URL: http://backend:8080
+      MAP_SERVICE_BASE_URL: http://map-service:8080
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
     depends_on:
       item-postgres:
@@ -445,10 +463,41 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SEASON_SERVICE_BASE_URL: http://season-service:8080
       USER_SERVICE_BASE_URL: http://user-service:8080
-      MONOLITH_BASE_URL: http://backend:8080
+      MAP_SERVICE_BASE_URL: http://map-service:8080
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
     depends_on:
       ranking-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  # ── map-service (공유 커널 map — 영토·대륙·토지세·수입) ────
+  map-service:
+    build:
+      context: .
+      dockerfile: services/map-service/Dockerfile
+    container_name: msa-map-service
+    environment:
+      TZ: Asia/Seoul
+      DB_HOST: map-postgres
+      DB_PORT: 5432
+      DB_NAME: map
+      DB_USERNAME: map
+      DB_PASSWORD: map
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      COMBAT_SERVICE_BASE_URL: http://combat-service:8080
+      SEASON_SERVICE_BASE_URL: http://season-service:8080
+      RANKING_SERVICE_BASE_URL: http://ranking-service:8080
+      USER_SERVICE_BASE_URL: http://user-service:8080
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
+    ports:
+      - "8091:8080"
+    depends_on:
+      map-postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -473,6 +522,7 @@ services:
       ITEM_SERVICE_URL: http://item-service:8080
       SEASON_SERVICE_URL: http://season-service:8080
       RANKING_SERVICE_URL: http://ranking-service:8080
+      MAP_SERVICE_URL: http://map-service:8080
       MONOLITH_URL: http://backend:8080
       MONOLITH_WS_URL: ws://backend:8080
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
@@ -488,6 +538,7 @@ services:
       - item-service
       - season-service
       - ranking-service
+      - map-service
 
   # ── 프론트 (게이트웨이로 프록시) ──────────────────────────
   frontend:
@@ -516,3 +567,4 @@ volumes:
   msa-item-pg-data:
   msa-season-pg-data:
   msa-ranking-pg-data:
+  msa-map-pg-data:
