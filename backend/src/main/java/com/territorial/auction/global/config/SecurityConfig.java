@@ -70,7 +70,6 @@ public class SecurityConfig {
                                     .requestMatchers("/actuator/**").permitAll()
                                     .requestMatchers("/internal/**").permitAll()
                                     .requestMatchers(HttpMethod.GET, "/images/**").permitAll()
-                                    .requestMatchers(HttpMethod.GET, "/api/v1/announcement").permitAll()
                                     .requestMatchers(HttpMethod.GET, "/api/v1/map/**").permitAll()
                                     .requestMatchers(HttpMethod.GET, "/api/v1/continents/**").permitAll()
                                     .requestMatchers(HttpMethod.GET, "/api/v1/auctions/my-bids").authenticated()
@@ -82,8 +81,6 @@ public class SecurityConfig {
                                     .requestMatchers("/api/v1/military/**").authenticated()
                                     .requestMatchers("/api/v1/siege/**").authenticated()
                                     .requestMatchers("/api/v1/users/me/wishlist/**").authenticated()
-                                    .requestMatchers(HttpMethod.POST, "/api/v1/admin/auth/login").permitAll()
-                                    .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                                     .anyRequest().authenticated())
                         // spotless:on
                 .oauth2Login(
