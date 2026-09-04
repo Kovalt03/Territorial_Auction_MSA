@@ -20,7 +20,10 @@ public enum ErrorCode implements ErrorCodeType {
     INVALID_PAYMENT(HttpStatus.BAD_REQUEST, "결제 정보가 올바르지 않습니다."),
     DUPLICATE_ORDER(HttpStatus.CONFLICT, "이미 처리된 주문입니다."),
     INVALID_WALLET_AMOUNT(HttpStatus.BAD_REQUEST, "지갑 명령 금액은 양수여야 합니다."),
-    WALLET_COMMAND_CONFLICT(HttpStatus.CONFLICT, "동일한 지갑 명령 키에 다른 요청이 전달되었습니다.");
+    WALLET_COMMAND_CONFLICT(HttpStatus.CONFLICT, "동일한 지갑 명령 키에 다른 요청이 전달되었습니다."),
+    TERRITORY_NOT_FOUND(HttpStatus.NOT_FOUND, "영토를 찾을 수 없습니다."),
+    WISHLIST_NOT_FOUND(HttpStatus.NOT_FOUND, "위시리스트 항목을 찾을 수 없습니다."),
+    WISHLIST_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 위시리스트에 추가된 영토입니다.");
 
     private final HttpStatus httpStatus;
     private final String message;
