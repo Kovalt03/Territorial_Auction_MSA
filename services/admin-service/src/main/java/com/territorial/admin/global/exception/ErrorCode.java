@@ -17,8 +17,18 @@ public enum ErrorCode implements ErrorCodeType {
     // 관리 대상(게임 유저) — user-service 위임
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."),
 
+    // 관리 대상 도메인(위임) 예외 — 각 서비스 4xx를 admin 콘솔이 표시
+    INVALID_USER_STATUS(HttpStatus.BAD_REQUEST, "변경할 수 없는 상태입니다."),
+    CANNOT_SUSPEND_ADMIN(HttpStatus.BAD_REQUEST, "관리자 계정은 정지할 수 없습니다."),
+    AUCTION_NOT_FOUND(HttpStatus.NOT_FOUND, "경매를 찾을 수 없습니다."),
+    AUCTION_ALREADY_SETTLED(HttpStatus.CONFLICT, "이미 정산된 경매입니다."),
+    AUCTION_NO_BIDDER_TO_SETTLE(HttpStatus.CONFLICT, "입찰자가 없어 강제 낙찰할 수 없습니다. 강제 취소를 사용하세요."),
+    INSUFFICIENT_AP(HttpStatus.CONFLICT, "AP 잔액이 부족합니다."),
+    ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "아이템을 찾을 수 없습니다."),
+
     // 관리 콘솔 공통
     ADMIN_SETTING_NOT_FOUND(HttpStatus.NOT_FOUND, "설정을 찾을 수 없습니다."),
+    BALANCE_KEY_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 밸런스 설정 키입니다."),
     INVALID_INPUT(HttpStatus.BAD_REQUEST, "잘못된 요청입니다.");
 
     private final HttpStatus httpStatus;
