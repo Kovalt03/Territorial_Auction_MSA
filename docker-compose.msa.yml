@@ -186,6 +186,21 @@ services:
       timeout: 5s
       retries: 5
 
+  ranking-postgres:
+    image: postgres:16-alpine
+    container_name: msa-ranking-postgres
+    environment:
+      POSTGRES_DB: ranking
+      POSTGRES_USER: ranking
+      POSTGRES_PASSWORD: ranking
+    volumes:
+      - msa-ranking-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ranking -d ranking"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # ── 모놀리식 ──────────────────────────────────────────────
   backend:
     build:
@@ -210,6 +225,7 @@ services:
       SOCIAL_SERVICE_BASE_URL: http://social-service:8080
       ITEM_SERVICE_BASE_URL: http://item-service:8080
       SEASON_SERVICE_BASE_URL: http://season-service:8080
+      RANKING_SERVICE_BASE_URL: http://ranking-service:8080
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       ADMIN_IP_ALLOWLIST: ""
@@ -411,6 +427,34 @@ services:
       kafka:
         condition: service_healthy
 
+  # ── ranking-service ──────────────────────────────────────
+  ranking-service:
+    build:
+      context: .
+      dockerfile: services/ranking-service/Dockerfile
+    container_name: msa-ranking-service
+    environment:
+      TZ: Asia/Seoul
+      DB_HOST: ranking-postgres
+      DB_PORT: 5432
+      DB_NAME: ranking
+      DB_USERNAME: ranking
+      DB_PASSWORD: ranking
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SEASON_SERVICE_BASE_URL: http://season-service:8080
+      USER_SERVICE_BASE_URL: http://user-service:8080
+      MONOLITH_BASE_URL: http://backend:8080
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
+    depends_on:
+      ranking-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
   # ── API 게이트웨이 ────────────────────────────────────────
   gateway:
     build:
@@ -428,6 +472,7 @@ services:
       NOTIFICATION_SERVICE_URL: http://notification-service:8080
       ITEM_SERVICE_URL: http://item-service:8080
       SEASON_SERVICE_URL: http://season-service:8080
+      RANKING_SERVICE_URL: http://ranking-service:8080
       MONOLITH_URL: http://backend:8080
       MONOLITH_WS_URL: ws://backend:8080
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
@@ -442,6 +487,7 @@ services:
       - notification-service
       - item-service
       - season-service
+      - ranking-service
 
   # ── 프론트 (게이트웨이로 프록시) ──────────────────────────
   frontend:
@@ -469,3 +515,4 @@ volumes:
   msa-notification-pg-data:
   msa-item-pg-data:
   msa-season-pg-data:
+  msa-ranking-pg-data:

@@ -4,7 +4,7 @@ import com.territorial.auction.domain.map.dto.MapUpdateBroadcast;
 import com.territorial.auction.domain.map.entity.Territory;
 import com.territorial.auction.domain.map.event.TerritoryLostEvent;
 import com.territorial.auction.domain.map.repository.TerritoryRepository;
-import com.territorial.auction.domain.ranking.event.TerritoryHoldClosedEvent;
+import com.territorial.auction.global.client.RankingHoldClient;
 import com.territorial.auction.global.client.SeasonQueryClient;
 import com.territorial.auction.global.client.SeasonQueryClient.ActiveSeason;
 import java.time.LocalDateTime;
@@ -32,6 +32,7 @@ public class TerritoryExpiryService {
 
     private final TerritoryRepository territoryRepository;
     private final SeasonQueryClient seasonQueryClient;
+    private final RankingHoldClient rankingHoldClient;
     private final ApplicationEventPublisher eventPublisher;
     private final SimpMessagingTemplate messagingTemplate;
 
@@ -46,7 +47,7 @@ public class TerritoryExpiryService {
                 territoryRepository.findAllExpiredOccupied(Territory.TerritoryStatus.OCCUPIED, now);
         Optional<ActiveSeason> seasonOpt = seasonQueryClient.getActiveSeason();
         for (Territory territory : expired) {
-            publishHoldClosedEvent(territory, seasonOpt, now);
+            closeRankingHoldAfterCommit(territory, seasonOpt, now);
             if (territory.getOwner() != null) {
                 eventPublisher.publishEvent(
                         new TerritoryLostEvent(territory.getId(), territory.getOwner().getId()));
@@ -57,15 +58,20 @@ public class TerritoryExpiryService {
         }
     }
 
-    private void publishHoldClosedEvent(
+    // 영토 점유 종료를 ranking-service에 위임한다. 커밋 이후 호출해 롤백 시 불일치를 막는다(best-effort).
+    private void closeRankingHoldAfterCommit(
             Territory territory, Optional<ActiveSeason> seasonOpt, LocalDateTime now) {
         if (seasonOpt.isEmpty() || territory.getOwner() == null) return;
-        eventPublisher.publishEvent(
-                new TerritoryHoldClosedEvent(
-                        territory.getOwner().getId(),
-                        seasonOpt.get().seasonId(),
-                        territory.getId(),
-                        now));
+        Long userId = territory.getOwner().getId();
+        Long seasonId = seasonOpt.get().seasonId();
+        long territoryId = territory.getId();
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        rankingHoldClient.closeHold(userId, seasonId, territoryId, now);
+                    }
+                });
     }
 
     private void broadcastIdleAfterCommit(Territory territory) {
