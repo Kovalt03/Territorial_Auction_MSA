@@ -197,7 +197,11 @@ public class CombatEventSubscriber {
                                         new SiegeAlertEnvelope(userId, alert));
                         redissonClient.getTopic(SIEGE_ALERT_TOPIC).publish(json);
                     } catch (JsonProcessingException e) {
-                        log.error("[Siege] 알림 직렬화 실패. userId={}, siegeId={}", userId, alert.siegeId(), e);
+                        log.error(
+                                "[Siege] 알림 직렬화 실패. userId={}, siegeId={}",
+                                userId,
+                                alert.siegeId(),
+                                e);
                     }
                 });
     }
