@@ -64,29 +64,44 @@
 Spring Cloud Gateway 뒤에 도메인 서비스들이 각자 전용 DB를 소유하고, `/internal` 동기 계약과 Kafka·Redis 이벤트로 협력하는 마이크로서비스 구조입니다.
 
 ```mermaid
-graph TD
-    FE["React SPA :3000"] -->|"REST · STOMP/SockJS"| GW["API Gateway :8090<br/>JWT 검증 → X-User-Id 주입 · 경로 라우팅"]
-    GW -->|"/ws"| RT["realtime-service<br/>(무상태 WebSocket 허브)"]
-    GW --> SVC
+flowchart TB
+    FE["React SPA"]:::client
+    GW["API Gateway<br/>:8090 · JWT / 라우팅"]:::gw
+    RT["realtime-service<br/>WebSocket 허브 (무상태)"]:::svc
 
-    subgraph SVC["도메인 서비스 — 각자 전용 PostgreSQL 소유"]
+    subgraph SVCS["도메인 서비스 · 각 서비스 전용 PostgreSQL"]
         direction LR
-        AUC[auction]
-        USR["user · auth(OAuth) · 지갑"]
-        CMB["combat · 건물 · 공성"]
-        MAP["map · 영토(공유 커널)"]
-        SOC["social · guild"]
-        ITM[item]
-        SSN[season]
-        RNK[ranking]
-        NOT[notification]
-        ADM[admin]
+        AUC["auction"]:::svc --- DAUC[("auction")]:::db
+        USR["user / auth"]:::svc --- DUSR[("user")]:::db
+        CMB["combat"]:::svc --- DCMB[("combat")]:::db
+        MAP["map"]:::svc --- DMAP[("map")]:::db
+        SOC["social"]:::svc --- DSOC[("social")]:::db
+        NOT["notification"]:::svc --- DNOT[("notification")]:::db
+        ITM["item"]:::svc --- DITM[("item")]:::db
+        SSN["season"]:::svc --- DSSN[("season")]:::db
+        RNK["ranking"]:::svc --- DRNK[("ranking")]:::db
+        ADM["admin"]:::svc --- DADM[("admin")]:::db
     end
 
-    SVC ==>|"durable 이벤트"| KAFKA[("Kafka")]
-    SVC -.->|"락 · 캐시 · 저지연 pub/sub"| REDIS[("Redis")]
+    subgraph SHARED["공유 인프라 (전 서비스 공용)"]
+        direction LR
+        KAFKA[("Kafka<br/>durable 이벤트")]:::infra
+        REDIS[("Redis<br/>락 / 캐시 / pub-sub")]:::infra
+    end
+
+    FE -->|"REST / WS"| GW
+    GW --> SVCS
+    GW -->|"/ws"| RT
+    SVCS -->|"이벤트 발행·구독"| KAFKA
+    SVCS -->|"락 / 캐시"| REDIS
     KAFKA --> RT
     REDIS --> RT
+
+    classDef client fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
+    classDef gw fill:#1f2937,stroke:#111827,color:#f9fafb
+    classDef svc fill:#2563eb,stroke:#1e40af,color:#ffffff
+    classDef db fill:#fef3c7,stroke:#f59e0b,color:#78350f
+    classDef infra fill:#0d9488,stroke:#0f766e,color:#ffffff
 ```
 
 - 공개 REST/WS 요청은 모두 게이트웨이를 거칩니다. 게이트웨이가 JWT를 검증해 `X-User-Id`를 주입하고 경로별로 각 서비스에 라우팅하며, `/ws`는 realtime-service로 보냅니다(미매핑 fallback 없음).
