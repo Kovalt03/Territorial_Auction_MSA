@@ -44,8 +44,9 @@ server:
 internal-api:
   secret: ${INTERNAL_API_SECRET}
 
-monolith:
-  base-url: ${MONOLITH_BASE_URL:http://localhost:8080}
+# 시즌 전투 혜택(건설시간 감소·추가 건축가) 조회 — season-service 소유
+season-service:
+  base-url: ${SEASON_SERVICE_BASE_URL:http://localhost:8088}
 # 영토 전투 컨텍스트 조회 위임(공유 커널 map은 map-service 소유)
 map-service:
   base-url: ${MAP_SERVICE_BASE_URL:http://localhost:8091}

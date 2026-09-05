@@ -11,7 +11,7 @@ services:
   # ── 공유 이벤트 버스 / 캐시 ────────────────────────────────
   redis:
     build:
-      context: ./backend/docker/redis
+      context: ./docker/redis
       dockerfile: Dockerfile
     container_name: msa-redis
     ports:
@@ -50,26 +50,6 @@ services:
       interval: 10s
       timeout: 10s
       retries: 15
-
-  # ── 모놀리식 DB ───────────────────────────────────────────
-  postgres:
-    build:
-      context: ./backend/docker/postgres
-      dockerfile: Dockerfile
-    container_name: msa-postgres
-    environment:
-      POSTGRES_DB: territorial_auction
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
-    volumes:
-      - msa-postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   # ── auction-service 전용 DB (분리) ────────────────────────
   auction-postgres:
@@ -233,45 +213,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── 모놀리식 ──────────────────────────────────────────────
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: msa-backend
-    env_file:
-      - ./backend/.env
-    environment:
-      TZ: Asia/Seoul
-      SPRING_PROFILES_ACTIVE: local
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: territorial_auction
-      DB_USERNAME: postgres
-      DB_PASSWORD: postgres
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      AUCTION_SERVICE_BASE_URL: http://auction-service:8080
-      USER_SERVICE_BASE_URL: http://user-service:8080
-      COMBAT_SERVICE_BASE_URL: http://combat-service:8080
-      SOCIAL_SERVICE_BASE_URL: http://social-service:8080
-      ITEM_SERVICE_BASE_URL: http://item-service:8080
-      SEASON_SERVICE_BASE_URL: http://season-service:8080
-      RANKING_SERVICE_BASE_URL: http://ranking-service:8080
-      MAP_SERVICE_BASE_URL: http://map-service:8080
-      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      ADMIN_IP_ALLOWLIST: ""
-    ports:
-      - "8080:8080"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-
   # ── auction-service ──────────────────────────────────────
   auction-service:
     build:
@@ -309,7 +250,7 @@ services:
       dockerfile: services/user-service/Dockerfile
     container_name: msa-user-service
     env_file:
-      - ./backend/.env
+      - ./.env
     environment:
       TZ: Asia/Seoul
       DB_HOST: user-postgres
@@ -350,7 +291,7 @@ services:
       REDIS_PORT: 6379
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      MONOLITH_BASE_URL: http://backend:8080
+      SEASON_SERVICE_BASE_URL: http://season-service:8080
       MAP_SERVICE_BASE_URL: http://map-service:8080
       USER_SERVICE_BASE_URL: http://user-service:8080
     ports:
@@ -572,14 +513,14 @@ services:
       dockerfile: services/realtime-service/Dockerfile
     container_name: msa-realtime-service
     env_file:
-      - ./backend/.env
+      - ./.env
     environment:
       TZ: Asia/Seoul
       REDIS_HOST: redis
       REDIS_PORT: 6379
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
-      - "8090:8080"
+      - "8093:8080"
     depends_on:
       redis:
         condition: service_healthy
@@ -593,7 +534,7 @@ services:
       dockerfile: Dockerfile
     container_name: msa-gateway
     env_file:
-      - ./backend/.env   # JWT_SECRET 공유 — 모놀리식과 동일 서명키로 검증
+      - ./.env   # JWT_SECRET 공유 — 모놀리식과 동일 서명키로 검증
     environment:
       TZ: Asia/Seoul
       AUCTION_SERVICE_URL: http://auction-service:8080
@@ -606,13 +547,11 @@ services:
       RANKING_SERVICE_URL: http://ranking-service:8080
       MAP_SERVICE_URL: http://map-service:8080
       ADMIN_SERVICE_URL: http://admin-service:8080
-      MONOLITH_URL: http://backend:8080
       REALTIME_SERVICE_WS_URL: ws://realtime-service:8080
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
     ports:
       - "8090:8080"
     depends_on:
-      - backend
       - auction-service
       - user-service
       - combat-service
@@ -642,7 +581,6 @@ services:
 
 volumes:
   msa-redis-data:
-  msa-postgres-data:
   msa-auction-pg-data:
   msa-user-pg-data:
   msa-combat-pg-data:

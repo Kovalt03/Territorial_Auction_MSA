@@ -20,7 +20,7 @@ class CombatRouteConfigurationTest {
     @Autowired private RouteDefinitionLocator routeDefinitionLocator;
 
     @Test
-    void combatRoutePrecedesFallbackAndInjectsGatewayToken() {
+    void combatRouteInjectsGatewayToken() {
         var routes = routeDefinitionLocator.getRouteDefinitions().collectList().block();
 
         assertThat(routes).isNotNull();
@@ -29,13 +29,6 @@ class CombatRouteConfigurationTest {
                         .filter(route -> route.getId().equals("combat-service"))
                         .findFirst()
                         .orElseThrow();
-        int combatIndex = routes.indexOf(combat);
-        int fallbackIndex =
-                routes.indexOf(
-                        routes.stream()
-                                .filter(route -> route.getId().equals("monolith"))
-                                .findFirst()
-                                .orElseThrow());
 
         assertThat(combat.getUri()).isEqualTo(URI.create("http://combat-test:8080"));
         assertThat(combat.getPredicates().get(0).getArgs().values())
@@ -43,6 +36,5 @@ class CombatRouteConfigurationTest {
                 .anyMatch(value -> value.contains("/api/v1/map/territories/*/buildings"));
         assertThat(combat.getFilters().get(0).getArgs().values())
                 .contains("X-Gateway-Service-Token", "gateway-test-secret");
-        assertThat(combatIndex).isLessThan(fallbackIndex);
     }
 }
