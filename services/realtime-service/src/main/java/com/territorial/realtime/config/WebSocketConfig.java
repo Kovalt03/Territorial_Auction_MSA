@@ -1,6 +1,6 @@
-package com.territorial.auction.global.config;
+package com.territorial.realtime.config;
 
-import com.territorial.auction.global.security.jwt.StompChannelInterceptor;
+import com.territorial.realtime.security.StompChannelInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;

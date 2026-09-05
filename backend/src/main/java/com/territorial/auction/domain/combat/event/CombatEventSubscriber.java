@@ -1,5 +1,6 @@
 package com.territorial.auction.domain.combat.event;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.territorial.auction.domain.notification.NotificationType;
 import com.territorial.auction.domain.notification.service.NotificationService;
@@ -10,10 +11,10 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RedissonClient;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -29,13 +30,15 @@ public class CombatEventSubscriber {
     private static final String TAKEOVER = "combat.territory.takeover-requested";
     private static final String VICTORY = "combat.siege.victory";
     private static final String ISLAND_EXPANDED = "combat.island.expanded";
+    // 공성 알림 WS push는 realtime-service가 소유 — 여기서는 Redis로 발행만 하고 relay는 realtime이 담당.
+    private static final String SIEGE_ALERT_TOPIC = "siege.alert";
 
     private final ObjectMapper objectMapper;
     private final CombatEventReceiptService receiptService;
     private final NotificationService notificationService;
     private final MapTerritoryClient mapTerritoryClient;
     private final SeasonGameEventClient seasonGameEventClient;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final RedissonClient redissonClient;
 
     @KafkaListener(topics = TOPIC, groupId = "backend-combat-notification")
     public void handleNotification(
@@ -115,8 +118,8 @@ public class CombatEventSubscriber {
                                     + ") 영토를 공격했습니다. (Zone "
                                     + event.attackZone()
                                     + ")");
-                    sendAfterCommit(
-                            "/sub/user/" + event.defenderId() + "/siege-alert",
+                    publishSiegeAlert(
+                            event.defenderId(),
                             new SiegeAlert(
                                     event.siegeId(),
                                     "DECLARED",
@@ -166,8 +169,8 @@ public class CombatEventSubscriber {
                                     event.resolvedAt(),
                                     event.isAttackerWin(),
                                     event.resultType());
-                    sendAfterCommit("/sub/user/" + event.attackerId() + "/siege-alert", alert);
-                    sendAfterCommit("/sub/user/" + event.defenderId() + "/siege-alert", alert);
+                    publishSiegeAlert(event.attackerId(), alert);
+                    publishSiegeAlert(event.defenderId(), alert);
                 });
     }
 
@@ -184,16 +187,35 @@ public class CombatEventSubscriber {
                                         + "개가 보관함으로 이동했습니다."));
     }
 
-    private void sendAfterCommit(String destination, Object payload) {
+    // 공성 알림을 Redis(siege.alert)로 발행 — realtime-service가 /sub/user/{userId}/siege-alert로 relay한다.
+    private void publishSiegeAlert(Long userId, SiegeAlert alert) {
+        runAfterCommit(
+                () -> {
+                    try {
+                        String json =
+                                objectMapper.writeValueAsString(
+                                        new SiegeAlertEnvelope(userId, alert));
+                        redissonClient.getTopic(SIEGE_ALERT_TOPIC).publish(json);
+                    } catch (JsonProcessingException e) {
+                        log.error(
+                                "[Siege] 알림 직렬화 실패. userId={}, siegeId={}",
+                                userId,
+                                alert.siegeId(),
+                                e);
+                    }
+                });
+    }
+
+    private void runAfterCommit(Runnable action) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            messagingTemplate.convertAndSend(destination, payload);
+            action.run();
             return;
         }
         TransactionSynchronizationManager.registerSynchronization(
                 new TransactionSynchronization() {
                     @Override
                     public void afterCommit() {
-                        messagingTemplate.convertAndSend(destination, payload);
+                        action.run();
                     }
                 });
     }
@@ -256,4 +278,7 @@ public class CombatEventSubscriber {
     private record SiegeVictory(Long siegeId, Long attackerId) {}
 
     private record IslandExpanded(Long userId, int storedBuildingCount) {}
+
+    // Redis(siege.alert) 봉투 — 대상 userId + WS로 내보낼 페이로드. realtime-service가 relay.
+    private record SiegeAlertEnvelope(Long userId, SiegeAlert payload) {}
 }

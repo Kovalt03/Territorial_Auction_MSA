@@ -1,7 +1,9 @@
 package com.territorial.auction.domain.combat.event;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 
@@ -18,7 +20,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.redisson.api.RTopic;
+import org.redisson.api.RedissonClient;
 
 @ExtendWith(MockitoExtension.class)
 class CombatEventSubscriberTest {
@@ -27,7 +30,8 @@ class CombatEventSubscriberTest {
     @Mock private NotificationService notificationService;
     @Mock private MapTerritoryClient mapTerritoryClient;
     @Mock private SeasonGameEventClient seasonGameEventClient;
-    @Mock private SimpMessagingTemplate messagingTemplate;
+    @Mock private RedissonClient redissonClient;
+    @Mock private RTopic siegeTopic;
     private CombatEventSubscriber subscriber;
 
     @BeforeEach
@@ -40,7 +44,7 @@ class CombatEventSubscriberTest {
                         notificationService,
                         mapTerritoryClient,
                         seasonGameEventClient,
-                        messagingTemplate);
+                        redissonClient);
         org.mockito.Mockito.lenient()
                 .doAnswer(
                         invocation -> {
@@ -53,6 +57,7 @@ class CombatEventSubscriberTest {
 
     @Test
     void declaredEventNotifiesDefenderAndUsesEventIdReceipt() {
+        given(redissonClient.getTopic("siege.alert")).willReturn(siegeTopic);
         String payload =
                 """
                 {"siegeId":100,"territoryId":10,"coordX":4,"coordY":5,"attackZone":3,
@@ -66,9 +71,8 @@ class CombatEventSubscriberTest {
         then(notificationService)
                 .should()
                 .sendNotification(eq(2L), eq(NotificationType.SIEGE_ALERT), any());
-        then(messagingTemplate)
-                .should()
-                .convertAndSend(eq("/sub/user/2/siege-alert"), any(Object.class));
+        // 공성 알림은 Redis(siege.alert)로 발행 → realtime-service가 relay
+        then(siegeTopic).should().publish(anyString());
     }
 
     @Test

@@ -1,6 +1,6 @@
-package com.territorial.auction.global.security.jwt;
+package com.territorial.realtime.security;
 
-import java.util.List;
+import java.security.Principal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
@@ -8,11 +8,13 @@ import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+/**
+ * CONNECT 단계에서 access token(공유 secret)을 검증하고 세션 Principal(userId)을 설정한다. 인바운드 @MessageMapping이 없는
+ * 순수 push 허브라 권한 객체는 불필요 — Principal만 userId로 마킹한다.
+ */
 @Component
 @RequiredArgsConstructor
 public class StompChannelInterceptor implements ChannelInterceptor {
@@ -40,10 +42,9 @@ public class StompChannelInterceptor implements ChannelInterceptor {
         }
 
         Long userId = jwtTokenProvider.getAccessTokenUserId(token);
-        UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(
-                        userId, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
-        accessor.setUser(authentication);
+        String principalName = String.valueOf(userId);
+        Principal principal = () -> principalName;
+        accessor.setUser(principal);
 
         return message;
     }

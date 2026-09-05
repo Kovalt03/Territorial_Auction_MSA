@@ -1,8 +1,8 @@
-package com.territorial.auction.realtime;
+package com.territorial.realtime.realtime;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.territorial.auction.domain.notification.NotificationType;
-import com.territorial.auction.domain.notification.service.NotificationService;
+import com.territorial.realtime.notification.NotificationService;
+import com.territorial.realtime.notification.NotificationType;
 import jakarta.annotation.PostConstruct;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -14,9 +14,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * 실시간 허브. auction-service가 발행하는 auction.bid·auction.settled 이벤트를 구독해 클라이언트에 STOMP push + 알림을 남긴다.
- * 클라이언트 WS는 모놀리식(/ws)이 소유하므로 여기서 push한다. (실시간 아키텍처 결정 A)
  *
- * <p>auction 도메인이 삭제돼도 살아남도록 자체 DTO를 쓴다(map의 MapUpdateBroadcast는 map 소유라 유지됨).
+ * <p>auction 도메인이 삭제돼도 살아남도록 자체 DTO를 쓴다.
  */
 @Slf4j
 @Component
@@ -135,7 +134,7 @@ public class AuctionRealtimeSubscriber {
             String grade,
             List<Long> runnerUpIds) {}
 
-    // /sub/user/{id}/auction-result 페이로드 (기존 AuctionResultAlert와 동일 형태)
+    // /sub/user/{id}/auction-result 페이로드
     private record ResultAlert(
             Long auctionId,
             Long territoryId,

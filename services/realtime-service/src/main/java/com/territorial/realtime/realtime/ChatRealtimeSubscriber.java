@@ -1,4 +1,4 @@
-package com.territorial.auction.realtime;
+package com.territorial.realtime.realtime;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
@@ -8,9 +8,7 @@ import org.redisson.api.RedissonClient;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 
-/**
- * social-service의 chat.message(Redis)를 구독해 WebSocket(/sub/chat/{roomId})으로 브로드캐스트. 실시간 허브는 모놀리식 소유.
- */
+/** social-service의 chat.message(Redis)를 구독해 WebSocket(/sub/chat/{roomId})으로 브로드캐스트. */
 @Slf4j
 @Component
 @RequiredArgsConstructor
