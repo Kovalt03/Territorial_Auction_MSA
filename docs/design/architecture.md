@@ -1,8 +1,8 @@
 # 시스템 아키텍처
 
-> 모놀리식 Spring Boot로 시작해 도메인 경계를 확립하고, 부하 측정 결과를 근거로 **MSA 전환에 착수**했다. 현재 auction-service와 user-service 추출이 완료됐으며 combat-service는 building·island/vault·unit/research·siege 공개 API와 데이터 소유권까지 이관해 cutover 검증 중이다. 아래 "MSA 런타임(현재)"과 [전환 허브](./msa/README.md)를 기준으로 한다.
+> 모놀리식 Spring Boot로 시작해 도메인 경계를 확립하고, 부하 측정 결과를 근거로 MSA로 전환했다. ✅ **전환 완료** — 모놀리식은 제거됐고 모든 도메인이 독립 서비스다(gateway·auction·user·combat·social·notification·item·season·ranking·map·admin·realtime). 서비스 토폴로지·이력은 [전환 허브](./msa/README.md), 서비스 간 계약은 [internal.md](../api/internal.md)가 기준이다.
 
-아래 그림은 MSA 전환 전 계층형 모놀리식 기준 구조다.
+아래 그림과 "패키지 경계"는 **MSA 전환 전 계층형 모놀리식 기준(역사적 참고)**이다 — 도메인 경계 자체는 그대로 서비스 경계가 됐다.
 
 ![Territorial Auction 계층형 시스템 아키텍처](../assets/architecture.svg)
 
@@ -55,42 +55,45 @@ com.territorial.auction
 
 상세 메시지 규약은 [WebSocket 문서](../api/websocket/README.md)를 참고한다.
 
-## MSA 런타임 (현재)
+## MSA 런타임 (현재 — 전환 완료)
 
-부하 테스트에서 단일 인기 경매의 지속 경합이 병목으로 확인돼 auction을 첫 서비스로 추출했고, 이어 user/auth를 user-service로 추출했다. 현재 MSA compose에는 잔여 모놀리식 + auction-service + user-service + gateway와 building·island/vault·unit/research·siege를 소유하는 combat-service가 포함된다. gateway가 combat 공개 경로를 우선 라우팅하고, 잔여 모놀리식은 내부 HTTP 계약과 Kafka 이벤트로만 combat과 협력한다([구동](./msa/local-run.md)).
+부하 테스트에서 단일 인기 경매의 지속 경합이 병목으로 확인돼 auction을 첫 서비스로 추출한 뒤, Strangler로 전 도메인을 추출하고 모놀리식을 제거했다. 현재 `docker-compose.msa.yml`은 gateway + 도메인 서비스 11개(auction·user·combat·social·notification·item·season·ranking·map·admin·realtime) + 서비스별 DB + Kafka/Redis로 구성된다([구동](./msa/local-run.md)).
 
 ```text
             ┌───────────────┐
-Client ───▶ │  API Gateway  │  JWT 검증 → X-User-Id 주입, 경로 라우팅
+Client ───▶ │  API Gateway  │  JWT 검증 → X-User-Id 주입, 경로 라우팅 (/ws → realtime)
             └──────┬────────┘
- auction 경로       user 소유 경로       combat 경로       그 외 · /ws
-      │                   │                   │                 │
-      ▼                   ▼                   ▼                 ▼
- auction-service     user-service       combat-service       모놀리식
-  (auction DB)        (user DB)           (combat DB)     (잔여 DB+realtime)
-      └──────────── 내부 HTTP·Kafka 이벤트로 협력 ─────────────┘
+   ┌───────────────┼───────────────┬───────────────┬───────────────┐
+   ▼               ▼               ▼               ▼               ▼
+auction         user            combat          map             realtime
+social · notification · item · season · ranking · admin   (각 서비스 전용 DB, gateway·realtime은 무상태)
+   └────── /internal HTTP 계약 · Kafka(durable) · Redis(저지연) 이벤트로 협력 ──────┘
 ```
 
-- **게이트웨이**(Spring Cloud Gateway): auction, user 소유 경로, combat 공개 경로를 각 서비스로 보내고 그 외와 `/ws`는 모놀리식으로 보낸다. 유입 인증 헤더를 제거하고 유효 JWT의 subject를 다시 주입하며 combat 요청에는 gateway 전용 토큰도 넣는다.
-- **DB 분리**: auction-service, user-service, combat-service는 각각 전용 PostgreSQL을 소유하며 다른 서비스 DB를 직접 조회하지 않는다.
-- **동기 통신**(`/internal`): combat-service는 map 영토 context, user AP, season benefit을 조회하고 모놀리식 admin은 combat 설정·집계를 위임한다. auction-service의 초기 성 생성도 combat-service를 직접 호출한다. [계약](../api/internal.md)
-- **비동기 통신**: Kafka가 경매·user projection과 combat 공성 결과·영토 상실의 durable 경로를 담당한다. Redis pub/sub은 auction 입찰·정산의 WebSocket 저지연 경로에만 병행한다. [내부 계약](../api/internal.md)
-- **읽기 프로젝션**: 맵 그리드가 auction 테이블을 매번 조회하던 것을 로컬 read-model(`territory_auction_status`, 이벤트로 유지)로 대체 → 핫패스를 auction 경합에서 격리(부하 실측 p99 ~10배 개선).
+- **게이트웨이**(Spring Cloud Gateway): 모든 공개 경로를 각 소유 서비스로 라우팅하고 `/ws`는 realtime-service로 보낸다(미매핑 fallback 없음). 유입 인증 헤더를 제거하고 유효 JWT의 subject를 다시 주입하며 combat 등 요청에는 gateway 전용 토큰도 넣는다.
+- **DB 분리**: 각 서비스가 전용 PostgreSQL을 소유하며 다른 서비스 DB를 직접 조회하지 않는다.
+- **동기 통신**(`/internal`): 예) user-service가 프로필/지갑 합성 시 combat·season·map을 조회, combat-service가 season benefit·map context를 조회, admin-service가 각 서비스에 관리 작업을 위임. [계약](../api/internal.md)
+- **비동기 통신**: Kafka가 경매·user·combat 이벤트의 durable 경로를, Redis pub/sub이 WebSocket 저지연 경로(realtime-service relay)를 담당한다. [내부 계약](../api/internal.md)
+- **읽기 프로젝션**: 맵 그리드가 auction 테이블을 매번 조회하던 것을 map-service 로컬 read-model(`territory_auction_status`, 이벤트로 유지)로 대체 → 핫패스를 auction 경합에서 격리(부하 실측 p99 ~10배 개선).
 
-## MSA 목표 토폴로지 (7개)
+## 최종 서비스 토폴로지
 
-패키지 경계 = 분리 후보 경계. 게임플레이 결합도 기준으로 도메인을 묶는다. 상세·근거·전환 순서는 [MSA 전환 허브](./msa/README.md)가 기준.
+게임플레이 결합도 기준으로 도메인을 서비스로 묶었다. 상세·근거·전환 이력은 [MSA 전환 허브](./msa/README.md)가 기준.
 
 | 서비스 | 포함 도메인 |
 |---|---|
 | auction-service | auction |
 | map-service | map (공유 커널, 최후 추출) |
 | combat-service | military, building |
-| user-service | user, auth |
+| user-service | user, auth (OAuth·지갑·프로필) |
 | social-service | social, guild |
 | notification-service | notification |
-| economy-service | item, season |
+| item-service | item |
+| season-service | season |
+| ranking-service | ranking |
+| admin-service | admin |
+| realtime-service | WebSocket 허브 (무상태) |
 
-초기 검토안(auth·map 독립, notification을 social에 포함)에서 조정: **auth→user 병합**(인증은 유저와 밀접), **notification 독립**(다수 서비스가 발행하는 횡단 채널). **map은 독립 유지** — territory를 8개 도메인이 참조하는 공유 커널이라 특정 서비스에 병합하지 않고, 전환 최후에 분리한다. ranking(미구현)은 추후 별도. 공성전은 military 소속이므로 combat-service에 포함.
+초기 검토안에서 조정: **auth→user 병합**, **notification 독립**, **economy를 item·season으로 분리**, **ranking·admin·realtime 추가**. **map은 공유 커널**이라 territory를 여러 도메인이 참조하므로 특정 서비스에 병합하지 않고 전환 최후에 분리했다. 공성전은 military 소속이라 combat-service에 포함.
 
 관련 자료: [MSA 전환 허브](./msa/README.md), [도메인 설계](./domain-design.md), [성능 테스트 가이드](./performance-testing.md)

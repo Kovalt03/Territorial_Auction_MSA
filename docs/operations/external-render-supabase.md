@@ -1,6 +1,8 @@
 # Render + Supabase 외부 호환성 검증 가이드
 
-이 절차는 모놀리식 앱이 외부 HTTPS 환경에서도 동작하는지 확인하기 위한 일회성 호환성 검증이다. 상시 실행·운영 경로는 [로컬 운영 실행 가이드](./local-production.md)다.
+> ⚠️ 이 절차는 **모놀리식 시절**의 일회성 외부 호환성 검증 기록이다. MSA 전환 후 외부 배포는 다중 서비스 구성으로 재작성이 필요하다.
+
+이 절차는 (모놀리식) 앱이 외부 HTTPS 환경에서도 동작하는지 확인하기 위한 일회성 호환성 검증이다. 현재 상시 실행 경로는 [로컬 MSA 실행 가이드](../design/msa/local-run.md)다.
 
 > 2026-08-22 검증에서 Render API health, Supabase/Flyway 연결, Upstash TLS 캐시 조회, CORS·SockJS, Static Site의 API·WebSocket 주소 반영을 확인했다. 다만 Render Free 인스턴스는 512MB 컨테이너 한도를 초과해 지속 실행할 수 없었다. 따라서 이 구성은 재현용 설정으로만 보관하며 자동 배포하지 않는다.
 

@@ -1,6 +1,8 @@
 # DB 설계
 
 > Notion 원본: https://www.notion.so/DB-3332efa4278d81c7b707e4456b25774e
+>
+> ⚠️ **MSA 전환 완료 — 이 문서는 모놀리식 단일 DB 시절 카탈로그다.** 현재는 **서비스별 전용 DB**로 분리됐고(각 서비스가 자기 테이블만 소유), 각 서비스의 실제 스키마 SoT는 **`services/{service}/src/main/resources/db/migration/`의 Flyway 마이그레이션**이다. 아래의 `FK →` 표기·단일 DB 전제는 역사적 참고이며, 서비스 경계를 넘는 관계는 FK가 아니라 **ID + 스냅샷/이벤트**로 다룬다. 서비스↔테이블 매핑은 [msa/README.md](./msa/README.md) 토폴로지 참고.
 
 ---
 

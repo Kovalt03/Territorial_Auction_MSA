@@ -9,9 +9,9 @@
 
 운영자(`ROLE_ADMIN`)가 유저·경매·시즌·아이템을 조회·개입하기 위한 관리자 전용 API. 모든 엔드포인트는 `/api/v1/admin/**` 하위에 격리되며, 일반 유저 API와 재사용하지 않는다.
 
-> **⚙️ MSA (경매 관리)**: `/api/v1/admin/auctions/**`는 **모놀리식**이 계속 서빙한다(관리자 인증·감사 로그 유지). 단, 경매 데이터·강제 작업은 **auction-service `/internal`에 위임**한다([internal.md](./internal.md)). 게이트웨이는 `/api/v1/admin/**`을 모놀리식으로 라우팅한다(auction-service 아님).
+> **⚙️ MSA (관리 콘솔)**: `/api/v1/admin/**`은 **admin-service**가 서빙한다(자체 인증·감사 로그 소유, 게이트웨이가 admin-service로 라우팅). 각 도메인 데이터·작업은 해당 서비스의 `/internal` 계약에 위임한다 — 예: 경매 관리는 auction-service `/internal/auctions/*`([internal.md](./internal.md)).
 > - 실제 구현 경로: 목록 `GET /api/v1/admin/auctions`, 강제 낙찰 `POST /{auctionId}/settle`, 강제 취소 `POST /{auctionId}/cancel`. (아래 표의 `force-end`는 구 설계 표기 — 실제는 settle/cancel 2종.)
-> - 강제 경매 시작(`start-auction`)은 모놀리식이 `territory.auction-ready` 이벤트를 발행하고 auction-service가 생성한다(모놀리식이 경매 row를 직접 만들지 않음).
+> - 강제 경매 시작(`start-auction`)은 map-service가 `territory.auction-ready` 이벤트를 발행하고 auction-service가 생성한다(admin이 경매 row를 직접 만들지 않음).
 
 ## 인증 / 권한
 

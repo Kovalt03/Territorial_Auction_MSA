@@ -1,5 +1,7 @@
 # 로컬 운영 실행 가이드
 
+> ⚠️ **이 문서는 MSA 전환 이전(모놀리식 단일 스택) 기준으로, 갱신이 필요하다.** 모놀리식(`backend`)·`docker-compose.yml`·`docker-compose.production.yml`(현재 모놀 기반)은 제거/미갱신 상태다. MSA 로컬 구동은 [msa/local-run.md](../design/msa/local-run.md)(`docker-compose.msa.yml`)를 따르고, **MSA 프로덕션 배포 구성은 별도로 재작성**해야 한다(전 서비스 + 서비스별 DB). 아래 내용은 역사적 참고.
+
 이 구성은 단일 Docker Compose로 프론트엔드(Nginx), 백엔드(Spring Boot), PostgreSQL, Redis를 실행한다. 개발용 `docker-compose.yml`과 데이터 볼륨을 공유하지 않는다.
 
 ## 사전 조건

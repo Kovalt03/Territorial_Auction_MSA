@@ -1,6 +1,6 @@
 # 코드 컨벤션
 
-> 기준 패키지: `com.territorial.auction`  
+> MSA 전환 완료 — 서비스별 패키지는 `com.territorial.{service}`(예: `com.territorial.user`), 공통 라이브러리는 `com.territorial.auction.global.*`(libs/common). 아래 레이어·네이밍 규칙은 전 서비스 공통이며, 예시의 `com.territorial.auction` 패키지 경로는 규칙 설명용이다.  
 > 포맷터: Spotless (Google Java Style 기반)
 
 ---
@@ -27,7 +27,7 @@ com.territorial.auction
 
 **규칙**
 - 새 도메인 추가 시 `domain/{domainName}/` 하위에 4개 레이어 폴더 생성
-- 도메인 간 직접 import 허용 (모놀리식), 단 **Entity 참조는 허용 / Service 직접 호출은 금지** (이벤트 또는 인터페이스 사용)
+- **서비스 내부** 도메인 간에는 Entity 참조는 허용하되 **다른 도메인 Service 직접 호출은 금지**(이벤트 또는 인터페이스 사용). **서비스 경계를 넘는 데이터**는 `/internal/**` 계약·Kafka/Redis 이벤트로만 접근(다른 서비스 DB·엔티티 직접 참조 금지).
 - 횡단 관심사(공통 응답, 예외, 보안)는 반드시 `global/`에 위치
 
 ---

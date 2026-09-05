@@ -252,7 +252,7 @@ PrivateRoute (로그인 확인)
 이 프로젝트의 장기 목적은 **MSA 전환 + 정량적 성능 지표 평가(부하 테스트) 시스템** 구축이다. 관리자 대시보드는 이 목적과 직접 맞물리므로, 지금부터 아래를 고려해 구현한다.
 
 ### 9.1 MSA 전환 대비
-- 관리자 API는 **서비스 경계(users / auctions / seasons / items / map)에 맞춰 URL 그룹화**한다. 현재는 모놀리식이라 `AdminService`가 각 도메인 Repository를 직접 주입하지만, MSA 전환 시 그룹 단위로 각 서비스의 관리자 엔드포인트로 분산하거나 **admin-gateway(BFF)** 가 각 서비스 API를 호출하는 형태로 이행한다.
+- 관리자 API는 **서비스 경계(users / auctions / seasons / items / map)에 맞춰 URL 그룹화**한다. **MSA 전환 완료** — 독립 **admin-service**가 `/api/v1/admin/**`을 자체 인증·감사 로그와 함께 서빙하고, 각 도메인 데이터·작업은 해당 서비스의 `/internal` 계약으로 위임한다([internal.md](../api/internal.md)).
 - 원칙: 관리자도 **직접 DB 조작이 아닌 도메인 API/도메인 메서드 경유**. → MSA에서 서비스 간 경계가 깨지지 않는다.
 - `domain-design.md`의 Bounded Context와 정합. 관리자는 횡단 관심사이므로 독립 `admin-service` 후보([시스템 아키텍처](./architecture.md)의 분리 후보처럼).
 
@@ -268,7 +268,7 @@ Gatling Simulation  →  메트릭(Micrometer)   →  report/load/
 ```
 
 - **실험 조건 = 대륙 영토 구성**: 2.2의 등급 분포·경매 활성 수 조절이 곧 부하 시나리오의 입력 파라미터(경매 공급량·경쟁 밀도)가 된다. 관리자 화면이 성능 실험 세팅 도구를 겸한다.
-- **부하 시나리오**: `backend/src/gatling` Gatling Simulation (경매 입찰 동시성, 랭킹 조회, 맵 조회 등). tester 에이전트가 담당하고 결과는 `report/load/`.
+- **부하 시나리오**: MSA 부하 테스트는 게이트웨이 대상으로 재구성 필요(구 `backend/src/gatling`은 모놀과 함께 제거). [성능 테스트 가이드](./performance-testing.md) 참고. 결과는 `report/load/`.
 - **지표 수집**: 운영 지표(`/admin/dashboard/summary`)와 성능 지표(경매 입찰 TPS, 정산 지연, 응답시간 p95)를 **공용 메트릭 소스**로 설계. Micrometer + Prometheus/Actuator 노출을 표준으로 검토([OQ-11](#10-미결-사항-open-questions)).
 - **평가**: 시나리오별 목표 KPI 대비 리포트를 `report/load/`에 축적 → 회귀 성능 추적.
 
