@@ -565,6 +565,27 @@ services:
       kafka:
         condition: service_healthy
 
+  # ── realtime-service (WebSocket 실시간 허브) ─────────────
+  realtime-service:
+    build:
+      context: .
+      dockerfile: services/realtime-service/Dockerfile
+    container_name: msa-realtime-service
+    env_file:
+      - ./backend/.env
+    environment:
+      TZ: Asia/Seoul
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8090:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
   # ── API 게이트웨이 ────────────────────────────────────────
   gateway:
     build:
@@ -586,7 +607,7 @@ services:
       MAP_SERVICE_URL: http://map-service:8080
       ADMIN_SERVICE_URL: http://admin-service:8080
       MONOLITH_URL: http://backend:8080
-      MONOLITH_WS_URL: ws://backend:8080
+      REALTIME_SERVICE_WS_URL: ws://realtime-service:8080
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
     ports:
       - "8090:8080"

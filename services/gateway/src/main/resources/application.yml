@@ -67,9 +67,9 @@ spring:
           uri: ${ADMIN_SERVICE_URL:http://localhost:8092}
           predicates:
             - Path=/api/v1/admin/**,/api/v1/announcement
-        # WebSocket(실시간 허브)은 모놀리식
-        - id: monolith-ws
-          uri: ${MONOLITH_WS_URL:ws://localhost:8081}
+        # WebSocket(실시간 허브)은 realtime-service
+        - id: realtime-service-ws
+          uri: ${REALTIME_SERVICE_WS_URL:ws://localhost:8090}
           predicates:
             - Path=/ws/**
         # 그 외 전부 모놀리식
