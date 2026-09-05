@@ -1,5 +1,7 @@
 # 채팅 아키텍처 설계
 
+> ⚙️ **MSA 현행**: 채팅 소유는 **social-service**(메시지 저장 + 발송 REST)이고, 실시간 전달은 social-service가 `chat.message`를 **Redis**로 발행 → **realtime-service**가 `/sub/chat/{roomId}`로 relay하는 구조다. 아래 "SimpMessagingTemplate 인프로세스" 흐름은 모놀리식 시절 원설계이며, 현재는 두 서비스로 분리됐다(패턴은 동일).
+
 ## 개요
 
 실시간 채팅은 WebSocket + STOMP 프로토콜로 구현한다.  

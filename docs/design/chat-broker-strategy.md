@@ -1,5 +1,7 @@
 # 채팅 브로커 전략
 
+> ⚙️ **MSA 현행**: WebSocket 허브는 **realtime-service**가 소유하며 현재 **SimpleBroker(단일 인스턴스)**를 쓴다. realtime-service를 다중 인스턴스로 확장하면 아래 전략대로 Redis relay(또는 외부 STOMP relay)로 전환한다.
+
 ## 핵심 문제
 
 채팅 브로커는 메시지를 구독 중인 클라이언트에게 전달하는 역할을 한다.  
