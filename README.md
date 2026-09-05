@@ -6,7 +6,7 @@
 <p align="center">
   <a href="https://claude.ai/code/artifact/366effa3-8970-4353-a97c-aa4a4fabe49f?via=auto_preview">인터랙티브 사용자 가이드 보기</a>
   ·
-  <a href="docs/operations/local-production.md">로컬 Docker 실행하기</a>
+  <a href="docs/design/msa/local-run.md">로컬 Docker 실행하기</a>
   ·
   <a href="docs/README.md">전체 문서 보기</a>
 </p>
@@ -28,10 +28,10 @@
 | 항목 | 내용 |
 |---|---|
 | 개발 형태 | 개인 프로젝트 |
-| 개발 기간 | 2026.04 – 현재 (모놀리식 구현·검증 후 MSA 전환) |
+| 개발 기간 | 2026.04 – 현재 (모놀리식 구현·검증 후 MSA 전환 완료) |
 | 핵심 경험 | 실시간 영토 경매, 그리드 건설, 자원 경제, 공성전, 길드·알림 |
-| 현재 구조 | Spring Cloud Gateway + auction/user 서비스 + 잔여 Spring Boot 모놀리식 + React SPA |
-| 실행 기준 | 로컬 MSA Docker Compose |
+| 현재 구조 | Spring Cloud Gateway + 12개 독립 서비스(경매·유저·전투·소셜·알림·아이템·시즌·랭킹·맵·관리·실시간) + React SPA |
+| 실행 기준 | 로컬 MSA Docker Compose (`docker-compose.msa.yml`) |
 
 ## 주요 화면과 플레이 흐름
 
@@ -61,28 +61,51 @@
 
 ## 시스템 아키텍처
 
-아래 그림은 MSA 전환의 기준점인 모놀리식 계층 구조이며, 현재 런타임 변화는 바로 다음 절과 [MSA 전환 현황](#msa-전환-현황)에 정리되어 있습니다.
+Spring Cloud Gateway 뒤에 도메인 서비스들이 각자 전용 DB를 소유하고, `/internal` 동기 계약과 Kafka·Redis 이벤트로 협력하는 마이크로서비스 구조입니다.
 
-![Territorial Auction 시스템 아키텍처](docs/assets/architecture.svg)
+```mermaid
+graph TD
+    FE["React SPA :3000"] -->|"REST · STOMP/SockJS"| GW["API Gateway :8090<br/>JWT 검증 → X-User-Id 주입 · 경로 라우팅"]
+    GW -->|"/ws"| RT["realtime-service<br/>(무상태 WebSocket 허브)"]
+    GW --> SVC
 
-- 프론트엔드는 REST와 STOMP/SockJS로 백엔드와 통신합니다.
-- 공개 REST 요청은 Spring Cloud Gateway를 거칩니다.
-- auction-service, user-service, combat-service는 각각 독립 PostgreSQL을 소유합니다. building, island/vault, unit/research, siege 공개 요청은 gateway가 combat-service로 라우팅하며, 모놀리식은 combat DB 대신 문서화된 내부 계약을 사용합니다.
-- 서비스 간 상태 변경은 내부 HTTP 계약과 비동기 이벤트로 전달하며 다른 서비스 DB를 직접 참조하지 않습니다.
+    subgraph SVC["도메인 서비스 — 각자 전용 PostgreSQL 소유"]
+        direction LR
+        AUC[auction]
+        USR["user · auth(OAuth) · 지갑"]
+        CMB["combat · 건물 · 공성"]
+        MAP["map · 영토(공유 커널)"]
+        SOC["social · guild"]
+        ITM[item]
+        SSN[season]
+        RNK[ranking]
+        NOT[notification]
+        ADM[admin]
+    end
 
-자세한 구조와 도메인 간 의존 규칙은 [시스템 아키텍처](docs/design/architecture.md), [MSA 전환 허브](docs/design/msa/README.md), [내부 서비스 계약](docs/api/internal.md), [WebSocket 문서](docs/api/websocket/README.md)에 정리했습니다.
+    SVC ==>|"durable 이벤트"| KAFKA[("Kafka")]
+    SVC -.->|"락 · 캐시 · 저지연 pub/sub"| REDIS[("Redis")]
+    KAFKA --> RT
+    REDIS --> RT
+```
+
+- 공개 REST/WS 요청은 모두 게이트웨이를 거칩니다. 게이트웨이가 JWT를 검증해 `X-User-Id`를 주입하고 경로별로 각 서비스에 라우팅하며, `/ws`는 realtime-service로 보냅니다(미매핑 fallback 없음).
+- 모든 도메인이 독립 서비스이며 각자 전용 PostgreSQL을 소유합니다(gateway·realtime은 무상태).
+- 서비스 간 상태 변경은 `/internal/**` 동기 계약, 파생 상태·실시간 통지는 Kafka(durable)·Redis(저지연) 이벤트로 전달하며 다른 서비스 DB를 직접 참조하지 않습니다. realtime-service가 이벤트를 구독해 WebSocket으로 push합니다.
+
+> 계층(Presentation·Application·Infrastructure) 관점의 전환 이전 다이어그램은 [`docs/assets/architecture.svg`](docs/assets/architecture.svg) 참고. 자세한 구조·도메인 의존 규칙은 [시스템 아키텍처](docs/design/architecture.md) · [MSA 전환 허브](docs/design/msa/README.md) · [내부 서비스 계약](docs/api/internal.md) · [WebSocket 문서](docs/api/websocket/README.md)에 있습니다.
 
 ## MSA 전환 현황
 
-도메인을 한 번에 모두 옮기지 않고, 서비스 하나가 완성될 때까지 모놀리식이 계속 요청을 처리하는 Strangler 방식으로 전환하고 있습니다.
+✅ **전환 완료.** Strangler 방식으로 한 서비스씩 추출해 모놀리식을 완전히 제거했습니다. 최종적으로 **12개 서비스**(gateway + auction·user·combat·social·notification·item·season·ranking·map·admin·realtime)로 구성됩니다.
 
-| 단계 | 서비스 | 상태 | 상세 |
-|---|---|---|---|
-| 1 | auction-service | 완료 | [추출 설계](docs/design/msa/auction-extraction.md) · [이관 기록](docs/design/msa/auction-migration-tracking.md) |
-| 2 | user-service | 완료 | [추출 설계](docs/design/msa/user-extraction.md) |
-| 3 | combat-service | 완료 | [추출 설계](docs/design/msa/combat-extraction.md) · [이관 기록](docs/design/msa/combat-migration-tracking.md) |
+| 서비스 | 담당 | 상태 |
+|---|---|---|
+| auction / user / combat | 경매 · 신원·인증(OAuth)·지갑 · 병력·건물·공성 | ✅ |
+| social / notification / item / season | 채팅·길드 · 알림 · 아이템 · 시즌패스 | ✅ |
+| ranking / map / admin / realtime | 랭킹 · 맵(공유 커널) · 관리 콘솔 · WebSocket 허브 | ✅ |
 
-전체 목표 토폴로지와 이후 economy, social, notification, map 분리 순서는 [MSA 전환 로드맵](docs/design/msa/README.md)을 참고하세요.
+각 서비스 경계·이관 이력·이벤트 계약은 [MSA 전환 허브](docs/design/msa/README.md)와 [내부 계약](docs/api/internal.md)을 참고하세요.
 
 ## 기술 스택
 
@@ -107,19 +130,18 @@
 
 ## 빠른 시작
 
-현재 Strangler 구조 전체를 확인할 때는 MSA Compose를 사용합니다.
+전체 MSA 스택은 `docker-compose.msa.yml`로 기동합니다.
 
 ```bash
-cp backend/.env.example backend/.env
-# backend/.env의 JWT_SECRET 등을 로컬 값으로 설정
+# 루트 .env에 JWT_SECRET·INTERNAL_API_SECRET·OAuth client 등 시크릿 설정(gitignore)
 INTERNAL_API_SECRET=local-internal-secret docker compose -f docker-compose.msa.yml up -d --build
 ```
 
 - 사용자 화면: `http://localhost:3000`
 - Gateway: `http://localhost:8090`
-- Monolith health: `http://localhost:8080/actuator/health`
+- 서비스 헬스체크: 각 서비스 `/actuator/health` (예: gateway `http://localhost:8090/actuator/health`)
 
-서비스별 선택 기동은 [로컬 MSA 실행 가이드](docs/design/msa/local-run.md), 모놀리식 운영·관리자 초기화·백업·복구는 [로컬 운영 실행 가이드](docs/operations/local-production.md)를 따르세요.
+서비스별 선택 기동·포트·트러블슈팅은 [로컬 MSA 실행 가이드](docs/design/msa/local-run.md)를 따르세요.
 
 ## 테스트와 품질 검증
 
@@ -147,7 +169,7 @@ ETag 조건부 조회로 전체 맵 재전송 병목을 해소했다. 단일 인
 
 전체 기준과 알려진 제한은 [v1.0.0 모놀리식 릴리스 기준점](docs/releases/v1.0.0-monolith.md), 현재 구현 현황은 [체크리스트](docs/checklist.md)에서 확인할 수 있습니다.
 
-> Render Free는 512MB 메모리 한도로 현재 모놀리식의 지속 실행 환경에 적합하지 않습니다. 외부 설정은 호환성 재현용으로만 보관하며, 상시 실행은 로컬 Docker Compose를 사용합니다. 자세한 내용은 [외부 호환성 검증 가이드](docs/operations/external-render-supabase.md)를 참고하세요.
+> 외부 호스팅(Render Free 등)은 메모리 한도로 다중 서비스 상시 실행에 적합하지 않습니다. 외부 설정은 호환성 재현용으로만 보관하며, 상시 실행은 로컬 MSA Docker Compose를 사용합니다. 자세한 내용은 [외부 호환성 검증 가이드](docs/operations/external-render-supabase.md)를 참고하세요.
 
 ## 가이드와 문서
 

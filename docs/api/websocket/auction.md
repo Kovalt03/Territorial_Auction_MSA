@@ -2,7 +2,7 @@
 
 > 구현 상태: `/sub/auction/{auctionId}` 브로드캐스트 ✅ 구현. `/pub/.../bid`(STOMP 입찰) ⬜ 미구현 — 입찰은 REST(`POST /api/v1/auctions/{id}/bids`)로 한다.
 >
-> **⚙️ MSA**: 클라이언트 WebSocket(`/ws`)은 **모놀리식**이 소유한다(게이트웨이가 `/ws`→모놀리식 라우팅). 입찰은 auction-service(REST)가 처리하고 `auction.bid` 이벤트를 발행하면, 모놀리식 **realtime 허브**가 이를 구독해 `/sub/auction/{auctionId}`로 push한다. 이전 최고 입찰자에겐 `OUTBID` 알림도 이 경로로 발송(이벤트에 previousBidderId 포함).
+> **⚙️ MSA**: 클라이언트 WebSocket(`/ws`)은 **realtime-service**가 소유한다(게이트웨이가 `/ws`→realtime-service 라우팅). 입찰은 auction-service(REST)가 처리하고 `auction.bid` 이벤트(Redis)를 발행하면, realtime-service가 이를 구독해 `/sub/auction/{auctionId}`로 push한다. 이전 최고 입찰자에겐 `OUTBID` 알림도 이 경로로 발송(이벤트에 previousBidderId 포함).
 
 ---
 
