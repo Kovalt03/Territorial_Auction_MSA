@@ -1,4 +1,4 @@
-package com.territorial.auction.domain.user.dto;
+package com.territorial.user.domain.user.dto;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;

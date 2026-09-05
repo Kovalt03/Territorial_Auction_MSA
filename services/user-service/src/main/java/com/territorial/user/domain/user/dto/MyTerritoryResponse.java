@@ -1,4 +1,4 @@
-package com.territorial.auction.domain.user.dto;
+package com.territorial.user.domain.user.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import java.time.LocalDateTime;

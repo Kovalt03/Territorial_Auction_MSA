@@ -1,6 +1,6 @@
-package com.territorial.auction.domain.user.dto;
+package com.territorial.user.domain.user.dto;
 
-import com.territorial.auction.domain.user.entity.Wishlist;
+import com.territorial.user.domain.user.entity.Wishlist;
 import java.util.List;
 
 public record WishlistResponse(List<Long> territoryIds) {

@@ -1,4 +1,4 @@
-package com.territorial.auction.domain.user.service;
+package com.territorial.user.domain.user.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -7,14 +7,14 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 
-import com.territorial.auction.domain.user.dto.WishlistResponse;
-import com.territorial.auction.domain.user.entity.User;
-import com.territorial.auction.domain.user.entity.Wishlist;
-import com.territorial.auction.domain.user.repository.UserRepository;
-import com.territorial.auction.domain.user.repository.WishlistRepository;
-import com.territorial.auction.global.client.MapTerritoryClient;
 import com.territorial.auction.global.exception.CustomException;
-import com.territorial.auction.global.exception.ErrorCode;
+import com.territorial.user.client.MapTerritoryClient;
+import com.territorial.user.domain.user.dto.WishlistResponse;
+import com.territorial.user.domain.user.entity.User;
+import com.territorial.user.domain.user.entity.Wishlist;
+import com.territorial.user.domain.user.repository.UserRepository;
+import com.territorial.user.domain.user.repository.WishlistRepository;
+import com.territorial.user.global.exception.ErrorCode;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,8 +49,6 @@ class WishlistServiceTest {
         return wishlist;
     }
 
-    // ─── getWishlist() ────────────────────────────────────────────────────────
-
     @Nested
     @DisplayName("getWishlist()")
     class GetWishlist {
@@ -79,8 +77,6 @@ class WishlistServiceTest {
             assertThat(response.territoryIds()).isEmpty();
         }
     }
-
-    // ─── addWishlist() ────────────────────────────────────────────────────────
 
     @Nested
     @DisplayName("addWishlist()")
@@ -120,8 +116,6 @@ class WishlistServiceTest {
                     .isEqualTo(ErrorCode.WISHLIST_ALREADY_EXISTS);
         }
     }
-
-    // ─── removeWishlist() ────────────────────────────────────────────────────
 
     @Nested
     @DisplayName("removeWishlist()")

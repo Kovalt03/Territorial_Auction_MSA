@@ -1,6 +1,6 @@
-package com.territorial.auction.domain.user.repository;
+package com.territorial.user.domain.user.repository;
 
-import com.territorial.auction.domain.user.entity.Wishlist;
+import com.territorial.user.domain.user.entity.Wishlist;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;

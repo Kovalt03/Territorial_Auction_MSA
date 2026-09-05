@@ -1,32 +1,30 @@
-package com.territorial.auction.domain.user.service;
+package com.territorial.user.domain.user.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 
-import com.territorial.auction.domain.combat.client.CombatResourceClient;
-import com.territorial.auction.domain.combat.client.CombatResourceClient.UserSummary;
-import com.territorial.auction.domain.user.client.WalletClient;
-import com.territorial.auction.domain.user.client.WalletSnapshot;
-import com.territorial.auction.domain.user.dto.MyProfileResponse;
-import com.territorial.auction.domain.user.dto.MyTerritoryResponse;
-import com.territorial.auction.domain.user.dto.MyWalletResponse;
-import com.territorial.auction.domain.user.dto.UserProfileResponse;
-import com.territorial.auction.domain.user.entity.User;
-import com.territorial.auction.domain.user.entity.UserProfile;
-import com.territorial.auction.domain.user.repository.UserProfileRepository;
-import com.territorial.auction.domain.user.repository.UserRepository;
-import com.territorial.auction.global.client.MapTerritoryClient;
-import com.territorial.auction.global.client.MapTerritoryClient.OwnerHolding;
-import com.territorial.auction.global.client.MapTerritoryClient.OwnerHoldingPage;
-import com.territorial.auction.global.client.SeasonQueryClient;
-import com.territorial.auction.global.client.SeasonQueryClient.UserPassSummary;
-import com.territorial.auction.global.client.SeasonTrophyClient;
-import com.territorial.auction.global.client.SeasonTrophyClient.Trophy;
 import com.territorial.auction.global.exception.CustomException;
-import com.territorial.auction.global.exception.ErrorCode;
-import com.territorial.auction.global.security.jwt.RefreshTokenService;
+import com.territorial.user.client.CombatResourceClient;
+import com.territorial.user.client.CombatResourceClient.UserSummary;
+import com.territorial.user.client.MapTerritoryClient;
+import com.territorial.user.client.MapTerritoryClient.OwnerHolding;
+import com.territorial.user.client.MapTerritoryClient.OwnerHoldingPage;
+import com.territorial.user.client.SeasonQueryClient;
+import com.territorial.user.client.SeasonQueryClient.UserPassSummary;
+import com.territorial.user.client.SeasonTrophyClient;
+import com.territorial.user.client.SeasonTrophyClient.Trophy;
+import com.territorial.user.domain.user.dto.MyProfileResponse;
+import com.territorial.user.domain.user.dto.MyTerritoryResponse;
+import com.territorial.user.domain.user.dto.MyWalletResponse;
+import com.territorial.user.domain.user.dto.UserProfileResponse;
+import com.territorial.user.domain.user.dto.WalletSnapshot;
+import com.territorial.user.domain.user.entity.User;
+import com.territorial.user.domain.user.entity.UserProfile;
+import com.territorial.user.domain.user.repository.UserProfileRepository;
+import com.territorial.user.domain.user.repository.UserRepository;
+import com.territorial.user.global.exception.ErrorCode;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -36,37 +34,35 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
-class UserServiceTest {
+class UserProfileServiceTest {
 
-    @InjectMocks private UserService userService;
+    @InjectMocks private UserProfileService userProfileService;
 
     @Mock private UserRepository userRepository;
-    @Mock private WalletClient walletClient;
-
+    @Mock private UserProfileRepository userProfileRepository;
+    @Mock private WalletService walletService;
     @Mock private CombatResourceClient combatResourceClient;
     @Mock private SeasonQueryClient seasonQueryClient;
-    @Mock private MapTerritoryClient mapTerritoryClient;
-    @Mock private UserProfileRepository userProfileRepository;
     @Mock private SeasonTrophyClient seasonTrophyClient;
-    @Mock private RefreshTokenService refreshTokenService;
-    @Mock private com.territorial.auction.global.security.jwt.JwtTokenProvider jwtTokenProvider;
-    @Mock private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
+    @Mock private MapTerritoryClient mapTerritoryClient;
+    @Mock private StringRedisTemplate stringRedisTemplate;
 
     @BeforeEach
     void setUpCombatSummary() {
-        org.mockito.Mockito.lenient()
-                .when(combatResourceClient.getUserSummary(org.mockito.ArgumentMatchers.anyLong()))
+        Mockito.lenient()
+                .when(combatResourceClient.getUserSummary(ArgumentMatchers.anyLong()))
                 .thenReturn(new UserSummary(0, null, 1));
     }
-
-    // ─── 공통 픽스처 ─────────────────────────────────────────────────────────
 
     private User sampleUser() {
         User user =
@@ -87,8 +83,6 @@ class UserServiceTest {
         return profile;
     }
 
-    // ─── getMyProfile() ───────────────────────────────────────────────────────
-
     @Nested
     @DisplayName("getMyProfile()")
     class GetMyProfile {
@@ -98,12 +92,12 @@ class UserServiceTest {
         void getMyProfile_success() {
             User user = sampleUser();
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(300, 0));
+            given(walletService.getWallet(1L)).willReturn(new WalletSnapshot(300, 0));
             given(combatResourceClient.getUserSummary(1L)).willReturn(new UserSummary(1500, 1L, 1));
             given(seasonQueryClient.getUserPassSummary(1L)).willReturn(Optional.empty());
             given(mapTerritoryClient.getOwnerCount(1L)).willReturn(3L);
 
-            MyProfileResponse response = userService.getMyProfile(1L);
+            MyProfileResponse response = userProfileService.getMyProfile(1L);
 
             assertThat(response.userId()).isEqualTo(1L);
             assertThat(response.nickname()).isEqualTo("픽셀전사");
@@ -120,14 +114,14 @@ class UserServiceTest {
         void getMyProfile_withActiveSeasonPass() {
             User user = sampleUser();
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(300, 0));
+            given(walletService.getWallet(1L)).willReturn(new WalletSnapshot(300, 0));
             given(combatResourceClient.getUserSummary(1L)).willReturn(new UserSummary(0, 1L, 1));
             given(seasonQueryClient.getUserPassSummary(1L))
                     .willReturn(
                             Optional.of(new UserPassSummary(LocalDateTime.now().plusDays(30), 1)));
             given(mapTerritoryClient.getOwnerCount(1L)).willReturn(0L);
 
-            MyProfileResponse response = userService.getMyProfile(1L);
+            MyProfileResponse response = userProfileService.getMyProfile(1L);
 
             assertThat(response.seasonPass().isActive()).isTrue();
             assertThat(response.seasonPass().expiresAt()).isNotNull();
@@ -138,7 +132,7 @@ class UserServiceTest {
         void getMyProfile_userNotFound() {
             given(userRepository.findById(99L)).willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> userService.getMyProfile(99L))
+            assertThatThrownBy(() -> userProfileService.getMyProfile(99L))
                     .isInstanceOf(CustomException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.USER_NOT_FOUND);
@@ -149,18 +143,16 @@ class UserServiceTest {
         void getMyProfile_islandNotFound() {
             User user = sampleUser();
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
-            given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(300, 0));
+            given(walletService.getWallet(1L)).willReturn(new WalletSnapshot(300, 0));
             given(combatResourceClient.getUserSummary(1L)).willReturn(new UserSummary(0, null, 1));
             given(seasonQueryClient.getUserPassSummary(1L)).willReturn(Optional.empty());
             given(mapTerritoryClient.getOwnerCount(1L)).willReturn(0L);
 
-            MyProfileResponse response = userService.getMyProfile(1L);
+            MyProfileResponse response = userProfileService.getMyProfile(1L);
 
             assertThat(response.island()).isNull();
         }
     }
-
-    // ─── getUserProfile() ─────────────────────────────────────────────────────
 
     @Nested
     @DisplayName("getUserProfile()")
@@ -173,7 +165,7 @@ class UserServiceTest {
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
             given(mapTerritoryClient.getOwnerCount(1L)).willReturn(5L);
 
-            UserProfileResponse response = userService.getUserProfile(1L);
+            UserProfileResponse response = userProfileService.getUserProfile(1L);
 
             assertThat(response.userId()).isEqualTo(1L);
             assertThat(response.nickname()).isEqualTo("픽셀전사");
@@ -191,7 +183,7 @@ class UserServiceTest {
                     .willReturn(Optional.of(sampleUserProfile(user)));
             given(mapTerritoryClient.getOwnerCount(1L)).willReturn(0L);
 
-            UserProfileResponse response = userService.getUserProfile(1L);
+            UserProfileResponse response = userProfileService.getUserProfile(1L);
 
             assertThat(response.profileImageUrl()).isEqualTo("https://cdn.example.com/1.png");
         }
@@ -203,13 +195,13 @@ class UserServiceTest {
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
             given(mapTerritoryClient.getOwnerCount(1L)).willReturn(0L);
 
-            UserProfileResponse response = userService.getUserProfile(1L);
+            UserProfileResponse response = userProfileService.getUserProfile(1L);
 
             assertThat(response.profileImageUrl()).isNull();
         }
 
         @Test
-        @DisplayName("trophyPoints가 user_trophies.score에서 반환")
+        @DisplayName("trophyPoints가 트로피 점수에서 반환")
         void getUserProfile_trophyPointsReturned() {
             User user = sampleUser();
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
@@ -217,7 +209,7 @@ class UserServiceTest {
                     .willReturn(Optional.of(new Trophy(1L, 3850, "BRONZE")));
             given(mapTerritoryClient.getOwnerCount(1L)).willReturn(0L);
 
-            UserProfileResponse response = userService.getUserProfile(1L);
+            UserProfileResponse response = userProfileService.getUserProfile(1L);
 
             assertThat(response.trophyPoints()).isEqualTo(3850);
         }
@@ -229,20 +221,20 @@ class UserServiceTest {
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
             given(mapTerritoryClient.getOwnerCount(1L)).willReturn(0L);
 
-            UserProfileResponse response = userService.getUserProfile(1L);
+            UserProfileResponse response = userProfileService.getUserProfile(1L);
 
             assertThat(response.trophyPoints()).isEqualTo(0);
         }
 
         @Test
-        @DisplayName("level이 home_islands.level에서 반환")
+        @DisplayName("level이 섬 레벨에서 반환")
         void getUserProfile_levelReturned() {
             User user = sampleUser();
             given(userRepository.findById(1L)).willReturn(Optional.of(user));
             given(combatResourceClient.getUserSummary(1L)).willReturn(new UserSummary(0, 1L, 5));
             given(mapTerritoryClient.getOwnerCount(1L)).willReturn(0L);
 
-            UserProfileResponse response = userService.getUserProfile(1L);
+            UserProfileResponse response = userProfileService.getUserProfile(1L);
 
             assertThat(response.level()).isEqualTo(5);
         }
@@ -252,7 +244,7 @@ class UserServiceTest {
         void getUserProfile_userNotFound() {
             given(userRepository.findById(99L)).willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> userService.getUserProfile(99L))
+            assertThatThrownBy(() -> userProfileService.getUserProfile(99L))
                     .isInstanceOf(CustomException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.USER_NOT_FOUND);
@@ -266,12 +258,10 @@ class UserServiceTest {
         @Test
         @DisplayName("정상 조회 시 MyWalletResponse 반환")
         void getMyWallet_success() {
-            User user = sampleUser();
-
-            given(walletClient.getWallet(1L)).willReturn(new WalletSnapshot(300, 0));
-
+            given(walletService.getWallet(1L)).willReturn(new WalletSnapshot(300, 0));
             given(combatResourceClient.getUserSummary(1L)).willReturn(new UserSummary(1500, 1L, 1));
-            MyWalletResponse response = userService.getMyWallet(1L);
+
+            MyWalletResponse response = userProfileService.getMyWallet(1L);
 
             assertThat(response.availableGP()).isEqualTo(1500);
             assertThat(response.availableAP()).isEqualTo(300);
@@ -282,17 +272,15 @@ class UserServiceTest {
         @DisplayName("지갑 없으면 USER_NOT_FOUND 예외")
         void getMyWallet_notFound() {
             willThrow(new CustomException(ErrorCode.USER_NOT_FOUND))
-                    .given(walletClient)
+                    .given(walletService)
                     .getWallet(99L);
 
-            assertThatThrownBy(() -> userService.getMyWallet(99L))
+            assertThatThrownBy(() -> userProfileService.getMyWallet(99L))
                     .isInstanceOf(CustomException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.USER_NOT_FOUND);
         }
     }
-
-    // ─── getMyTerritories() ───────────────────────────────────────────────────
 
     @Nested
     @DisplayName("getMyTerritories()")
@@ -309,7 +297,7 @@ class UserServiceTest {
             given(mapTerritoryClient.getOwnerHoldings(1L, 0, 10))
                     .willReturn(new OwnerHoldingPage(List.of(sampleHolding()), 1));
 
-            MyTerritoryResponse response = userService.getMyTerritories(1L, pageable);
+            MyTerritoryResponse response = userProfileService.getMyTerritories(1L, pageable);
 
             assertThat(response.totalCount()).isEqualTo(1);
             assertThat(response.territories()).hasSize(1);
@@ -329,7 +317,7 @@ class UserServiceTest {
             given(mapTerritoryClient.getOwnerHoldings(1L, 0, 10))
                     .willReturn(new OwnerHoldingPage(Collections.emptyList(), 0));
 
-            MyTerritoryResponse response = userService.getMyTerritories(1L, pageable);
+            MyTerritoryResponse response = userProfileService.getMyTerritories(1L, pageable);
 
             assertThat(response.totalCount()).isEqualTo(0);
             assertThat(response.territories()).isEmpty();

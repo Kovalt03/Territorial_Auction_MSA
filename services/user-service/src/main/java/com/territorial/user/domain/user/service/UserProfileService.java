@@ -1,21 +1,24 @@
-package com.territorial.auction.domain.user.service;
+package com.territorial.user.domain.user.service;
 
-import com.territorial.auction.domain.combat.client.CombatResourceClient;
-import com.territorial.auction.domain.combat.client.CombatResourceClient.UserSummary;
-import com.territorial.auction.domain.user.client.WalletClient;
-import com.territorial.auction.domain.user.client.WalletSnapshot;
-import com.territorial.auction.domain.user.dto.*;
-import com.territorial.auction.domain.user.dto.MyWalletResponse;
-import com.territorial.auction.domain.user.entity.*;
-import com.territorial.auction.domain.user.repository.UserProfileRepository;
-import com.territorial.auction.domain.user.repository.UserRepository;
-import com.territorial.auction.global.client.MapTerritoryClient;
-import com.territorial.auction.global.client.SeasonQueryClient;
-import com.territorial.auction.global.client.SeasonQueryClient.UserPassSummary;
-import com.territorial.auction.global.client.SeasonTrophyClient;
-import com.territorial.auction.global.client.SeasonTrophyClient.Trophy;
 import com.territorial.auction.global.exception.CustomException;
-import com.territorial.auction.global.exception.ErrorCode;
+import com.territorial.user.client.CombatResourceClient;
+import com.territorial.user.client.CombatResourceClient.UserSummary;
+import com.territorial.user.client.MapTerritoryClient;
+import com.territorial.user.client.SeasonQueryClient;
+import com.territorial.user.client.SeasonQueryClient.UserPassSummary;
+import com.territorial.user.client.SeasonTrophyClient;
+import com.territorial.user.client.SeasonTrophyClient.Trophy;
+import com.territorial.user.domain.user.dto.MyProfileResponse;
+import com.territorial.user.domain.user.dto.MyTerritoryResponse;
+import com.territorial.user.domain.user.dto.MyWalletResponse;
+import com.territorial.user.domain.user.dto.PositionPair;
+import com.territorial.user.domain.user.dto.UserProfileResponse;
+import com.territorial.user.domain.user.dto.WalletSnapshot;
+import com.territorial.user.domain.user.entity.User;
+import com.territorial.user.domain.user.entity.UserProfile;
+import com.territorial.user.domain.user.repository.UserProfileRepository;
+import com.territorial.user.domain.user.repository.UserRepository;
+import com.territorial.user.global.exception.ErrorCode;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -27,48 +30,27 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/** 프로필·지갑·보유 영토 합성 조회(BFF). user + combat·season·map 조회를 조합한다. */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class UserService {
+public class UserProfileService {
 
     private final UserRepository userRepository;
-    private final WalletClient walletClient;
+    private final UserProfileRepository userProfileRepository;
+    private final WalletService walletService;
     private final CombatResourceClient combatResourceClient;
     private final SeasonQueryClient seasonQueryClient;
-    private final MapTerritoryClient mapTerritoryClient;
-    private final UserProfileRepository userProfileRepository;
     private final SeasonTrophyClient seasonTrophyClient;
+    private final MapTerritoryClient mapTerritoryClient;
     private final StringRedisTemplate stringRedisTemplate;
 
-    public User findById(Long userId) {
-        return userRepository
-                .findById(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-    }
-
-    public User findByEmail(String email) {
-        return userRepository
-                .findByEmail(email)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-    }
-
     public MyProfileResponse getMyProfile(Long userId) {
-        User user =
-                userRepository
-                        .findById(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-        WalletSnapshot wallet = walletClient.getWallet(userId);
-
+        User user = findUserOrThrow(userId);
+        WalletSnapshot wallet = walletService.getWallet(userId);
         UserSummary combat = combatResourceClient.getUserSummary(userId);
-
-        // TODO: Redis 캐시 우선 조회 후 미존재 시 DB 조회로 전환 필요 (TTL 30분)
-        //       명세: https://www.notion.so/33c2efa4278d81a88cf3eff675a30e46 비고 참고
         Optional<UserPassSummary> activePass = seasonQueryClient.getUserPassSummary(userId);
-
         int builderCount = 1 + activePass.map(UserPassSummary::extraBuilders).orElse(0);
-
         int territoryCount = (int) mapTerritoryClient.getOwnerCount(userId);
 
         MyProfileResponse.IslandInfo islandInfo =
@@ -90,21 +72,14 @@ public class UserService {
     }
 
     public UserProfileResponse getUserProfile(Long userId) {
-        User user =
-                userRepository
-                        .findById(userId)
-                        .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
+        User user = findUserOrThrow(userId);
         String profileImageUrl =
                 userProfileRepository
                         .findById(userId)
                         .map(UserProfile::getProfileImageUrl)
                         .orElse(null);
-
         int level = combatResourceClient.getUserSummary(userId).islandLevel();
-
         int trophyPoints = seasonTrophyClient.getTrophy(userId).map(Trophy::score).orElse(0);
-
         int territoryCount = (int) mapTerritoryClient.getOwnerCount(userId);
 
         return new UserProfileResponse(
@@ -118,7 +93,6 @@ public class UserService {
                 user.getCreatedAt());
     }
 
-    @Transactional(readOnly = true)
     public MyTerritoryResponse getMyTerritories(Long userId, Pageable pageable) {
         MapTerritoryClient.OwnerHoldingPage holdings =
                 mapTerritoryClient.getOwnerHoldings(
@@ -150,6 +124,13 @@ public class UserService {
         return new MyTerritoryResponse((int) holdings.totalElements(), territoryInfos);
     }
 
+    public MyWalletResponse getMyWallet(Long userId) {
+        WalletSnapshot wallet = walletService.getWallet(userId);
+        // GP 는 위치별 저장소·금고로 이관됐다 — 지갑 화면의 GP 는 금고 잔액을 보여준다.
+        int vaultGp = Math.toIntExact(combatResourceClient.getUserSummary(userId).vaultGp());
+        return new MyWalletResponse(vaultGp, wallet.availableAp(), wallet.lockedAp());
+    }
+
     private Map<Long, Long> buildUnitCountMap(List<Long> territoryIds) {
         if (territoryIds.isEmpty()) return Map.of();
         return combatResourceClient.getTerritoryUnitCounts(territoryIds).stream()
@@ -165,11 +146,9 @@ public class UserService {
                 .collect(Collectors.toSet());
     }
 
-    @Transactional(readOnly = true)
-    public MyWalletResponse getMyWallet(Long userId) {
-        WalletSnapshot wallet = walletClient.getWallet(userId);
-        // GP 는 위치별 저장소·금고로 이관됐다 — 지갑 화면의 GP 는 금고 잔액을 보여준다.
-        int vaultGp = Math.toIntExact(combatResourceClient.getUserSummary(userId).vaultGp());
-        return new MyWalletResponse(vaultGp, wallet.availableAp(), wallet.lockedAp());
+    private User findUserOrThrow(Long userId) {
+        return userRepository
+                .findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
     }
 }

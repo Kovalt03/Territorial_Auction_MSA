@@ -1,13 +1,13 @@
-package com.territorial.auction.domain.user.service;
+package com.territorial.user.domain.user.service;
 
-import com.territorial.auction.domain.user.dto.WishlistResponse;
-import com.territorial.auction.domain.user.entity.User;
-import com.territorial.auction.domain.user.entity.Wishlist;
-import com.territorial.auction.domain.user.repository.UserRepository;
-import com.territorial.auction.domain.user.repository.WishlistRepository;
-import com.territorial.auction.global.client.MapTerritoryClient;
 import com.territorial.auction.global.exception.CustomException;
-import com.territorial.auction.global.exception.ErrorCode;
+import com.territorial.user.client.MapTerritoryClient;
+import com.territorial.user.domain.user.dto.WishlistResponse;
+import com.territorial.user.domain.user.entity.User;
+import com.territorial.user.domain.user.entity.Wishlist;
+import com.territorial.user.domain.user.repository.UserRepository;
+import com.territorial.user.domain.user.repository.WishlistRepository;
+import com.territorial.user.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
