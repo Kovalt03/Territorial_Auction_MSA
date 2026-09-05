@@ -1,5 +1,8 @@
 package com.territorial.user.global.security;
 
+import com.territorial.user.global.security.oauth2.CustomOAuth2UserService;
+import com.territorial.user.global.security.oauth2.OAuth2FailureHandler;
+import com.territorial.user.global.security.oauth2.OAuth2SuccessHandler;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,6 +24,9 @@ public class InternalApiSecurityConfig {
             HttpSecurity http,
             JwtTokenProvider jwtTokenProvider,
             org.springframework.data.redis.core.StringRedisTemplate redisTemplate,
+            CustomOAuth2UserService customOAuth2UserService,
+            OAuth2SuccessHandler oAuth2SuccessHandler,
+            OAuth2FailureHandler oAuth2FailureHandler,
             @Value("${internal-api.secret}") String secret)
             throws Exception {
         http.csrf(csrf -> csrf.disable())
@@ -35,7 +41,11 @@ public class InternalApiSecurityConfig {
                 .authorizeHttpRequests(
                         authorize ->
                                 authorize
-                                        .requestMatchers("/actuator/health", "/internal/**")
+                                        .requestMatchers(
+                                                "/actuator/health",
+                                                "/internal/**",
+                                                "/oauth2/**",
+                                                "/login/**")
                                         .permitAll()
                                         .requestMatchers(
                                                 HttpMethod.POST,
@@ -53,6 +63,14 @@ public class InternalApiSecurityConfig {
                                         .authenticated()
                                         .anyRequest()
                                         .denyAll())
+                .oauth2Login(
+                        oauth2 ->
+                                oauth2.userInfoEndpoint(
+                                                endpoint ->
+                                                        endpoint.userService(
+                                                                customOAuth2UserService))
+                                        .successHandler(oAuth2SuccessHandler)
+                                        .failureHandler(oAuth2FailureHandler))
                 .addFilterBefore(
                         new InternalApiSecretFilter(secret),
                         UsernamePasswordAuthenticationFilter.class)
