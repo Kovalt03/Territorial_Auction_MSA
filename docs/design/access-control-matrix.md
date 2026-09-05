@@ -4,7 +4,7 @@
 
 ---
 
-> **⚙️ MSA 인증 경계**: 아래 로그인/권한 요건은 그대로 유효하되, **인증 지점이 게이트웨이로 이동**했다. 게이트웨이가 Bearer JWT를 검증하고 subject를 `X-User-Id` 헤더로 주입하며(유입 `X-User-Id`는 위조 방지로 제거), 내부 서비스(auction-service)는 이 헤더를 신뢰한다(자체 Security 없음). 모놀리식은 여전히 JWT를 직접 검증한다. 서비스 간 `/internal/**`은 게이트웨이를 우회하는 신뢰 호출로 인증 없이 열려 있다([internal.md](../api/internal.md)) — 네트워크 경계로만 보호되므로 외부 노출 금지.
+> **⚙️ MSA 인증 경계**: 아래 로그인/권한 요건은 그대로 유효하되, **인증 지점이 게이트웨이로 이동**했다. 게이트웨이가 Bearer JWT를 검증하고 subject를 `X-User-Id` 헤더로 주입하며(유입 `X-User-Id`는 위조 방지로 제거), 각 서비스는 이 헤더를 신뢰한다. user-service는 로그인·OAuth·JWT 발급을 소유하고, realtime-service는 WS CONNECT 시 access token을 검증한다. admin-service는 자체 인증(콘솔). 서비스 간 `/internal/**`은 게이트웨이를 우회하는 신뢰 호출로 `X-Internal-Service-Token`으로만 보호된다([internal.md](../api/internal.md)) — 외부 노출 금지.
 
 ## 접근 제어 매트릭스
 

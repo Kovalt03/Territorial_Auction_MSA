@@ -27,7 +27,7 @@ npm run test:run
 npm run build
 ```
 
-Gatling 시나리오는 `backend/src/gatling/java/`에 Java DSL로 관리한다. 부하 종류와 합격 기준은 [성능 테스트 가이드](./performance-testing.md)를 참고한다.
+Gatling 부하 테스트는 MSA 전환으로 재구성이 필요하다(구 `backend/src/gatling`은 제거). 부하 종류·합격 기준·재구성 방향은 [성능 테스트 가이드](./performance-testing.md)를 참고한다.
 
 ## 참고
 

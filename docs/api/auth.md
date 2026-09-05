@@ -42,7 +42,7 @@
 ```
 
 ### 부가 효과
-가입 성공 시 user-service가 `wallets`, `notification_settings`와 `user.created` outbox 이벤트를 만든다. 이벤트를 받은 모놀리식은 `user_profiles` 읽기 프로젝션을, combat-service는 `home_islands`와 기본 성을 생성한다.
+가입 성공 시 user-service가 `wallets`, `notification_settings`와 `user.created` outbox 이벤트를 만든다(프로필 이미지 `user_profiles`도 user-service 소유). 이벤트를 받은 combat-service는 `home_islands`와 기본 성을, 각 소비 서비스는 닉네임 프로젝션을 생성한다.
 
 ### 에러
 

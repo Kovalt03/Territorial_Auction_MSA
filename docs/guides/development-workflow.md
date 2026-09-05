@@ -10,7 +10,7 @@ feature/* → dev → main
 - `dev`: 로컬 개발 통합 브랜치
 - `main`: 릴리스와 외부 호환성 설정의 기준 브랜치
 
-`main`의 외부 호환성 설정은 자동 배포를 의미하지 않는다. 현재 지원되는 상시 실행 환경은 [로컬 Docker Compose](../operations/local-production.md)다.
+`main`의 외부 호환성 설정은 자동 배포를 의미하지 않는다. 현재 로컬 풀스택은 [MSA 로컬 구동](../design/msa/local-run.md)(`docker-compose.msa.yml`)이다. 프로덕션 배포 구성은 재작성 예정.
 
 ## 이름과 커밋
 
