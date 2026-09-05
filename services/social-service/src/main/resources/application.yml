@@ -39,7 +39,9 @@ server:
 
 user-service:
   base-url: ${USER_SERVICE_BASE_URL:http://localhost:8083}
-monolith:
-  base-url: ${MONOLITH_BASE_URL:http://localhost:8080}
+season-service:
+  base-url: ${SEASON_SERVICE_BASE_URL:http://localhost:8088}
+map-service:
+  base-url: ${MAP_SERVICE_BASE_URL:http://localhost:8091}
 internal-api:
   secret: ${INTERNAL_API_SECRET:local-internal-secret}
