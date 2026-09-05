@@ -23,7 +23,7 @@ services:
 
   redis-loadtest:
     build:
-      context: ./backend/docker/redis
+      context: ./docker/redis
       dockerfile: Dockerfile
     container_name: territorial-redis-loadtest
     ports:

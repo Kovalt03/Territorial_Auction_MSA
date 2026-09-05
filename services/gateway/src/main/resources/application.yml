@@ -77,11 +77,6 @@ spring:
           uri: ${REALTIME_SERVICE_WS_URL:ws://localhost:8090}
           predicates:
             - Path=/ws/**
-        # 그 외 전부 모놀리식
-        - id: monolith
-          uri: ${MONOLITH_URL:http://localhost:8081}
-          predicates:
-            - Path=/**
 
 jwt:
   secret: ${JWT_SECRET}
