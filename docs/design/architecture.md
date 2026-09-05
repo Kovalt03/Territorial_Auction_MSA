@@ -1,8 +1,8 @@
 # 시스템 아키텍처
 
-> 모놀리식 Spring Boot로 시작해 도메인 경계를 확립하고, 부하 측정 결과를 근거로 **MSA 전환에 착수**했다. 현재 auction-service와 user-service 추출이 완료됐으며 combat-service는 building·island/vault·unit/research·siege 공개 API와 데이터 소유권까지 이관해 cutover 검증 중이다. 아래 "MSA 런타임(현재)"과 [전환 허브](./msa/README.md)를 기준으로 한다.
+> 모놀리식 Spring Boot로 시작해 도메인 경계를 확립하고, 부하 측정 결과를 근거로 MSA로 전환했다. ✅ **전환 완료** — 모놀리식은 제거됐고 모든 도메인이 독립 서비스다(gateway·auction·user·combat·social·notification·item·season·ranking·map·admin·realtime). 서비스 토폴로지·이력은 [전환 허브](./msa/README.md), 서비스 간 계약은 [internal.md](../api/internal.md)가 기준이다.
 
-아래 그림은 MSA 전환 전 계층형 모놀리식 기준 구조다.
+아래 그림과 "패키지 경계"는 **MSA 전환 전 계층형 모놀리식 기준(역사적 참고)**이다 — 도메인 경계 자체는 그대로 서비스 경계가 됐다.
 
 ![Territorial Auction 계층형 시스템 아키텍처](../assets/architecture.svg)
 
