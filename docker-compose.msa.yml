@@ -379,7 +379,10 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      MONOLITH_BASE_URL: http://backend:8080
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
+      # member-stats 흡수: map·season 직접 조회(모놀 /internal/members/stats 대체)
+      SEASON_SERVICE_BASE_URL: http://season-service:8080
+      MAP_SERVICE_BASE_URL: http://map-service:8080
     depends_on:
       social-postgres:
         condition: service_healthy
