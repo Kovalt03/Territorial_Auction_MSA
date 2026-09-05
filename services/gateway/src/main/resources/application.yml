@@ -13,6 +13,11 @@ spring:
           uri: ${USER_SERVICE_URL:http://localhost:8083}
           predicates:
             - Path=/api/v1/auth/**
+        # OAuth 소셜 로그인(브라우저 리다이렉트 흐름)도 user-service 소유.
+        - id: user-service-oauth
+          uri: ${USER_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/oauth2/**,/login/**
         - id: user-service-users
           uri: ${USER_SERVICE_URL:http://localhost:8083}
           predicates:
