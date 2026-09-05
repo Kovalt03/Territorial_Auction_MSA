@@ -41,7 +41,7 @@
 
 ## API 명세 (api/)
 
-> Base URL: `http://localhost:8080`  
+> Base URL: `http://localhost:8090` (게이트웨이)  
 > 인증: `Authorization: Bearer {accessToken}`  
 > 공통 응답/에러 형식 → [api/README.md](./api/README.md)
 
