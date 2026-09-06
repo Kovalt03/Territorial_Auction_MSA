@@ -20,7 +20,6 @@
 - [MSA 전환 현황](#msa-전환-현황)
 - [기술 스택](#기술-스택)
 - [빠른 시작](#빠른-시작)
-- [테스트와 품질 검증](#테스트와-품질-검증)
 - [가이드와 문서](#가이드와-문서)
 
 ## 프로젝트 개요
@@ -28,7 +27,7 @@
 | 항목 | 내용 |
 |---|---|
 | 개발 형태 | 개인 프로젝트 |
-| 개발 기간 | 2026.04 – 현재 (모놀리식 구현·검증 후 MSA 전환 완료) |
+| 개발 기간 | 2026.04 – 현재 |
 | 핵심 경험 | 실시간 영토 경매, 그리드 건설, 자원 경제, 공성전, 길드·알림 |
 | 현재 구조 | Spring Cloud Gateway + 12개 독립 서비스(경매·유저·전투·소셜·알림·아이템·시즌·랭킹·맵·관리·실시간) + React SPA |
 | 실행 기준 | 로컬 MSA Docker Compose (`docker-compose.msa.yml`) |
@@ -63,46 +62,7 @@
 
 Spring Cloud Gateway 뒤에 도메인 서비스들이 각자 전용 DB를 소유하고, `/internal` 동기 계약과 Kafka·Redis 이벤트로 협력하는 마이크로서비스 구조입니다.
 
-```mermaid
-flowchart TB
-    FE["React SPA"]:::client
-    GW["API Gateway<br/>:8090 · JWT / 라우팅"]:::gw
-    RT["realtime-service<br/>WebSocket 허브 (무상태)"]:::svc
-
-    subgraph SVCS["도메인 서비스 · 각 서비스 전용 PostgreSQL"]
-        direction LR
-        AUC["auction"]:::svc --- DAUC[("auction")]:::db
-        USR["user / auth"]:::svc --- DUSR[("user")]:::db
-        CMB["combat"]:::svc --- DCMB[("combat")]:::db
-        MAP["map"]:::svc --- DMAP[("map")]:::db
-        SOC["social"]:::svc --- DSOC[("social")]:::db
-        NOT["notification"]:::svc --- DNOT[("notification")]:::db
-        ITM["item"]:::svc --- DITM[("item")]:::db
-        SSN["season"]:::svc --- DSSN[("season")]:::db
-        RNK["ranking"]:::svc --- DRNK[("ranking")]:::db
-        ADM["admin"]:::svc --- DADM[("admin")]:::db
-    end
-
-    subgraph SHARED["공유 인프라 (전 서비스 공용)"]
-        direction LR
-        KAFKA[("Kafka<br/>durable 이벤트")]:::infra
-        REDIS[("Redis<br/>락 / 캐시 / pub-sub")]:::infra
-    end
-
-    FE -->|"REST / WS"| GW
-    GW --> SVCS
-    GW -->|"/ws"| RT
-    SVCS -->|"이벤트 발행·구독"| KAFKA
-    SVCS -->|"락 / 캐시"| REDIS
-    KAFKA --> RT
-    REDIS --> RT
-
-    classDef client fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
-    classDef gw fill:#1f2937,stroke:#111827,color:#f9fafb
-    classDef svc fill:#2563eb,stroke:#1e40af,color:#ffffff
-    classDef db fill:#fef3c7,stroke:#f59e0b,color:#78350f
-    classDef infra fill:#0d9488,stroke:#0f766e,color:#ffffff
-```
+![Territorial Auction · MSA Architecture](docs/assets/architecture-msa.svg)
 
 - 공개 REST/WS 요청은 모두 게이트웨이를 거칩니다. 게이트웨이가 JWT를 검증해 `X-User-Id`를 주입하고 경로별로 각 서비스에 라우팅하며, `/ws`는 realtime-service로 보냅니다(미매핑 fallback 없음).
 - 모든 도메인이 독립 서비스이며 각자 전용 PostgreSQL을 소유합니다(gateway·realtime은 무상태).
@@ -112,7 +72,7 @@ flowchart TB
 
 ## MSA 전환 현황
 
-✅ **전환 완료.** Strangler 방식으로 한 서비스씩 추출해 모놀리식을 완전히 제거했습니다. 최종적으로 **12개 서비스**(gateway + auction·user·combat·social·notification·item·season·ranking·map·admin·realtime)로 구성됩니다.
+도메인 경계에 따라 **12개 독립 서비스**(gateway + auction·user·combat·social·notification·item·season·ranking·map·admin·realtime)로 구성되며, 각 서비스는 전용 DB를 소유하고 `/internal` 계약·Kafka/Redis 이벤트로 협력합니다.
 
 | 서비스 | 담당 | 상태 |
 |---|---|---|
@@ -158,33 +118,7 @@ INTERNAL_API_SECRET=local-internal-secret docker compose -f docker-compose.msa.y
 
 서비스별 선택 기동·포트·트러블슈팅은 [로컬 MSA 실행 가이드](docs/design/msa/local-run.md)를 따르세요.
 
-## 테스트와 품질 검증
-
-### 부하 테스트
-
-| 시나리오 | 부하 | 핵심 결과 | 결과 |
-|---|---|---|---|
-| 우선순위 혼합 Soak | 맵 30 + 경매 20 VU, 1시간 | 71,665 요청, 실패 0, p95 21ms / p99 247ms | [상세](docs/testing/README.md#부하-테스트-요약) |
-| STOMP fan-out | 구독자 100명, 메시지 1건 | 100/100 수신, p95 70ms, 실패 0 | [상세](docs/testing/README.md#부하-테스트-요약) |
-| 단일 경매 집중 Stress | 50→400 VU | 438.09 RPS, 지속 경합 p95 1,582ms | [한계 분석](report/perf/2026-08-20-all-priority1-3-comparison.md) |
-
-ETag 조건부 조회로 전체 맵 재전송 병목을 해소했다. 단일 인기 경매의 지속 경합 한계는 Auction을 첫 MSA 분리 대상으로 선택한 근거가 됐다.
-
-### API와 단위 테스트
-
-| 범위 | 검증 구성 | 문서 |
-|---|---|---|
-| API 계약 | REST 공통 규칙·도메인별 엔드포인트·STOMP 채널 | [API 명세](docs/api/README.md) · [WebSocket 문서](docs/api/websocket/README.md) |
-| Backend | JUnit 5·Mockito, Service 성공·실패·경계값, 테스트 클래스 48개 | [테스트 전략](docs/design/testing.md) |
-| Frontend | Vitest·React Testing Library, 훅 상태 전이·컴포넌트 상호작용, 테스트 파일 3개 | [테스트 전략](docs/design/testing.md) |
-
-- Backend: `./gradlew spotlessCheck test gatlingClasses`
-- Frontend: `npm run test:run`, `npm run build`
-- 로컬 Docker 사용자·관리자 수동 흐름과 Render·Supabase·Upstash 외부 호환성 스모크를 완료했다.
-
-전체 기준과 알려진 제한은 [v1.0.0 모놀리식 릴리스 기준점](docs/releases/v1.0.0-monolith.md), 현재 구현 현황은 [체크리스트](docs/checklist.md)에서 확인할 수 있습니다.
-
-> 외부 호스팅(Render Free 등)은 메모리 한도로 다중 서비스 상시 실행에 적합하지 않습니다. 외부 설정은 호환성 재현용으로만 보관하며, 상시 실행은 로컬 MSA Docker Compose를 사용합니다. 자세한 내용은 [외부 호환성 검증 가이드](docs/operations/external-render-supabase.md)를 참고하세요.
+> 현재 구현 현황은 [체크리스트](docs/checklist.md)에서 확인할 수 있습니다. MSA 전환 후 테스트·부하·보안 검증은 후속 단계로 진행 예정입니다.
 
 ## 가이드와 문서
 
@@ -194,7 +128,7 @@ ETag 조건부 조회로 전체 맵 재전송 병목을 해소했다. 단일 인
 | 관리자 | [관리자 운영 가이드](docs/guides/admin-guide.md) · [관리자 API](docs/api/admin.md) |
 | 개발자 | [문서 인덱스](docs/README.md) · [MSA 전환](docs/design/msa/README.md) · [API 공통 규칙](docs/api/README.md) · [코드 컨벤션](docs/design/code-conventions.md) |
 | 검증 | [테스트·검증 인덱스](docs/testing/README.md) · [성능 테스트 가이드](docs/design/performance-testing.md) |
-| 운영 | [로컬 운영](docs/operations/local-production.md) · [외부 호환성 검증](docs/operations/external-render-supabase.md) · [v1.0.0 릴리스 기준](docs/releases/v1.0.0-monolith.md) |
+| 운영 | [로컬 운영](docs/operations/local-production.md) · [외부 호환성 검증](docs/operations/external-render-supabase.md) |
 
 ## 개발 흐름
 
