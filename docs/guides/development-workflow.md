@@ -29,4 +29,3 @@ feature/* → dev → main
 
 - [테스트 전략](../design/testing.md)
 - [로컬 운영 실행 가이드](../operations/local-production.md)
-- [릴리스 기준점](../releases/v1.0.0-monolith.md)

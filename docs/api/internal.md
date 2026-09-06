@@ -6,7 +6,7 @@
 > - **응답 래핑 없음**: 성공 시 `ApiResponse` 래핑 없이 원시 DTO(또는 204/200)를 반환한다. 오류만 각 서비스의 `GlobalExceptionHandler`가 `ApiResponse.error`로 감싼다.
 > - **상태코드 단일 소스**: 각 서비스의 `ErrorCode.httpStatus`를 따른다. `INSUFFICIENT_AP`은 **409**(검증 400과 구분).
 
-관련: [MSA 전환 허브](../design/msa/README.md) · [이관 추적](../design/msa/auction-migration-tracking.md)
+관련: [MSA 전환 허브](../design/msa/README.md)
 
 ---
 
@@ -195,7 +195,7 @@ admin-service가 `/api/v1/admin/**` 인증과 감사 로그를 소유하고 아�
 - combat outbox 발행기는 `event-id` header도 전송한다. 비멱등 반응을 갖는 소비 서비스(season·notification)는 각자 `processed_combat_events`에 receipt를 저장해 중복 적용을 막는다(map 인계는 연산 자체가 멱등, realtime WS는 중복 무해).
 - **`/api/v1/users/**` 전부 user-service 소유**: 신원 프로필(닉네임·비밀번호)·설정·탈퇴 쓰기뿐 아니라 프로필·지갑 조회, AP 충전, 위시리스트까지 user-service가 서빙한다(user-BFF 흡수). 게이트웨이가 `/api/v1/users/**`와 `/oauth2`·`/login`을 user-service로 라우팅한다. 닉네임 변경은 `user.updated`로 전파.
 
-> 정산 시 `grade`는 랭킹이 쓰므로 `auction.settled`에 반드시 포함. 자세한 소비자별 동작은 [이관 추적 §1](../design/msa/auction-migration-tracking.md).
+> 정산 시 `grade`는 랭킹이 쓰므로 `auction.settled`에 반드시 포함.
 
 ---
 
