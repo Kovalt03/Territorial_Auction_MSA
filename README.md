@@ -4,7 +4,7 @@
 > 50×50 월드맵에서 영토를 경매로 획득하고, 건설·자원 생산·공성전으로 성장하는 실시간 전략 웹 게임입니다.
 
 <p align="center">
-  <a href="https://claude.ai/code/artifact/366effa3-8970-4353-a97c-aa4a4fabe49f?via=auto_preview">인터랙티브 사용자 가이드 보기</a>
+  <a href="https://kovalt03.github.io/my-blog/#/post/territorial-auction">인터랙티브 사용자 가이드 보기</a>
   ·
   <a href="docs/design/msa/local-run.md">로컬 Docker 실행하기</a>
   ·
@@ -34,14 +34,14 @@
 
 ## 주요 화면과 플레이 흐름
 
-실제 UI 화면과 클릭 흐름은 [인터랙티브 사용자 가이드](https://claude.ai/code/artifact/366effa3-8970-4353-a97c-aa4a4fabe49f?via=auto_preview)에 12개 화면으로 정리되어 있습니다.
+실제 UI 화면과 클릭 흐름은 [인터랙티브 사용자 가이드](https://kovalt03.github.io/my-blog/#/post/territorial-auction)에 12개 화면으로 정리되어 있습니다.
 
 | 화면 | 사용자 흐름 | 바로 보기 |
 |---|---|---|
-| 월드맵 | 8개 대륙을 탐색하고 원하는 대륙으로 진입 | [화면 보기](https://claude.ai/code/artifact/366effa3-8970-4353-a97c-aa4a4fabe49f?via=auto_preview) |
-| 대륙·영토 | 격자에서 영토 상태를 확인하고 경매 상세를 열람 | [화면 보기](https://claude.ai/code/artifact/366effa3-8970-4353-a97c-aa4a4fabe49f?via=auto_preview) |
-| 나의 섬·영토 | 건물 배치, 생산, 자원 관리를 수행 | [화면 보기](https://claude.ai/code/artifact/366effa3-8970-4353-a97c-aa4a4fabe49f?via=auto_preview) |
-| 공성·길드 | 유닛을 편성해 공성하고, 길드와 실시간으로 협력 | [화면 보기](https://claude.ai/code/artifact/366effa3-8970-4353-a97c-aa4a4fabe49f?via=auto_preview) |
+| 월드맵 | 8개 대륙을 탐색하고 원하는 대륙으로 진입 | [화면 보기](https://kovalt03.github.io/my-blog/#/post/territorial-auction) |
+| 대륙·영토 | 격자에서 영토 상태를 확인하고 경매 상세를 열람 | [화면 보기](https://kovalt03.github.io/my-blog/#/post/territorial-auction) |
+| 나의 섬·영토 | 건물 배치, 생산, 자원 관리를 수행 | [화면 보기](https://kovalt03.github.io/my-blog/#/post/territorial-auction) |
+| 공성·길드 | 유닛을 편성해 공성하고, 길드와 실시간으로 협력 | [화면 보기](https://kovalt03.github.io/my-blog/#/post/territorial-auction) |
 | 관리자 | 시즌·경매·사용자·공지·감사 로그를 운영 | [관리자 가이드](docs/guides/admin-guide.md) |
 
 > README의 화면 썸네일은 저장소에 원본 캡처 파일을 추가하는 즉시 이 표에 고정합니다. 현재 가이드는 실제 프로젝트 화면을 포함한 공유 문서이며, 로컬 환경에서 동일한 화면을 확인할 수 있습니다.
@@ -124,7 +124,7 @@ INTERNAL_API_SECRET=local-internal-secret docker compose -f docker-compose.msa.y
 
 | 대상 | 문서 |
 |---|---|
-| 플레이어 | [인터랙티브 사용자 가이드](https://claude.ai/code/artifact/366effa3-8970-4353-a97c-aa4a4fabe49f?via=auto_preview) · [텍스트 사용자 가이드](docs/guides/user-guide.md) |
+| 플레이어 | [인터랙티브 사용자 가이드](https://kovalt03.github.io/my-blog/#/post/territorial-auction) · [텍스트 사용자 가이드](docs/guides/user-guide.md) |
 | 관리자 | [관리자 운영 가이드](docs/guides/admin-guide.md) · [관리자 API](docs/api/admin.md) |
 | 개발자 | [문서 인덱스](docs/README.md) · [MSA 전환](docs/design/msa/README.md) · [API 공통 규칙](docs/api/README.md) · [코드 컨벤션](docs/design/code-conventions.md) |
 | 검증 | [테스트·검증 인덱스](docs/testing/README.md) · [성능 테스트 가이드](docs/design/performance-testing.md) |
