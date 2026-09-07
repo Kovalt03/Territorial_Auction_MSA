@@ -9,7 +9,7 @@
 ### Base URL
 
 ```
-http://localhost:8080   # 로컬 개발
+http://localhost:8090   # 로컬 개발 — 게이트웨이(모든 요청 진입점)
 ```
 
 환경변수: `{{baseUrl}}`

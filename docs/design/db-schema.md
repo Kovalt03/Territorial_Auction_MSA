@@ -2,13 +2,34 @@
 
 > Notion 원본: https://www.notion.so/DB-3332efa4278d81c7b707e4456b25774e
 >
-> ⚠️ **MSA 전환 완료 — 이 문서는 모놀리식 단일 DB 시절 카탈로그다.** 현재는 **서비스별 전용 DB**로 분리됐고(각 서비스가 자기 테이블만 소유), 각 서비스의 실제 스키마 SoT는 **`services/{service}/src/main/resources/db/migration/`의 Flyway 마이그레이션**이다. 아래의 `FK →` 표기·단일 DB 전제는 역사적 참고이며, 서비스 경계를 넘는 관계는 FK가 아니라 **ID + 스냅샷/이벤트**로 다룬다. 서비스↔테이블 매핑은 [msa/README.md](./msa/README.md) 토폴로지 참고.
+> ✅ **MSA 전환 완료 기준 — 서비스별 전용 DB.** 각 서비스는 자기 PostgreSQL 컨테이너의 자기 테이블만 소유하며, **실제 스키마 SoT는 각 서비스의 Flyway 마이그레이션**(`services/{service}/src/main/resources/db/migration/`)이다. 이 문서는 전 서비스 테이블을 한눈에 보는 **카탈로그**이며, 아래 표의 `FK →` 표기는 개념적 관계다 — **같은 DB 안**에서만 실제 FK이고, **서비스 경계를 넘는 관계는 FK가 아니라 ID 값 + 스냅샷/이벤트**로 다룬다.
+
+---
+
+## 서비스별 소유 테이블 (MSA)
+
+각 도메인 섹션은 아래 소유 서비스의 전용 DB에 속한다. 경계를 넘는 참조는 ID + 스냅샷/이벤트.
+
+| 서비스 | 전용 DB | 소유 테이블(도메인) |
+|---|---|---|
+| **user-service** | user-postgres | users, wallets, notification_settings, user_profiles (👤 User) |
+| **item-service** | item-postgres | items, item_purchases (📦 Item) |
+| **season-service** | season-postgres | seasons, season_passes, user_season_passes (🏆 Season — 패스·미션) |
+| **ranking-service** | ranking-postgres | user_trophies, trophy_logs, season_rewards, season_territory_holds (🏆 트로피·영토보유·랭킹 집계) |
+| **map-service** | map-postgres | continents, territory_grades, territories, bonus_tiles, land_tax_logs, territory_production_logs, color_histories (🗺️ Map) + `territory_auction_status`(읽기 프로젝션) |
+| **auction-service** | auction-postgres | auctions, auction_bids, auction_histories (🔨 Auction) |
+| **social-service** | social-postgres | guilds, guild_members, guild_applications, chat_rooms, chat_messages, interest_groups (💬 Social) |
+| **notification-service** | notification-postgres | notification_logs (🔔 Notification) |
+| **combat-service** | combat-postgres | building_types, building_instances, global_vaults (🏗️ Building) + island_grades, home_islands (🏝️ Island) + unit_types, unit_instances, attack_tokens, siege_*, unit_type_level_specs, unit_research (⚔️ Military) |
+| **admin-service** | admin-postgres | admin_audit_logs (🛡️ Admin) — 자체 인증 계정 포함 |
+
+> 🏆 Season/Ranking 경계: 시즌 패스·미션은 season-service, 트로피·시즌 보상·영토 보유·랭킹 집계는 ranking-service가 소유한다. 정확한 테이블 배치는 각 서비스 Flyway가 최종 기준이다. 토폴로지: [msa/README.md](./msa/README.md).
 
 ---
 
 ## PostgreSQL 테이블 목록
 
-### 👤 User Domain
+### 👤 User Domain — user-service
 
 #### users
 
@@ -54,7 +75,7 @@
 
 ---
 
-### 📦 Item Domain
+### 📦 Item Domain — item-service
 
 #### items
 
@@ -80,7 +101,7 @@
 
 ---
 
-### 🏆 Season Domain
+### 🏆 Season Domain — season-service · ranking-service
 
 #### seasons
 
@@ -171,7 +192,7 @@ INDEX: `(season_id, user_id)` — 랭킹 집계 최적화
 
 ---
 
-### 🗺️ Map Domain
+### 🗺️ Map Domain — map-service
 
 #### continents
 
@@ -259,11 +280,10 @@ INDEX: `(season_id, user_id)` — 랭킹 집계 최적화
 
 ---
 
-### 🔨 Auction Domain
+### 🔨 Auction Domain — auction-service
 
-> **⚙️ MSA — DB 분리**: `auctions`·`auction_bids`·`auction_histories`는 이제 **auction-service 전용 DB(`auction-postgres`)가 소유**한다(Flyway `V1__init_auction.sql`). 관계는 FK가 아니라 **ID + 스냅샷**(coordX·continentName·grade·bidderNickname 등)으로 보관 — 아래 표의 `FK →`는 모놀리식 단일 DB 시절 표기이며, 실제 auction-service에선 값(ID)만 저장하고 조인하지 않는다.
-> - 모놀리식 DB에 남은 동명 테이블은 **stale**(추출 이후 미사용) — 하드 컷오버 후 별도 drop 마이그레이션 예정.
-> - 맵 그리드 '경매중' 표시는 모놀리식 DB의 **`territory_auction_status` 프로젝션**(아래)에서 읽는다.
+> **⚙️ DB 분리**: `auctions`·`auction_bids`·`auction_histories`는 **auction-service 전용 DB(`auction-postgres`)가 소유**한다(Flyway `V1__init_auction.sql`). 관계는 FK가 아니라 **ID + 스냅샷**(coordX·continentName·grade·bidderNickname 등)으로 보관 — 아래 표의 `FK →`는 단일 DB 전제 표기이며, 실제 auction-service에선 값(ID)만 저장하고 조인하지 않는다.
+> - 맵 그리드 '경매중' 표시는 **map-service DB의 `territory_auction_status` 프로젝션**(아래)에서 읽는다 — auction 테이블을 조회하지 않는 핫패스 격리.
 
 #### auctions
 
@@ -301,7 +321,7 @@ INDEX: `(auction_id, bid_at ASC)` — 그래프 조회 최적화
 | `won_at` | `TIMESTAMPTZ` | NOT NULL | |
 | `season_id` | `BIGINT` | FK → seasons.id, NULL 허용 | 시즌 중 낙찰 시 연결 (경매 AP 소비 랭킹 집계용) |
 
-#### territory_auction_status (⚙️ MSA 읽기 프로젝션 — 모놀리식/map DB)
+#### territory_auction_status (⚙️ 읽기 프로젝션 — map-service DB)
 
 auction-service의 `auction.opened/bid/closed` 이벤트로만 갱신되는 read-model. 맵 그리드 '경매중' 뱃지·영토 상세 현재가를 auction 테이블 조회 없이 로컬에서 읽기 위함(핫패스 격리). 영토당 활성 경매 1개이므로 `territory_id`가 PK.
 
@@ -312,11 +332,11 @@ auction-service의 `auction.opened/bid/closed` 이벤트로만 갱신되는 read
 | `current_price` | `INTEGER` | NOT NULL | |
 | `end_at` | `TIMESTAMPTZ` | NOT NULL | 조회 시 `end_at > now()`로 활성 판별(누락된 close 이벤트 자가 치유) |
 
-> 행 존재 + `end_at` 미래 ⟺ 경매 진행 중. 소유: 모놀리식 map 도메인(Flyway `V2__territory_auction_status.sql`).
+> 행 존재 + `end_at` 미래 ⟺ 경매 진행 중. 소유: map-service(Flyway `V2__territory_auction_status.sql`).
 
 ---
 
-### 💬 Social Domain
+### 💬 Social Domain — social-service
 
 #### guilds
 
@@ -376,7 +396,7 @@ auction-service의 `auction.opened/bid/closed` 이벤트로만 갱신되는 read
 
 ---
 
-### 🔔 Notification Domain
+### 🔔 Notification Domain — notification-service
 
 #### notification_logs
 
@@ -391,7 +411,7 @@ auction-service의 `auction.opened/bid/closed` 이벤트로만 갱신되는 read
 
 ---
 
-### 🏗️ Building Domain
+### 🏗️ Building Domain — combat-service
 
 #### building_types
 
@@ -441,7 +461,7 @@ auction-service의 `auction.opened/bid/closed` 이벤트로만 갱신되는 read
 
 ---
 
-### 🏝️ Island Domain
+### 🏝️ Island Domain — combat-service
 
 #### island_grades
 
@@ -467,7 +487,7 @@ auction-service의 `auction.opened/bid/closed` 이벤트로만 갱신되는 read
 
 ---
 
-### ⚔️ Military Domain
+### ⚔️ Military Domain — combat-service
 
 #### unit_types
 
@@ -588,7 +608,7 @@ auction-service의 `auction.opened/bid/closed` 이벤트로만 갱신되는 read
 
 ---
 
-### 🛡️ Admin Domain
+### 🛡️ Admin Domain — admin-service
 
 #### admin_audit_logs
 
@@ -610,7 +630,7 @@ auction-service의 `auction.opened/bid/closed` 이벤트로만 갱신되는 read
 
 ## Redis 구조
 
-> **⚙️ MSA**: redis는 **공유 인스턴스**(서비스 간 이벤트 버스 `auction.*`/`territory.auction-ready` + 캐시). `auction:lock:{auctionId}`(입찰 분산락)은 이제 **auction-service**가 Redisson으로 잡는다. `ranking:...:auction_spend`는 auction-service의 `auction.settled`를 모놀리식 랭킹 브리지가 받아 갱신한다.
+> **⚙️ MSA**: redis는 **공유 인스턴스**(서비스 간 저지연 이벤트 `auction.*`/`territory.auction-ready` + 캐시). `auction:lock:{auctionId}`(입찰 분산락)은 **auction-service**가 Redisson으로 잡는다. `ranking:...:auction_spend`는 **ranking-service**가 auction-service의 `auction.settled` 이벤트를 직접 구독해 갱신한다.
 
 | Key | 타입 | TTL | 역할 |
 |---|---|---|---|

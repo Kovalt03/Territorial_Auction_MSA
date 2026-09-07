@@ -8,7 +8,7 @@
 
 | 항목 | 값 |
 |---|---|
-| 엔드포인트 | `ws://localhost:8080/ws` |
+| 엔드포인트 | `ws://localhost:8090/ws` (게이트웨이 → realtime-service) |
 | 프로토콜 | STOMP over WebSocket (SockJS fallback 포함) |
 | 환경변수 | `{{wsUrl}}` |
 

@@ -46,7 +46,7 @@
 | 0 | 모놀리식 + CI/CD·검증 정책 확립 | ✅ 완료 |
 | 1 | **auction-service** (auction) | ✅ **완료** — 서비스 추출·게이트웨이·이벤트 프로젝션·모놀리식 auction 도메인 삭제 |
 | 2 | user-service (user, auth) | ✅ 완료 — 신원·인증·AP 지갑·알림 설정·상태 소유 이전 |
-| 3 | combat-service (military, building) | ✅ **완료** — 독립 DB·공개 route cutover·모놀리식 코드/스키마 제거·full-stack smoke 완료 — [추출 가이드](./combat-extraction.md) · [이관 추적](./combat-migration-tracking.md) |
+| 3 | combat-service (military, building) | ✅ **완료** — 독립 DB·공개 route cutover·모놀리식 코드/스키마 제거·full-stack smoke 완료 |
 | 4 | item-service / season-service (economy 분리) | ✅ 완료 (#32·#34) |
 | 5 | social-service (social, guild) | ✅ 완료 (#12) |
 | 6 | notification-service (notification) | ✅ 완료 (#15) |
@@ -67,7 +67,6 @@
 - **비동기 통신**: Kafka — 경매 생성 트리거와 프로젝션·랭킹·시즌용 durable 이벤트. Redis pub/sub은 입찰·정산 WebSocket 저지연 경로에만 병행.
 - **읽기 프로젝션**: 맵 그리드 '경매중' 표시를 auction 테이블 조회 → 모놀리식 로컬 read-model(`territory_auction_status`)로 대체(이벤트 구독). 부하 실측: 경매 쓰기 경합 하 맵 그리드 조회 **p99 ~10배 개선**.
 - **실시간·랭킹·시즌**: 클라이언트 WS는 **realtime-service**가 이벤트(Kafka·Redis)를 구독해 push한다(전환 완료 후 모놀 허브에서 이관). 랭킹·시즌은 각각 ranking-service·season-service가 소유하며 combat/auction 이벤트를 직접 구독해 반영한다.
-- 상세: [auction-extraction.md](./auction-extraction.md) · [auction-migration-tracking.md](./auction-migration-tracking.md)
 
 ## 브랜치·PR 전략 (서비스 통합 브랜치)
 
@@ -96,16 +95,6 @@ feature/{domain}-{n}-{step}  ─┘             (서비스 통합 브랜치)    
 | 문서 | 내용 |
 |---|---|
 | [local-run.md](./local-run.md) | 로컬 MSA 구동 — Strangler 토폴로지, 서비스당 DB, 자원 절감, compose 구성 |
-
-### 서비스별 추출 가이드
-
-각 서비스의 추출 가이드(소유/참조 경계·통신 계약·Saga 등)는 **해당 `msa/{service}` 통합 브랜치에서 관리**하고, 서비스 완성 PR로 dev에 함께 병합한다 — 특정 서비스에 종속된 작업 문서라 공통 프레임워크와 분리한다.
-
-| 서비스 | 가이드 | 위치 |
-|---|---|---|
-| auction | [auction-extraction.md](./auction-extraction.md) | `dev` 병합 완료 |
-| user | [user-extraction.md](./user-extraction.md) | `dev` 병합 완료 |
-| combat | [combat-extraction.md](./combat-extraction.md) | `dev` 병합 완료 |
 
 ## 관련 (MSA 밖 공통 문서)
 

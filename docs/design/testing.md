@@ -33,4 +33,3 @@ Gatling 부하 테스트는 MSA 전환으로 재구성이 필요하다(구 `back
 
 - [시스템 아키텍처](./architecture.md)
 - [성능 테스트 가이드](./performance-testing.md)
-- [v1.0.0 릴리스 기준](../releases/v1.0.0-monolith.md)

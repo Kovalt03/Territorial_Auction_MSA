@@ -28,5 +28,4 @@ REST API의 인증, 공통 응답·오류 형식, 도메인별 엔드포인트�
 ## 참고 자료
 
 - [성능·부하 테스트 가이드](../design/performance-testing.md)
-- [v1.0.0 모놀리식 릴리스 기준](../releases/v1.0.0-monolith.md)
 - [구현 체크리스트](../checklist.md)
