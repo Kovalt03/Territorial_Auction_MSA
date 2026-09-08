@@ -30,7 +30,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
                     + "AND (LOWER(u.nickname) LIKE LOWER(CONCAT('%', :keyword, '%')) "
                     + "OR LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%')))")
     Page<User> searchForAdmin(
-            @Param("status") String status,
-            @Param("keyword") String keyword,
-            Pageable pageable);
+            @Param("status") String status, @Param("keyword") String keyword, Pageable pageable);
 }
