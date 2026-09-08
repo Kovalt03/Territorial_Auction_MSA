@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.territorial.auction.global.exception.CustomException;
 import com.territorial.item.client.CombatResourceClient;
 import com.territorial.item.client.TerritoryOwnershipClient;
 import com.territorial.item.client.WalletClient;
@@ -18,7 +19,6 @@ import com.territorial.item.domain.item.entity.Item.ItemType;
 import com.territorial.item.domain.item.repository.ItemPurchaseRepository;
 import com.territorial.item.domain.item.repository.ItemRepository;
 import com.territorial.item.domain.item.repository.UserItemRepository;
-import com.territorial.auction.global.exception.CustomException;
 import com.territorial.item.global.exception.ErrorCode;
 import java.time.LocalDateTime;
 import java.util.Optional;

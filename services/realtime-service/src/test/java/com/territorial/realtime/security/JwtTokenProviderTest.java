@@ -13,7 +13,8 @@ import org.junit.jupiter.api.Test;
 
 class JwtTokenProviderTest {
 
-    private static final String SECRET = "test-secret-key-for-realtime-ws-connect-verification-32b+";
+    private static final String SECRET =
+            "test-secret-key-for-realtime-ws-connect-verification-32b+";
     private static final SecretKey KEY =
             Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
 
@@ -57,8 +58,8 @@ class JwtTokenProviderTest {
     void wrongSignature_fails() {
         SecretKey otherKey =
                 Keys.hmacShaKeyFor(
-                        "a-completely-different-secret-key-value-256bits!!".getBytes(
-                                StandardCharsets.UTF_8));
+                        "a-completely-different-secret-key-value-256bits!!"
+                                .getBytes(StandardCharsets.UTF_8));
         String token =
                 buildToken("access", "42", new Date(System.currentTimeMillis() + 60_000), otherKey);
 

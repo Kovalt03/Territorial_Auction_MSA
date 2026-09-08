@@ -75,7 +75,8 @@ class LandTaxServiceTest {
         landTaxService.processUserTax(USER_ID);
 
         verify(landTaxLogRepository, never()).save(any());
-        verify(combatResourceClient, never()).chargeTax(any(), org.mockito.ArgumentMatchers.anyInt(), anyList(), anyString());
+        verify(combatResourceClient, never())
+                .chargeTax(any(), org.mockito.ArgumentMatchers.anyInt(), anyList(), anyString());
     }
 
     @DisplayName("과세 처리 — 면제 범위 내면 과세액 0으로 EXEMPT 로그만 남긴다")
@@ -90,7 +91,8 @@ class LandTaxServiceTest {
         assertThat(saved.getStatus()).isEqualTo(TaxStatus.EXEMPT);
         assertThat(saved.getGpCharged()).isEqualTo(0);
         assertThat(saved.getTerritoryCount()).isEqualTo(3);
-        verify(combatResourceClient, never()).chargeTax(any(), org.mockito.ArgumentMatchers.anyInt(), anyList(), anyString());
+        verify(combatResourceClient, never())
+                .chargeTax(any(), org.mockito.ArgumentMatchers.anyInt(), anyList(), anyString());
     }
 
     @DisplayName("과세 처리 — 금고/저장소에서 정상 수금되면 PAID 로그 + 납부 알림")

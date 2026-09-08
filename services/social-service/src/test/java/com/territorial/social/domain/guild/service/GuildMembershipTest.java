@@ -58,8 +58,7 @@ class GuildMembershipTest {
         given(guildMemberRepository.existsByUserIdAndStatus(20L, GuildMember.Status.ACTIVE))
                 .willReturn(true);
 
-        assertThatThrownBy(
-                        () -> guildService.joinGuild(20L, GUILD_ID, new JoinGuildRequest("hi")))
+        assertThatThrownBy(() -> guildService.joinGuild(20L, GUILD_ID, new JoinGuildRequest("hi")))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.ALREADY_IN_GUILD);
