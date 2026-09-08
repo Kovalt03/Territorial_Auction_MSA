@@ -1,0 +1,118 @@
+baseUrl = http://localhost:8090
+
+### 영토 건물 목록 조회
+GET {{baseUrl}}/api/v1/map/territories/1/buildings
+
+### 영토 건물 배치
+POST {{baseUrl}}/api/v1/map/territories/1/buildings
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "buildingTypeId": 1,
+  "posX": 3,
+  "posY": 3
+}
+
+### 건물 업그레이드
+POST {{baseUrl}}/api/v1/buildings/1/upgrade
+Authorization: Bearer {{accessToken}}
+
+### 건물 수리
+POST {{baseUrl}}/api/v1/buildings/1/repair
+Authorization: Bearer {{accessToken}}
+
+### 건물 보관 (보관함으로 이동)
+POST {{baseUrl}}/api/v1/buildings/1/store
+Authorization: Bearer {{accessToken}}
+
+### 건물 이동
+PATCH {{baseUrl}}/api/v1/buildings/1/move
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "posX": 4,
+  "posY": 2
+}
+
+### 섬 정보 조회
+GET {{baseUrl}}/api/v1/island
+Authorization: Bearer {{accessToken}}
+
+### 섬 건물 목록 조회
+GET {{baseUrl}}/api/v1/island/buildings
+Authorization: Bearer {{accessToken}}
+
+### 섬 건물 배치
+POST {{baseUrl}}/api/v1/island/buildings
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "buildingTypeId": 3,
+  "posX": 0,
+  "posY": 0
+}
+
+### 보관함 건물 목록 조회
+GET {{baseUrl}}/api/v1/inventory
+Authorization: Bearer {{accessToken}}
+
+### 보관함 건물 영토에 배치
+POST {{baseUrl}}/api/v1/inventory/1/place
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "territoryId": 1,
+  "posX": 2,
+  "posY": 3
+}
+
+
+# ── (자동 보강) 누락 엔드포인트 ──
+
+### GET /api/v1/building-shop
+GET {{baseUrl}}/api/v1/building-shop
+Authorization: Bearer {{accessToken}}
+
+### GET /api/v1/building-types
+GET {{baseUrl}}/api/v1/building-types
+Authorization: Bearer {{accessToken}}
+
+### POST /api/v1/building-shop/{buildingTypeId}/purchase
+POST {{baseUrl}}/api/v1/building-shop/1/purchase
+Authorization: Bearer {{accessToken}}
+
+### POST /api/v1/buildings/repair-all
+POST {{baseUrl}}/api/v1/buildings/repair-all
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "locationType": "string",
+  "locationId": 1
+}
+
+### POST /api/v1/buildings/{buildingId}/rush
+POST {{baseUrl}}/api/v1/buildings/1/rush
+Authorization: Bearer {{accessToken}}
+
+### POST /api/v1/inventory/{inventoryId}/place-on-island
+POST {{baseUrl}}/api/v1/inventory/1/place-on-island
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "posX": 1,
+  "posY": 1
+}
+
+### POST /api/v1/island/harvest
+POST {{baseUrl}}/api/v1/island/harvest
+Authorization: Bearer {{accessToken}}
+
+### POST /api/v1/island/production-boost
+POST {{baseUrl}}/api/v1/island/production-boost
+Authorization: Bearer {{accessToken}}
