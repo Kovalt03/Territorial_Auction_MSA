@@ -20,6 +20,12 @@
 | POST | `/api/v1/inventory/{inventoryId}/place` | [보관함 건물 배치](#보관함-아이템-배치) | ✅ | - |
 | PATCH | `/api/v1/buildings/{buildingId}/move` | [건물 이동](#건물-이동) | ✅ | - |
 | POST | `/api/v1/buildings/{buildingId}/store` | [건물 보관](#건물-보관) | ✅ | - |
+| GET | `/api/v1/building-types` | 건물 타입 카탈로그 조회 | ✅ | - |
+| GET | `/api/v1/building-shop` | 건물 상점 목록(구매 가능 건물·비용) | ✅ | - |
+| POST | `/api/v1/building-shop/{buildingTypeId}/purchase` | 건물 구매(보관함 적립) | ✅ | - |
+| POST | `/api/v1/buildings/repair-all` | 전 건물 일괄 수리 | ✅ | - |
+| POST | `/api/v1/inventory/{inventoryId}/place-on-island` | 보관함 건물 섬 배치 | ✅ | - |
+| POST | `/api/v1/island/harvest` | 섬 GP 수확 | ✅ | - |
 
 ---
 

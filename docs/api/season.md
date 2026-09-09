@@ -10,6 +10,10 @@
 | GET | `/api/v1/season-pass/me` | [시즌 패스 상태 조회](#시즌-패스-상태-조회) | ✅ |
 | GET | `/api/v1/season-pass` | [시즌 패스 현황 조회](#시즌-패스-현황-조회) | 🔄 |
 | POST | `/api/v1/season-pass/purchase` | [시즌 패스 구매](#시즌-패스-구매) | ✅ |
+| GET | `/api/v1/season-pass/missions` | 시즌 미션 목록·진행도 조회 | ✅ |
+| POST | `/api/v1/season-pass/level-up` | 시즌 패스 레벨업(AP 소비) | ✅ |
+| POST | `/api/v1/season-pass/missions/{missionId}/claim` | 미션 보상 수령(XP 적립) | ✅ |
+| POST | `/api/v1/season-pass/rewards/{level}/claim` | 레벨 보상 수령 | ✅ |
 
 ---
 

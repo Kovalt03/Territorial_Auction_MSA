@@ -237,6 +237,12 @@
 
 ---
 
+## 공성 대상 정보 조회
+
+**GET** `/api/v1/military/siege/target/{territoryId}`
+
+공격 선언 전 대상 영토의 공략 정보(방어 배치·Zone 구성 등)를 조회한다. 정밀 공격권/정찰 여부에 따라 노출 정보가 달라지는 정보 비대칭 경로.
+
 ## 공격 선언
 
 **POST** `/api/v1/military/siege`
