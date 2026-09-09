@@ -74,7 +74,9 @@ spring:
             - Path=/api/v1/admin/**,/api/v1/announcement
         # WebSocket(실시간 허브)은 realtime-service
         - id: realtime-service-ws
-          uri: ${REALTIME_SERVICE_WS_URL:ws://localhost:8090}
+          # http 스킴: SockJS HTTP 트랜스포트(/ws/info 등)는 그대로 프록시,
+          # Upgrade 헤더가 있으면 SCG가 자동으로 WebSocket 업그레이드 — 한 라우트로 둘 다 처리.
+          uri: ${REALTIME_SERVICE_WS_URL:http://localhost:8093}
           predicates:
             - Path=/ws/**
 

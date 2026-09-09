@@ -547,7 +547,7 @@ services:
       RANKING_SERVICE_URL: http://ranking-service:8080
       MAP_SERVICE_URL: http://map-service:8080
       ADMIN_SERVICE_URL: http://admin-service:8080
-      REALTIME_SERVICE_WS_URL: ws://realtime-service:8080
+      REALTIME_SERVICE_WS_URL: http://realtime-service:8080
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
     ports:
       - "8090:8080"
