@@ -1,0 +1,31 @@
+# map API 테스트 — 게이트웨이(:8090) 경유
+baseUrl = http://localhost:8090
+
+
+
+# ── (자동 보강) 누락 엔드포인트 ──
+
+### GET /api/v1/continents
+GET {{baseUrl}}/api/v1/continents
+Authorization: Bearer {{accessToken}}
+
+### GET /api/v1/map/grid
+GET {{baseUrl}}/api/v1/map/grid
+Authorization: Bearer {{accessToken}}
+
+### GET /api/v1/map/territories/{territoryId}
+GET {{baseUrl}}/api/v1/map/territories/1
+Authorization: Bearer {{accessToken}}
+
+### PATCH /api/v1/map/territories/{territoryId}/color
+PATCH {{baseUrl}}/api/v1/map/territories/1/color
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "colorCode": "string"
+}
+
+### POST /api/v1/territories/{id}/collect
+POST {{baseUrl}}/api/v1/territories/1/collect
+Authorization: Bearer {{accessToken}}

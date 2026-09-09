@@ -63,6 +63,8 @@
 |---|---|---|---|
 | GET | `/api/v1/rankings/territory-hold` | [시즌 영토 등급 보유 랭킹](#시즌-영토-등급-보유-랭킹) | ⬜ |
 | GET | `/api/v1/rankings/auction-spend` | [시즌 경매 AP 소비 랭킹](#시즌-경매-ap-소비-랭킹) | ⬜ |
+| GET | `/api/v1/rankings/trophy` | 시즌 트로피 랭킹(리그 순위) | ✅ |
+| GET | `/api/v1/rankings/continent/{continentId}` | 대륙 밴드 내 트로피 랭킹 | ✅ |
 | GET | `/api/v1/rankings/me` | [내 랭킹 조회](#내-랭킹-조회) | ⬜ |
 
 ---

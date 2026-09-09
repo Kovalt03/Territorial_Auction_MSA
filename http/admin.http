@@ -1,0 +1,450 @@
+# 관리 콘솔(admin-service). 게이트웨이(:8090)가 /api/v1/admin/** 를 admin-service로 라우팅.
+# 인증: 일반 유저 토큰이 아니라 admin 자체 로그인 토큰을 accessToken에 넣어 사용한다.
+#   POST /api/v1/admin/auth/login → (TOTP) → 발급 토큰을 http-client.env.json의 accessToken에 저장
+baseUrl = http://localhost:8090
+
+### 밸런스 설정 조회 (카탈로그 + 현재값/기본값)
+GET {{baseUrl}}/api/v1/admin/settings/balance
+Authorization: Bearer {{accessToken}}
+
+### 밸런스 설정 수정 (예: 수리 GP/HP를 3으로)
+PATCH {{baseUrl}}/api/v1/admin/settings/balance
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "key": "REPAIR_GP_PER_HP", "value": 3 }
+
+### 밸런스 설정 수정 (성 주둔 수용량을 6으로)
+PATCH {{baseUrl}}/api/v1/admin/settings/balance
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "key": "GARRISON_CAP_CASTLE", "value": 6 }
+
+### 경매 전역 토글 조회
+GET {{baseUrl}}/api/v1/admin/settings/auction
+Authorization: Bearer {{accessToken}}
+
+
+# ── (자동 보강) 누락 엔드포인트 ──
+
+### DELETE /api/v1/admin/building-types/{buildingTypeId}
+DELETE {{baseUrl}}/api/v1/admin/building-types/1
+Authorization: Bearer {{accessToken}}
+
+### DELETE /api/v1/admin/chat/messages/{messageId}
+DELETE {{baseUrl}}/api/v1/admin/chat/messages/1
+Authorization: Bearer {{accessToken}}
+
+### GET /api/v1/admin/announcement
+GET {{baseUrl}}/api/v1/admin/announcement
+Authorization: Bearer {{accessToken}}
+
+### GET /api/v1/admin/auctions
+GET {{baseUrl}}/api/v1/admin/auctions?page=0&size=20
+Authorization: Bearer {{accessToken}}
+
+### GET /api/v1/admin/audit-logs
+GET {{baseUrl}}/api/v1/admin/audit-logs?page=0&size=20
+Authorization: Bearer {{accessToken}}
+
+### GET /api/v1/admin/building-types
+GET {{baseUrl}}/api/v1/admin/building-types
+Authorization: Bearer {{accessToken}}
+
+### GET /api/v1/admin/building-types/{buildingTypeId}/castle-limits
+GET {{baseUrl}}/api/v1/admin/building-types/1/castle-limits
+Authorization: Bearer {{accessToken}}
+
+### GET /api/v1/admin/building-types/{buildingTypeId}/level-specs
+GET {{baseUrl}}/api/v1/admin/building-types/1/level-specs
+Authorization: Bearer {{accessToken}}
+
+### GET /api/v1/admin/chat/messages
+GET {{baseUrl}}/api/v1/admin/chat/messages?page=0&size=20
+Authorization: Bearer {{accessToken}}
+
+### GET /api/v1/admin/chat/rooms
+GET {{baseUrl}}/api/v1/admin/chat/rooms
+Authorization: Bearer {{accessToken}}
+
+### GET /api/v1/admin/continents
+GET {{baseUrl}}/api/v1/admin/continents
+Authorization: Bearer {{accessToken}}
+
+### GET /api/v1/admin/continents/{continentId}/territories
+GET {{baseUrl}}/api/v1/admin/continents/1/territories
+Authorization: Bearer {{accessToken}}
+
+### GET /api/v1/admin/dashboard
+GET {{baseUrl}}/api/v1/admin/dashboard
+Authorization: Bearer {{accessToken}}
+
+### GET /api/v1/admin/items
+GET {{baseUrl}}/api/v1/admin/items
+Authorization: Bearer {{accessToken}}
+
+### GET /api/v1/admin/season-passes
+GET {{baseUrl}}/api/v1/admin/season-passes
+Authorization: Bearer {{accessToken}}
+
+### GET /api/v1/admin/seasons
+GET {{baseUrl}}/api/v1/admin/seasons
+Authorization: Bearer {{accessToken}}
+
+### GET /api/v1/admin/unit-types
+GET {{baseUrl}}/api/v1/admin/unit-types
+Authorization: Bearer {{accessToken}}
+
+### GET /api/v1/admin/unit-types/{unitTypeId}/level-specs
+GET {{baseUrl}}/api/v1/admin/unit-types/1/level-specs
+Authorization: Bearer {{accessToken}}
+
+### GET /api/v1/admin/users
+GET {{baseUrl}}/api/v1/admin/users?page=0&size=20
+Authorization: Bearer {{accessToken}}
+
+### GET /api/v1/admin/users/{userId}
+GET {{baseUrl}}/api/v1/admin/users/1
+Authorization: Bearer {{accessToken}}
+
+### GET /api/v1/admin/users/{userId}/active-bids
+GET {{baseUrl}}/api/v1/admin/users/1/active-bids
+Authorization: Bearer {{accessToken}}
+
+### GET /api/v1/admin/users/{userId}/bids
+GET {{baseUrl}}/api/v1/admin/users/1/bids?page=0&size=20
+Authorization: Bearer {{accessToken}}
+
+### GET /api/v1/admin/users/{userId}/territories
+GET {{baseUrl}}/api/v1/admin/users/1/territories?page=0&size=20
+Authorization: Bearer {{accessToken}}
+
+### GET /api/v1/announcement
+GET {{baseUrl}}/api/v1/announcement
+Authorization: Bearer {{accessToken}}
+
+### PATCH /api/v1/admin/announcement
+PATCH {{baseUrl}}/api/v1/admin/announcement
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "active": true,
+  "message": "string"
+}
+
+### PATCH /api/v1/admin/building-types/{buildingTypeId}
+PATCH {{baseUrl}}/api/v1/admin/building-types/1
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "displayName": "string",
+  "width": 1,
+  "height": 1,
+  "maxHp": 1,
+  "baseCostGp": 1,
+  "upgradeCostGp": 1,
+  "apCost": 1,
+  "zoneRestriction": 1,
+  "defensePower": 1,
+  "foodProductionRate": 1,
+  "unitCapacityPerLevel": 1,
+  "gpProductionRate": 1,
+  "buildTimeSeconds": 1,
+  "upgradeTimeSeconds": 1,
+  "icon": "string",
+  "colorHex": "string"
+}
+
+### PATCH /api/v1/admin/building-types/{buildingTypeId}/castle-limits
+PATCH {{baseUrl}}/api/v1/admin/building-types/1/castle-limits
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "limits": { "1": 1, "2": 2, "3": 3 }
+}
+
+### PATCH /api/v1/admin/building-types/{buildingTypeId}/level-specs
+PATCH {{baseUrl}}/api/v1/admin/building-types/1/level-specs
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "specs": "STRING"
+}
+
+### PATCH /api/v1/admin/continents/{continentId}/auction
+PATCH {{baseUrl}}/api/v1/admin/continents/1/auction
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "enabled": true,
+  "reason": "string"
+}
+
+### PATCH /api/v1/admin/continents/{continentId}/grade-distribution
+PATCH {{baseUrl}}/api/v1/admin/continents/1/grade-distribution
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "distribution": "STRING",
+  "reason": "string"
+}
+
+### PATCH /api/v1/admin/items/{itemId}
+PATCH {{baseUrl}}/api/v1/admin/items/1
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "costAp": 1,
+  "costGp": 1,
+  "dailyLimit": 1
+}
+
+### PATCH /api/v1/admin/season-passes/{seasonPassId}
+PATCH {{baseUrl}}/api/v1/admin/season-passes/1
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "costAp": 1,
+  "durationDays": 1,
+  "islandBonusPct": 1,
+  "extraBuilders": 1,
+  "taxExemptBonus": 1,
+  "buildTimeReductionPct": 1
+}
+
+### PATCH /api/v1/admin/seasons/{seasonId}/end
+PATCH {{baseUrl}}/api/v1/admin/seasons/1/end
+Authorization: Bearer {{accessToken}}
+
+### PATCH /api/v1/admin/settings/auction
+PATCH {{baseUrl}}/api/v1/admin/settings/auction
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "enabled": true,
+  "reason": "string"
+}
+
+### PATCH /api/v1/admin/territories/bulk/auction
+PATCH {{baseUrl}}/api/v1/admin/territories/bulk/auction
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "territoryIds": [],
+  "enabled": true,
+  "reason": "string"
+}
+
+### PATCH /api/v1/admin/territories/bulk/grade
+PATCH {{baseUrl}}/api/v1/admin/territories/bulk/grade
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "territoryIds": [],
+  "grade": "string",
+  "reason": "string"
+}
+
+### PATCH /api/v1/admin/territories/{territoryId}/auction
+PATCH {{baseUrl}}/api/v1/admin/territories/1/auction
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "enabled": true,
+  "reason": "string"
+}
+
+### PATCH /api/v1/admin/territories/{territoryId}/grade
+PATCH {{baseUrl}}/api/v1/admin/territories/1/grade
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "grade": "string",
+  "reason": "string"
+}
+
+### PATCH /api/v1/admin/unit-types/{unitTypeId}
+PATCH {{baseUrl}}/api/v1/admin/unit-types/1
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "displayName": "string",
+  "icon": "string",
+  "colorHex": "string",
+  "attackPower": 1,
+  "defensePower": 1,
+  "costGp": 1,
+  "foodCost": 1,
+  "buildingDamage": 1,
+  "level": 1
+}
+
+### PATCH /api/v1/admin/unit-types/{unitTypeId}/level-specs
+PATCH {{baseUrl}}/api/v1/admin/unit-types/1/level-specs
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "specs": "STRING"
+}
+
+### PATCH /api/v1/admin/users/{userId}/status
+PATCH {{baseUrl}}/api/v1/admin/users/1/status
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "status": "STRING",
+  "reason": "string"
+}
+
+### POST /api/v1/admin/auctions/{auctionId}/cancel
+POST {{baseUrl}}/api/v1/admin/auctions/1/cancel
+Authorization: Bearer {{accessToken}}
+
+### POST /api/v1/admin/auctions/{auctionId}/settle
+POST {{baseUrl}}/api/v1/admin/auctions/1/settle
+Authorization: Bearer {{accessToken}}
+
+### POST /api/v1/admin/auth/login
+POST {{baseUrl}}/api/v1/admin/auth/login
+Content-Type: application/json
+
+{
+  "email": "string",
+  "password": "string",
+  "totpCode": "string"
+}
+
+### POST /api/v1/admin/auth/totp/setup
+POST {{baseUrl}}/api/v1/admin/auth/totp/setup
+Authorization: Bearer {{accessToken}}
+
+### POST /api/v1/admin/building-types
+POST {{baseUrl}}/api/v1/admin/building-types
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "string",
+  "displayName": "string",
+  "width": 1,
+  "height": 1,
+  "maxHp": 1,
+  "baseCostGp": 1,
+  "upgradeCostGp": 1,
+  "apCost": 1,
+  "zoneRestriction": 1,
+  "defensePower": 1,
+  "foodProductionRate": 1,
+  "unitCapacityPerLevel": 1,
+  "gpProductionRate": 1,
+  "buildTimeSeconds": 1,
+  "upgradeTimeSeconds": 1,
+  "icon": "string",
+  "colorHex": "string"
+}
+
+### POST /api/v1/admin/items/grant
+POST {{baseUrl}}/api/v1/admin/items/grant
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "userId": 1,
+  "itemId": 1,
+  "quantity": 1,
+  "reason": "string"
+}
+
+### POST /api/v1/admin/seasons
+POST {{baseUrl}}/api/v1/admin/seasons
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "startedAt": "2026-01-01T00:00:00",
+  "endedAt": "2026-01-01T00:00:00"
+}
+
+### POST /api/v1/admin/territories/bulk/force-start
+POST {{baseUrl}}/api/v1/admin/territories/bulk/force-start
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "territoryIds": [],
+  "reason": "string"
+}
+
+### POST /api/v1/admin/territories/{territoryId}/auction/force-start
+POST {{baseUrl}}/api/v1/admin/territories/1/auction/force-start
+Authorization: Bearer {{accessToken}}
+
+### POST /api/v1/admin/users/bulk/notifications
+POST {{baseUrl}}/api/v1/admin/users/bulk/notifications
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "userIds": [],
+  "message": "string"
+}
+
+### POST /api/v1/admin/users/bulk/status
+POST {{baseUrl}}/api/v1/admin/users/bulk/status
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "userIds": [],
+  "status": "STRING",
+  "reason": "string"
+}
+
+### POST /api/v1/admin/users/bulk/wallet-adjust
+POST {{baseUrl}}/api/v1/admin/users/bulk/wallet-adjust
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "userIds": [],
+  "apDelta": 1,
+  "gpDelta": 1,
+  "reason": "string"
+}
+
+### POST /api/v1/admin/users/{userId}/notifications
+POST {{baseUrl}}/api/v1/admin/users/1/notifications
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "message": "string"
+}
+
+### POST /api/v1/admin/users/{userId}/wallet/adjust
+POST {{baseUrl}}/api/v1/admin/users/1/wallet/adjust
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "apDelta": 1,
+  "gpDelta": 1,
+  "reason": "string"
+}

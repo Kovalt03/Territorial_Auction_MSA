@@ -38,6 +38,8 @@
 
 ## 목차
 
+> ⚠️ 아래 표는 **admin-service 추출(#40) 이전 설계** 기준(15개)이라 실제와 다르다(예: `force-end`는 실제 `settle`/`cancel`). 실구현 전체 엔드포인트(58개)는 문서 하단 [실구현 엔드포인트](#실구현-엔드포인트-admin-service-기준-2026-09)가 authoritative.
+
 | Method | Endpoint | 기능 | 감사로그 | 구현 |
 |---|---|---|---|---|
 | GET | `/api/v1/admin/continents` | [대륙 영토 구성 현황 ⭐](#대륙-영토-구성-현황) | — | ⬜ |
@@ -303,3 +305,70 @@ Response 200 — `data.logs[]`: `{ id, adminUserId, action, targetType, targetId
 **DELETE** `/api/v1/admin/chat/messages/{messageId}`
 
 Request: `{ "reason": "욕설/비방" }` — Response `200`, `ApiResponse<Void>`.
+
+---
+
+## 실구현 엔드포인트 (admin-service 기준, 2026-09)
+
+게이트웨이가 `/api/v1/admin/**`를 admin-service로 라우팅. 쓰기(POST/PATCH/DELETE)는 `admin_audit_logs`에 자동 기록. 인증은 admin 자체 로그인(TOTP) 토큰.
+
+| Method | Endpoint | 기능 | 감사로그 |
+|---|---|---|---|
+| GET | `/api/v1/admin/announcement` | 전역 공지 | — |
+| PATCH | `/api/v1/admin/announcement` | 전역 공지 | ✅ |
+| GET | `/api/v1/admin/auctions` | 경매 목록 | — |
+| POST | `/api/v1/admin/auctions/{auctionId}/cancel` | 경매 강제 취소 | ✅ |
+| POST | `/api/v1/admin/auctions/{auctionId}/settle` | 경매 강제 낙찰 | ✅ |
+| GET | `/api/v1/admin/audit-logs` | 감사 로그 조회 | — |
+| POST | `/api/v1/admin/auth/login` | 관리자 로그인 | — |
+| POST | `/api/v1/admin/auth/totp/setup` | TOTP 설정 | — |
+| GET | `/api/v1/admin/building-types` | 건물 타입 목록/생성 | — |
+| POST | `/api/v1/admin/building-types` | 건물 타입 목록/생성 | ✅ |
+| DELETE | `/api/v1/admin/building-types/{buildingTypeId}` | 건물 타입 수정/삭제 | ✅ |
+| PATCH | `/api/v1/admin/building-types/{buildingTypeId}` | 건물 타입 수정/삭제 | ✅ |
+| GET | `/api/v1/admin/building-types/{buildingTypeId}/castle-limits` | 성 레벨별 수용 한도 | — |
+| PATCH | `/api/v1/admin/building-types/{buildingTypeId}/castle-limits` | 성 레벨별 수용 한도 | ✅ |
+| GET | `/api/v1/admin/building-types/{buildingTypeId}/level-specs` | 건물 레벨 스펙 | — |
+| PATCH | `/api/v1/admin/building-types/{buildingTypeId}/level-specs` | 건물 레벨 스펙 | ✅ |
+| GET | `/api/v1/admin/chat/messages` | 메시지 조회 | — |
+| DELETE | `/api/v1/admin/chat/messages/{messageId}` | 메시지 삭제 | ✅ |
+| GET | `/api/v1/admin/chat/rooms` | 채팅방 조회 | — |
+| GET | `/api/v1/admin/continents` | 대륙 구성 현황 | — |
+| PATCH | `/api/v1/admin/continents/{continentId}/auction` | 대륙 경매 토글 | ✅ |
+| PATCH | `/api/v1/admin/continents/{continentId}/grade-distribution` | 대륙 등급 분포 일괄 조정 | ✅ |
+| GET | `/api/v1/admin/continents/{continentId}/territories` | 대륙 영토 목록 | — |
+| GET | `/api/v1/admin/dashboard` | 관리 대시보드 집계 | — |
+| GET | `/api/v1/admin/items` | 아이템 목록 | — |
+| POST | `/api/v1/admin/items/grant` | 아이템 지급 | ✅ |
+| PATCH | `/api/v1/admin/items/{itemId}` | 아이템 정책 수정 | ✅ |
+| GET | `/api/v1/admin/season-passes` | 시즌 패스 목록 | — |
+| PATCH | `/api/v1/admin/season-passes/{seasonPassId}` | 시즌 패스 수정 | ✅ |
+| GET | `/api/v1/admin/seasons` | 시즌 목록/생성 | — |
+| POST | `/api/v1/admin/seasons` | 시즌 목록/생성 | ✅ |
+| PATCH | `/api/v1/admin/seasons/{seasonId}/end` | 시즌 종료 처리 | ✅ |
+| GET | `/api/v1/admin/settings/auction` | 경매 전역 설정 | — |
+| PATCH | `/api/v1/admin/settings/auction` | 경매 전역 설정 | ✅ |
+| GET | `/api/v1/admin/settings/balance` | 밸런스 설정(카탈로그·값) | — |
+| PATCH | `/api/v1/admin/settings/balance` | 밸런스 설정(카탈로그·값) | ✅ |
+| PATCH | `/api/v1/admin/territories/bulk/auction` | 영토 경매 토글 일괄 | ✅ |
+| POST | `/api/v1/admin/territories/bulk/force-start` | 영토 강제 경매 시작 일괄 | ✅ |
+| PATCH | `/api/v1/admin/territories/bulk/grade` | 영토 등급 일괄 | ✅ |
+| PATCH | `/api/v1/admin/territories/{territoryId}/auction` | 영토 경매 토글 | ✅ |
+| POST | `/api/v1/admin/territories/{territoryId}/auction/force-start` | 영토 강제 경매 시작 | ✅ |
+| PATCH | `/api/v1/admin/territories/{territoryId}/grade` | 영토 등급 변경 | ✅ |
+| GET | `/api/v1/admin/unit-types` | 유닛 타입 목록 | — |
+| PATCH | `/api/v1/admin/unit-types/{unitTypeId}` | 유닛 타입 수정 | ✅ |
+| GET | `/api/v1/admin/unit-types/{unitTypeId}/level-specs` | 유닛 레벨 스펙 | — |
+| PATCH | `/api/v1/admin/unit-types/{unitTypeId}/level-specs` | 유닛 레벨 스펙 | ✅ |
+| GET | `/api/v1/admin/users` | 유저 목록·검색 | — |
+| POST | `/api/v1/admin/users/bulk/notifications` | 알림 일괄 발송 | ✅ |
+| POST | `/api/v1/admin/users/bulk/status` | 유저 상태 일괄 변경 | ✅ |
+| POST | `/api/v1/admin/users/bulk/wallet-adjust` | 재화 일괄 조정 | ✅ |
+| GET | `/api/v1/admin/users/{userId}` | 유저 상세 | — |
+| GET | `/api/v1/admin/users/{userId}/active-bids` | 진행 중 입찰 | — |
+| GET | `/api/v1/admin/users/{userId}/bids` | 입찰 내역 | — |
+| POST | `/api/v1/admin/users/{userId}/notifications` | 알림 발송 | ✅ |
+| PATCH | `/api/v1/admin/users/{userId}/status` | 계정 정지/해제 | ✅ |
+| GET | `/api/v1/admin/users/{userId}/territories` | 보유 영토 | — |
+| POST | `/api/v1/admin/users/{userId}/wallet/adjust` | 재화 조정 | ✅ |
+| GET | `/api/v1/announcement` | 전역 공지 | — |
