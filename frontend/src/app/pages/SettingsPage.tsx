@@ -87,8 +87,8 @@ export function SettingsPage() {
       setPwError('새 비밀번호가 일치하지 않습니다.');
       return;
     }
-    if (newPassword.length < 8) {
-      setPwError('새 비밀번호는 8자 이상이어야 합니다.');
+    if (!/^(?=.*[a-zA-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,20}$/.test(newPassword)) {
+      setPwError('새 비밀번호는 8~20자이며 영문·숫자·특수문자를 모두 포함해야 합니다.');
       return;
     }
     setIsPwLoading(true);

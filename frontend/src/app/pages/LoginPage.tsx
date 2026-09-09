@@ -62,11 +62,6 @@ export function LoginPage() {
         </div>
 
         <div className="px-8 pb-8">
-          <div className="bg-[#2a1500] border border-[#ffd70060] rounded-xl px-4 py-2.5 mb-5 flex items-center gap-2">
-            <span className="text-base">🎁</span>
-            <span className="text-gold text-xs">신규 가입 시 1,000 AP 즉시 지급!</span>
-          </div>
-
           {error && (
             <div className="bg-danger/10 border border-danger rounded-lg px-3 py-2 mb-3">
               <span className="text-danger text-xs">{error}</span>
