@@ -9,6 +9,9 @@ import { ApiError } from '../api/client';
 import { GridBackground } from '../components/GridBackground';
 import { Button } from '../components/Button';
 
+// 백엔드 SignupRequest 정책과 일치: 8~20자 + 영문·숫자·특수문자 각 1개 이상
+const PASSWORD_PATTERN = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,20}$/;
+
 export function RegisterPage() {
   const navigate = useNavigate();
   const { login } = useApp();
@@ -20,7 +23,6 @@ export function RegisterPage() {
   const [emailAvailable, setEmailAvailable] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showWelcome, setShowWelcome] = useState(false);
 
   const handleChange = (field: string, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -55,7 +57,7 @@ export function RegisterPage() {
     setError('');
     if (!usernameChecked || !usernameAvailable) { setError('아이디 중복확인을 해주세요.'); return; }
     if (!emailChecked || !emailAvailable) { setError('이메일 중복확인을 해주세요.'); return; }
-    if (form.password.length < 8) { setError('비밀번호는 8자 이상이어야 합니다.'); return; }
+    if (!PASSWORD_PATTERN.test(form.password)) { setError('비밀번호는 8~20자이며 영문·숫자·특수문자를 모두 포함해야 합니다.'); return; }
     if (form.password !== form.pwConfirm) { setError('비밀번호가 일치하지 않습니다.'); return; }
     if (!form.nickname) { setError('닉네임을 입력해주세요.'); return; }
 
@@ -69,9 +71,10 @@ export function RegisterPage() {
         fetchMyWallet().catch(() => null),
       ]);
       login(profile?.nickname ?? '', { token: tokenData.accessToken, userId: profile?.userId, ap: wallet?.availableAP ?? 0, gp: wallet?.availableGP ?? 0 });
-      setShowWelcome(true);
+      navigate('/app/map');
     } catch (e: unknown) {
       if (e instanceof ApiError && e.status === 409) setError('이미 사용 중인 아이디 또는 이메일입니다.');
+      else if (e instanceof ApiError && e.status >= 400 && e.status < 500) setError(e.message);
       else setError('회원가입 중 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);
@@ -92,13 +95,7 @@ export function RegisterPage() {
         </div>
 
         <div className="px-7 pb-7">
-          <h2 className="text-foreground font-bold mb-3 text-[22px]">회원가입</h2>
-
-          <div className="bg-elevated border border-gold rounded-lg px-4 py-2.5 mb-4">
-            <span className="text-gold text-xs font-medium">
-              🎁  가입 완료 시 1,000 AP 즉시 지급
-            </span>
-          </div>
+          <h2 className="text-foreground font-bold mb-4 text-[22px]">회원가입</h2>
 
           {/* 아이디 */}
           <label className="form-label">아이디</label>
@@ -155,7 +152,7 @@ export function RegisterPage() {
             type="password"
             value={form.password}
             onChange={e => handleChange('password', e.target.value)}
-            placeholder="8자 이상, 영문+숫자 조합"
+            placeholder="8~20자, 영문·숫자·특수문자 포함"
             className="form-input mb-4"
           />
 
@@ -204,27 +201,6 @@ export function RegisterPage() {
           </Button>
         </div>
       </div>
-
-      {showWelcome && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/60">
-          <div className="bg-panel border-2 border-gold rounded-2xl p-8 text-center max-w-sm mx-4 shadow-2xl shadow-[#ffd700]/20">
-            <div className="text-5xl mb-4">🎁</div>
-            <h3 className="text-gold font-bold text-xl mb-2">가입을 축하합니다!</h3>
-            <p className="text-dim mb-3 text-sm">웰컴 보너스가 지급되었습니다</p>
-            <div className="bg-elevated rounded-xl py-4 px-6 mb-5">
-              <p className="text-primary font-bold text-[28px]">+1,000 AP</p>
-              <p className="text-dim text-sm mt-1">즉시 사용 가능</p>
-            </div>
-            <Button
-              onClick={() => { setShowWelcome(false); navigate('/app/map'); }}
-              size="lg"
-              fullWidth
-            >
-              게임 시작! 🚀
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
