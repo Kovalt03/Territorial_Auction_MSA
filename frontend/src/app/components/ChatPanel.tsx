@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 import { useApp } from '../context/AppContext';
-import { fetchChatHistory, type ChatHistoryMessage } from '../api/chat';
-import { useStompSubscribe, useStompPublish } from '../hooks/useStompClient';
+import { fetchChatHistory, sendChatMessage, type ChatHistoryMessage } from '../api/chat';
+import { useStompSubscribe } from '../hooks/useStompClient';
 
 interface Props {
   roomId: string;
@@ -14,7 +14,6 @@ export function ChatPanel({ roomId }: Props) {
   const [input, setInput] = useState('');
   const [hasNext, setHasNext] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const publish = useStompPublish();
 
   useEffect(() => {
     setMessages([]);
@@ -48,9 +47,11 @@ export function ChatPanel({ roomId }: Props) {
   }, [roomId, messages]);
 
   const handleSend = () => {
-    if (!input.trim() || !isLoggedIn) return;
-    publish(`/pub/chat/${roomId}`, { content: input.trim() });
+    const text = input.trim();
+    if (!text || !isLoggedIn) return;
     setInput('');
+    // REST 전송 → social-service 저장·발행 → /sub/chat 구독으로 수신
+    sendChatMessage(roomId, text).catch((e) => console.warn('[ChatPanel] 메시지 전송 실패', e));
   };
 
   const formatTime = (iso: string) =>
