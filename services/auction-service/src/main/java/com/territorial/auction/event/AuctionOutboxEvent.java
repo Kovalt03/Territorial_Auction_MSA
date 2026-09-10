@@ -11,8 +11,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * 트랜잭셔널 아웃박스 레코드. 입찰/정산 트랜잭션 안에서 저장되어 도메인 변경과 원자적으로 커밋되고, 릴레이가 Kafka로 발행 후 publishedAt을 찍는다.
- * topic은 이벤트 종류(auction.bid/opened/closed/settled) — Kafka 헤더로 실린다.
+ * 트랜잭셔널 아웃박스 레코드. 입찰/정산 트랜잭션 안에서 저장되어 도메인 변경과 원자적으로 커밋되고, 릴레이가 Kafka로 발행 후 publishedAt을 찍는다. topic은
+ * 이벤트 종류(auction.bid/opened/closed/settled) — Kafka 헤더로 실린다.
  */
 @Entity
 @Table(name = "auction_outbox_events")
