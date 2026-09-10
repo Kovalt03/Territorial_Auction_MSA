@@ -158,14 +158,8 @@ public class AuctionService {
                         previousBidderId,
                         auction.getCoordX(),
                         auction.getCoordY());
-        TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        // 실시간 입찰 브로드캐스트(/sub/auction/{id})는 realtime 소비 서비스가 처리 — tracking §1
-                        eventPublisher.publish("auction.bid", broadcast);
-                    }
-                });
+        // durable=아웃박스(트랜잭션 원자적)·실시간=커밋 후 Redis — EventBusPublisher가 처리(tracking §1)
+        eventPublisher.publish("auction.bid", broadcast);
 
         return new PlaceBidResponse(auction.getId(), request.bidAmount(), finalEndAt);
     }

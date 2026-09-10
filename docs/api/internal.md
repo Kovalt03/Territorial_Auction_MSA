@@ -166,7 +166,7 @@ admin-service가 `/api/v1/admin/**` 인증과 감사 로그를 소유하고 아�
 상태 반영·재처리가 필요한 이벤트는 Kafka로 전달한다. 논리 이벤트 종류는 `event-topic` header에 담고, payload는 JSON 문자열로 직렬화한다. 소비자는 필드명만 일치하는 자체 record로 역직렬화하며 Java 클래스를 공유하지 않는다.
 
 - `territory-auction-ready`: map-service → auction-service 경매 생성 trigger
-- `auction-events`: auction-service → map projection·랭킹/시즌 bridge. record key는 논리 이벤트명이며 `event-topic` header도 함께 사용한다.
+- `auction-events`: auction-service **transactional outbox** → map projection·랭킹/시즌 bridge. 입찰/정산 트랜잭션과 원자적으로 `auction_outbox_events`에 기록되고, `AuctionOutboxPublisher`(@Scheduled) 릴레이가 Kafka로 드레인(전송 성공 시에만 published 표시). record key는 outbox event ID이며 논리 이벤트명은 `event-topic` header로 실린다. → **Kafka 장애가 입찰 요청을 실패시키지 않고 이벤트도 유실 없이 복구 후 전달**(실시간 Redis 경로는 커밋 후 best-effort로 분리).
 - `user-events`: user-service transactional outbox → 각 소비 서비스 프로젝션(닉네임 등)·combat HomeIsland bootstrap. record key는 outbox event ID다.
 - `combat-events`: combat-service transactional outbox → map(인계)·season(승리)·notification(공성/섬 알림)·realtime(공성 WS)가 각각 직접 소비. record key는 aggregate ID다.
 - `territory-events`: map-service → combat-service 영토 상실 처리. record key는 territory ID다.

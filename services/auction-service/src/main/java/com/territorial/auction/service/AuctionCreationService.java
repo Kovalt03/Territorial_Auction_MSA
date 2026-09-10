@@ -13,8 +13,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Slf4j
 @Service
@@ -60,17 +58,11 @@ public class AuctionCreationService {
         auctionBidRepository.save(
                 AuctionBid.builder().auction(auction).price(startingPrice).build());
 
-        // map 읽기 프로젝션에 '경매중' upsert (tracking §1) — 커밋 이후 발행
+        // map 읽기 프로젝션에 '경매중' upsert (tracking §1) — durable=아웃박스·실시간=커밋 후 Redis
         AuctionOpenedEvent openedEvent =
                 new AuctionOpenedEvent(
                         auction.getId(), auction.getTerritoryId(), startingPrice, endAt);
-        TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        eventPublisher.publish("auction.opened", openedEvent);
-                    }
-                });
+        eventPublisher.publish("auction.opened", openedEvent);
 
         log.info(
                 "[AuctionCreation] 경매 생성 territoryId={} startingPrice={}",
