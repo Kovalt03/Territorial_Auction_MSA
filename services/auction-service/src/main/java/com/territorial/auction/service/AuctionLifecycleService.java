@@ -20,8 +20,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 // 정산 핵심만 남김. 옮긴 동작(알림·랭킹·map 브로드캐스트·영토 만료·경매 생성·admin)의
 // 추적은 docs/design/msa/auction-migration-tracking.md 참고.
@@ -78,13 +76,7 @@ public class AuctionLifecycleService {
 
         AuctionClosedEvent closedEvent =
                 new AuctionClosedEvent(auction.getId(), auction.getTerritoryId());
-        TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        eventPublisher.publish("auction.closed", closedEvent);
-                    }
-                });
+        eventPublisher.publish("auction.closed", closedEvent);
         log.info("[AuctionLifecycle] 관리자 강제 취소 auctionId={}", auctionId);
     }
 
@@ -142,14 +134,8 @@ public class AuctionLifecycleService {
             // 비동기: 알림·랭킹·map 브로드캐스트는 소비 서비스가 처리 (tracking §1)
             AuctionClosedEvent closedEvent =
                     new AuctionClosedEvent(auction.getId(), auction.getTerritoryId());
-            TransactionSynchronizationManager.registerSynchronization(
-                    new TransactionSynchronization() {
-                        @Override
-                        public void afterCommit() {
-                            eventPublisher.publish("auction.settled", event);
-                            eventPublisher.publish("auction.closed", closedEvent);
-                        }
-                    });
+            eventPublisher.publish("auction.settled", event);
+            eventPublisher.publish("auction.closed", closedEvent);
 
             log.info(
                     "[AuctionLifecycle] 낙찰 정산 auctionId={} winnerId={} price={}",
@@ -165,13 +151,7 @@ public class AuctionLifecycleService {
             // map 읽기 프로젝션에서 '경매중' 제거 (낙찰·무낙찰 공통)
             AuctionClosedEvent closedEvent =
                     new AuctionClosedEvent(auction.getId(), auction.getTerritoryId());
-            TransactionSynchronizationManager.registerSynchronization(
-                    new TransactionSynchronization() {
-                        @Override
-                        public void afterCommit() {
-                            eventPublisher.publish("auction.closed", closedEvent);
-                        }
-                    });
+            eventPublisher.publish("auction.closed", closedEvent);
 
             log.info(
                     "[AuctionLifecycle] 무낙찰 정산 auctionId={} nextAuctionAt={}",
