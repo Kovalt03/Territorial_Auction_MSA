@@ -4,14 +4,14 @@ import { useParams, useNavigate } from 'react-router';
 import { useApp } from '../context/AppContext';
 import { placeBidApi, fetchTerritoryAuctionHistory } from '../api/auction';
 import { fetchMyWallet } from '../api/user';
-import { fetchChatHistory } from '../api/chat';
+import { fetchChatHistory, sendChatMessage } from '../api/chat';
 import { fetchTerritoryDetail } from '../api/map';
 import { fetchSiegeEvents, fetchSiegeTarget, type SiegeEventItem, type SiegeTargetIntel } from '../api/siege';
 import type { TerritoryDetailResponse } from '../types/territory';
 import { useTerritoryDetail } from '../hooks/useTerritoryDetail';
 import { useMyBids } from '../hooks/useMyBids';
 import { useWishlist } from '../hooks/useWishlist';
-import { useStompSubscribe, useStompPublish } from '../hooks/useStompClient';
+import { useStompSubscribe } from '../hooks/useStompClient';
 import { GNB } from '../components/GNB';
 import { SiegeBuildingGrid } from '../components/SiegeBuildingGrid';
 import { LineChart } from '../components/LineChart';
@@ -100,7 +100,6 @@ export function TerritoryDetailPage() {
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
   const [chatInput, setChatInput] = useState('');
   const { wishlistIds: localWishlist, toggle: toggleWishlist } = useWishlist();
-  const stompPublish = useStompPublish();
 
   const chatRoomId = `room_territory_${territoryId}`;
   const auctionWsDest = auctionId ? `/sub/auction/${auctionId}` : null;
@@ -218,8 +217,9 @@ export function TerritoryDetailPage() {
   const handleSendChat = () => {
     const text = chatInput.trim();
     if (!text || !isLoggedIn) return;
-    stompPublish(`/pub/chat/${chatRoomId}`, { content: text });
     setChatInput('');
+    // REST 전송 → social-service 저장·발행 → /sub/chat 구독으로 수신
+    sendChatMessage(chatRoomId, text).catch((e) => console.warn('[TerritoryDetail] 메시지 전송 실패', e));
   };
 
   const activeBids = myBids.filter(b => b.status === 'BIDDING');
