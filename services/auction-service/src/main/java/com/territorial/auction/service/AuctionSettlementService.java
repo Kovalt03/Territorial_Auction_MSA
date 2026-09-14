@@ -47,6 +47,27 @@ public class AuctionSettlementService {
         settleAuction(auction, now);
     }
 
+    /**
+     * 정산 실패 1회 기록(오케스트레이터가 settleOne 실패 시 호출). 실패한 정산 트랜잭션과 별개의 트랜잭션이라 롤백돼도 카운트는 남는다. 상한 도달 시
+     * findRetriableExpired에서 제외되어 무한 재시도가 멈추고, 수동 확인 대상으로 종료된다.
+     */
+    @Transactional
+    public void recordFailedAttempt(Long auctionId) {
+        Auction auction = auctionRepository.findById(auctionId).orElse(null);
+        if (auction == null || auction.isSettled()) {
+            return;
+        }
+        int attempts = auction.recordFailedSettleAttempt();
+        if (attempts >= AuctionPolicy.MAX_SETTLE_ATTEMPTS) {
+            log.error(
+                    "[AuctionSettlement] 정산 영구 실패 — 재시도 상한({}) 도달, 수동 확인 필요."
+                            + " auctionId={} territoryId={}",
+                    AuctionPolicy.MAX_SETTLE_ATTEMPTS,
+                    auction.getId(),
+                    auction.getTerritoryId());
+        }
+    }
+
     private void settleAuction(Auction auction, LocalDateTime now) {
         if (auction.getCurrentBidderId() != null) {
             Long winnerId = auction.getCurrentBidderId();

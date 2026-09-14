@@ -35,11 +35,14 @@ public class AuctionLifecycleService {
      */
     public void settlePendingAuctions() {
         LocalDateTime now = LocalDateTime.now();
-        for (Auction auction : auctionRepository.findAllExpiredUnsettled(now)) {
+        for (Auction auction :
+                auctionRepository.findRetriableExpired(now, AuctionPolicy.MAX_SETTLE_ATTEMPTS)) {
             try {
                 settlementService.settleOne(auction.getId(), now);
             } catch (Exception e) {
                 log.error("[AuctionLifecycle] 경매 정산 실패 auctionId={}", auction.getId(), e);
+                // 실패는 별도 트랜잭션으로 기록(정산 롤백과 무관). 상한 도달 시 재시도 루프에서 제외된다.
+                settlementService.recordFailedAttempt(auction.getId());
             }
         }
     }
