@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router';
 
 import { useApp } from '../context/AppContext';
 import { placeBidApi, fetchTerritoryAuctionHistory } from '../api/auction';
+import { ApiError } from '../api/client';
 import { fetchMyWallet } from '../api/user';
 import { fetchChatHistory, sendChatMessage } from '../api/chat';
 import { fetchTerritoryDetail } from '../api/map';
@@ -206,8 +207,14 @@ export function TerritoryDetailPage() {
       setBidDone(true);
       setShowConfirm(false);
       setTimeout(() => setBidDone(false), 2500);
-    } catch {
-      setBidError('입찰에 실패했습니다. AP를 확인하거나 다시 시도해주세요.');
+    } catch (e) {
+      // 4xx(현재가 상회·AP 부족·동시 입찰 충돌 등)는 백엔드 메시지를 그대로 노출한다.
+      setBidError(
+        e instanceof ApiError && e.status >= 400 && e.status < 500
+          ? e.message
+          : '입찰에 실패했습니다. 잠시 후 다시 시도해주세요.',
+      );
+      console.warn('[TerritoryDetailPage] bid failed', e);
       setShowConfirm(false);
     } finally {
       setIsBidding(false);

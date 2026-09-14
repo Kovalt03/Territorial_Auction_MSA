@@ -29,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -134,6 +135,15 @@ public class AuctionService {
         registerEscrowCompensation(escrowRequest);
 
         auction.updateBid(userId, escrow.bidderNickname(), request.bidAmount());
+        applyAntiSniping(auction, now);
+
+        // 낙관적 락 검증을 flush로 앞당긴다: 분산락이 lease 만료로 뚫려 동시 입찰이 들어왔다면
+        // 진 쪽은 여기서 실패 → 트랜잭션 롤백 → 위에서 등록한 escrow 보상이 AP 잠금을 되돌린다.
+        try {
+            auctionRepository.saveAndFlush(auction);
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw new CustomException(ErrorCode.CONCURRENT_BID);
+        }
 
         auctionBidRepository.save(
                 AuctionBid.builder()
@@ -142,8 +152,6 @@ public class AuctionService {
                         .bidderNickname(escrow.bidderNickname())
                         .price(request.bidAmount())
                         .build());
-
-        applyAntiSniping(auction, now);
 
         LocalDateTime finalEndAt = auction.getEndAt();
         // previousBidderId·좌표를 함께 실어, realtime 허브가 이전 입찰자에게 OUTBID 알림을 보내게 한다.
