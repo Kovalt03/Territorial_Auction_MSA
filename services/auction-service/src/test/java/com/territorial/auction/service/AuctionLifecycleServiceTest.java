@@ -61,7 +61,7 @@ class AuctionLifecycleServiceTest {
     @Test
     @DisplayName("정산 오케스트레이션 — 만료 경매 없으면 아무 작업 안 함")
     void settlePending_empty() {
-        given(auctionRepository.findAllExpiredUnsettled(any())).willReturn(List.of());
+        given(auctionRepository.findRetriableExpired(any(), anyInt())).willReturn(List.of());
 
         lifecycleService.settlePendingAuctions();
 
@@ -74,7 +74,8 @@ class AuctionLifecycleServiceTest {
         Auction first = auction();
         Auction second = auction();
         ReflectionTestUtils.setField(second, "id", 2L);
-        given(auctionRepository.findAllExpiredUnsettled(any())).willReturn(List.of(first, second));
+        given(auctionRepository.findRetriableExpired(any(), anyInt()))
+                .willReturn(List.of(first, second));
 
         lifecycleService.settlePendingAuctions();
 
@@ -88,13 +89,16 @@ class AuctionLifecycleServiceTest {
         Auction fail = auction();
         Auction ok = auction();
         ReflectionTestUtils.setField(ok, "id", 2L);
-        given(auctionRepository.findAllExpiredUnsettled(any())).willReturn(List.of(fail, ok));
+        given(auctionRepository.findRetriableExpired(any(), anyInt()))
+                .willReturn(List.of(fail, ok));
         willThrow(new RuntimeException("정산 실패")).given(settlementService).settleOne(eq(1L), any());
 
         lifecycleService.settlePendingAuctions();
 
         // 첫 건이 자기 트랜잭션에서 롤백되어도 둘째 건은 별도 트랜잭션으로 정산된다.
         verify(settlementService).settleOne(eq(2L), any());
+        // 실패한 첫 건은 재시도 횟수가 기록된다(상한 도달 시 루프에서 제외).
+        verify(settlementService).recordFailedAttempt(1L);
     }
 
     @Test
