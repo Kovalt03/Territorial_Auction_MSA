@@ -52,6 +52,11 @@ public class Auction {
     @Column(nullable = false)
     private boolean settled = false;
 
+    // 낙관적 락. 분산락이 lease 만료로 뚫려 동시 입찰이 들어와도 커밋은 하나만 성공하게 한다(정확성 안전벨트).
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     @Builder
     public Auction(
             Long territoryId,
