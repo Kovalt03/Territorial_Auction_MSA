@@ -52,6 +52,10 @@ public class Auction {
     @Column(nullable = false)
     private boolean settled = false;
 
+    // 정산 실패 누적 횟수. 상한 도달 시 재시도 루프에서 제외(정산 실패로 종료).
+    @Column(nullable = false)
+    private Integer settleAttempts = 0;
+
     // 낙관적 락. 분산락이 lease 만료로 뚫려 동시 입찰이 들어와도 커밋은 하나만 성공하게 한다(정확성 안전벨트).
     @Version
     @Column(nullable = false)
@@ -97,5 +101,11 @@ public class Auction {
 
     public void settle() {
         this.settled = true;
+    }
+
+    /** 정산 실패 1회 누적. 반환값이 상한 이상이면 재시도를 멈추고 정산 실패로 종료할 시점이다. */
+    public int recordFailedSettleAttempt() {
+        this.settleAttempts += 1;
+        return this.settleAttempts;
     }
 }
