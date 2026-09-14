@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -43,6 +44,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -249,6 +251,27 @@ class AuctionServiceTest {
             List<TransactionSynchronization> syncs =
                     TransactionSynchronizationManager.getSynchronizations();
             syncs.forEach(s -> s.afterCompletion(status));
+        }
+
+        @Test
+        @DisplayName("낙관적 락 충돌(분산락 만료 중 동시 입찰) → CONCURRENT_BID, 이력 저장 안 함, 롤백 시 escrow 보상")
+        void placeBid_optimisticConflict() {
+            Auction a = activeAuction(1000);
+            given(auctionRepository.findById(1L)).willReturn(Optional.of(a));
+            given(walletClient.bidEscrow(any())).willReturn(new BidEscrowResult("입찰왕"));
+            willThrow(new ObjectOptimisticLockingFailureException(Auction.class, 1L))
+                    .given(auctionRepository)
+                    .saveAndFlush(any());
+
+            assertThatThrownBy(() -> auctionService.placeBid(3L, 1L, new PlaceBidRequest(1100)))
+                    .isInstanceOf(CustomException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.CONCURRENT_BID);
+
+            verify(auctionBidRepository, never()).save(any()); // 충돌 시 입찰 이력 저장 안 함
+            // escrow는 이미 커밋됐으므로 롤백 동기화로 보상돼야 한다.
+            fireCompletion(TransactionSynchronization.STATUS_ROLLED_BACK);
+            verify(walletClient).compensateBidEscrow(any());
         }
 
         @Test
