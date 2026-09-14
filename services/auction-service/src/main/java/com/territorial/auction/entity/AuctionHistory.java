@@ -14,8 +14,9 @@ public class AuctionHistory {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // 경매당 낙찰 이력 1행 — 재정산·다중 인스턴스 동시 정산 시 중복을 DB에서 차단 (V3 UNIQUE)
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "auction_id", nullable = false)
+    @JoinColumn(name = "auction_id", nullable = false, unique = true)
     private Auction auction;
 
     @Column(name = "territory_id", nullable = false)
