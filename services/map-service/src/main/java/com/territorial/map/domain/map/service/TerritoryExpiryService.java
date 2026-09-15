@@ -69,7 +69,19 @@ public class TerritoryExpiryService {
                 new TransactionSynchronization() {
                     @Override
                     public void afterCommit() {
-                        rankingHoldClient.closeHold(userId, seasonId, territoryId, now);
+                        // best-effort — 실패해도 점유 만료는 이미 커밋됨. 조용히 삼키지 않고 로그로 드러낸다
+                        // (ranking hold가 열린 채 남는 드리프트는 랭킹 집계 배치가 근사 보정).
+                        try {
+                            rankingHoldClient.closeHold(userId, seasonId, territoryId, now);
+                        } catch (RuntimeException e) {
+                            log.warn(
+                                    "[TerritoryExpiry] ranking hold close 실패 — userId={} seasonId={}"
+                                            + " territoryId={}",
+                                    userId,
+                                    seasonId,
+                                    territoryId,
+                                    e);
+                        }
                     }
                 });
     }

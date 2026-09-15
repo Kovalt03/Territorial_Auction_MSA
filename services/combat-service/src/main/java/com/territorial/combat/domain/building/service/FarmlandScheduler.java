@@ -1,17 +1,15 @@
 package com.territorial.combat.domain.building.service;
 
 import com.territorial.combat.domain.building.BuildingPolicy;
-import com.territorial.combat.domain.building.StoragePolicy;
-import com.territorial.combat.domain.building.entity.BuildingInstance;
 import com.territorial.combat.domain.building.repository.BuildingInstanceRepository;
+import com.territorial.combat.domain.building.service.ProductionCreditService.Resource;
 import java.time.LocalDateTime;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
+// 비트랜잭션 오케스트레이터 — 각 위치 적립은 ProductionCreditService가 독립 트랜잭션으로 처리(락 경합 최소화).
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -20,28 +18,31 @@ public class FarmlandScheduler {
     private final BuildingInstanceRepository buildingInstanceRepository;
     private final com.territorial.combat.domain.building.repository.HomeIslandRepository
             homeIslandRepository;
+    private final ProductionCreditService productionCreditService;
 
     @Scheduled(cron = "0 0 * * * *")
-    @Transactional
     public void produceFarmlandFood() {
         LocalDateTime now = LocalDateTime.now();
         int credited = 0;
         for (Object[] row : buildingInstanceRepository.sumFarmlandFoodGroupedByTerritory(now)) {
             Long territoryId = (Long) row[0];
             int amount = ((Number) row[1]).intValue();
-            creditFood(
-                    buildingInstanceRepository.findStorageBuildingsByTerritoryIdWithLock(
-                            territoryId),
-                    amount);
-            credited++;
+            try {
+                productionCreditService.creditTerritory(territoryId, amount, Resource.FOOD);
+                credited++;
+            } catch (Exception e) {
+                log.error("농경지 식량 적립 실패 territoryId={}", territoryId, e);
+            }
         }
         for (Object[] row : buildingInstanceRepository.sumFarmlandFoodGroupedByIsland(now)) {
             Long islandId = (Long) row[0];
-            int amount = ((Number) row[1]).intValue();
-            creditFood(
-                    buildingInstanceRepository.findStorageBuildingsByIslandIdWithLock(islandId),
-                    applyIslandBoost(islandId, amount, now));
-            credited++;
+            int amount = applyIslandBoost(islandId, ((Number) row[1]).intValue(), now);
+            try {
+                productionCreditService.creditIsland(islandId, amount, Resource.FOOD);
+                credited++;
+            } catch (Exception e) {
+                log.error("농경지 식량 적립 실패(섬) islandId={}", islandId, e);
+            }
         }
         log.info("농경지 식량 생산 완료. 적립 위치 수={}", credited);
     }
@@ -54,13 +55,5 @@ public class FarmlandScheduler {
                         .isPresent()
                 ? amount * BuildingPolicy.PRODUCTION_BOOST_MULTIPLIER
                 : amount;
-    }
-
-    // 식량은 저장소부터 채우고 넘치면 성으로. 저장 공간이 없으면 그 위치 생산분은 버려진다.
-    private void creditFood(List<BuildingInstance> storages, int amount) {
-        if (storages.isEmpty() || amount <= 0) {
-            return;
-        }
-        StoragePolicy.fillFood(storages, amount);
     }
 }
