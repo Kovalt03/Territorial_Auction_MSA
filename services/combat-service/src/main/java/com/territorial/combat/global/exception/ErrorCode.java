@@ -58,6 +58,7 @@ public enum ErrorCode implements ErrorCodeType {
     TERRITORY_PROTECTED(HttpStatus.BAD_REQUEST, "보호 기간 중인 영토입니다."),
     ATTACK_COOLDOWN(HttpStatus.TOO_MANY_REQUESTS, "공격 쿨다운 중입니다."),
     SIEGE_NOT_FOUND(HttpStatus.NOT_FOUND, "공성전을 찾을 수 없습니다."),
+    SIEGE_ALREADY_DECLARED(HttpStatus.CONFLICT, "이미 이 대상에 진행 중인 공성이 있습니다."),
     SIEGE_FORBIDDEN(HttpStatus.FORBIDDEN, "해당 공성전의 관계자가 아닙니다."),
     SIEGE_RESULT_NOT_FOUND(HttpStatus.NOT_FOUND, "공성전 결과가 아직 처리되지 않았습니다."),
     SCOUT_UNIT_REQUIRED(HttpStatus.BAD_REQUEST, "정찰 유닛이 없습니다."),

@@ -13,6 +13,13 @@ public interface SiegeEventRepository extends JpaRepository<SiegeEvent, Long> {
 
     Page<SiegeEvent> findByStatus(SiegeEvent.SiegeStatus status, Pageable pageable);
 
+    // 이중 선언 방어: 같은 공격자·대상 영토·존에 진행 중(PENDING) 공성이 이미 있는지.
+    boolean existsByAttackerIdAndTargetTerritoryIdAndAttackZoneAndStatus(
+            Long attackerId,
+            Long targetTerritoryId,
+            Integer attackZone,
+            SiegeEvent.SiegeStatus status);
+
     @Query(
             "SELECT s FROM SiegeEvent s"
                     + " WHERE (s.attackerId = :userId OR s.defenderId = :userId)"
