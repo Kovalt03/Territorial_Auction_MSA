@@ -6,4 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface SeasonRewardRepository extends JpaRepository<SeasonReward, Long> {
 
     boolean existsBySeasonIdAndUserId(Long seasonId, Long userId);
+
+    long countBySeasonId(Long seasonId);
 }
