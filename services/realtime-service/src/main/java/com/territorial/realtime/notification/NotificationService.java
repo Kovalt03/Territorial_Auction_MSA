@@ -25,12 +25,17 @@ public class NotificationService {
         try {
             String payload =
                     objectMapper.writeValueAsString(
-                            new NotificationRequested(userId, type.name(), message));
+                            new NotificationRequested(
+                                    java.util.UUID.randomUUID().toString(),
+                                    userId,
+                                    type.name(),
+                                    message));
             kafkaTemplate.send(TOPIC, String.valueOf(userId), payload);
         } catch (JsonProcessingException e) {
             log.error("[Notification] 직렬화 실패 userId={}, type={}", userId, type, e);
         }
     }
 
-    private record NotificationRequested(Long userId, String type, String message) {}
+    private record NotificationRequested(
+            String eventId, Long userId, String type, String message) {}
 }
