@@ -76,7 +76,12 @@ public class ItemService {
         validateDailyLimit(userId, item, request.quantity());
 
         int totalCost = item.getCostAp() * request.quantity();
-        String commandKey = "ITEM:" + UUID.randomUUID();
+        // 클라 멱등 키가 있으면 재시도에도 동일 commandKey → 지갑이 이중 차감을 dedup. 없으면 랜덤(하위 호환).
+        String idempotencyKey =
+                request.idempotencyKey() != null && !request.idempotencyKey().isBlank()
+                        ? request.idempotencyKey()
+                        : UUID.randomUUID().toString();
+        String commandKey = "ITEM:" + idempotencyKey;
 
         int totalOwned = 0;
         if (item.getItemType() == ItemType.GP_PURCHASE) {

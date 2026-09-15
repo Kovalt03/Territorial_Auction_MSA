@@ -73,12 +73,29 @@ class ItemServiceTest {
             given(walletClient.spend(eq(1L), eq(200), anyString()))
                     .willReturn(new WalletSnapshot(800, 0));
 
-            PurchaseItemResponse res = itemService.purchaseItem(1L, new PurchaseItemRequest(1L, 2));
+            PurchaseItemResponse res =
+                    itemService.purchaseItem(1L, new PurchaseItemRequest(1L, 2, null));
 
             assertThat(res.costAP()).isEqualTo(200);
             assertThat(res.remainingAP()).isEqualTo(800);
             verify(userItemRepository).save(any(UserItem.class));
             verify(walletClient).spend(eq(1L), eq(200), anyString());
+        }
+
+        @Test
+        @DisplayName("멱등 키 제공 시 commandKey로 사용 → 지갑 dedup(이중 차감 방지)")
+        void purchase_usesProvidedIdempotencyKey() {
+            Item i = item(1L, ItemType.ATTACK_NORMAL, 100);
+            given(itemRepository.findById(1L)).willReturn(Optional.of(i));
+            given(userItemRepository.findByUserIdAndItem_Id(1L, 1L)).willReturn(Optional.empty());
+            given(userItemRepository.save(any(UserItem.class)))
+                    .willAnswer(inv -> inv.getArgument(0));
+            given(walletClient.spend(eq(1L), eq(100), eq("ITEM:idem-123")))
+                    .willReturn(new WalletSnapshot(900, 0));
+
+            itemService.purchaseItem(1L, new PurchaseItemRequest(1L, 1, "idem-123"));
+
+            verify(walletClient).spend(eq(1L), eq(100), eq("ITEM:idem-123"));
         }
 
         @Test
@@ -95,7 +112,7 @@ class ItemServiceTest {
             given(walletClient.spend(eq(1L), eq(50), anyString()))
                     .willReturn(new WalletSnapshot(950, 0));
 
-            itemService.purchaseItem(1L, new PurchaseItemRequest(2L, 1));
+            itemService.purchaseItem(1L, new PurchaseItemRequest(2L, 1, null));
 
             verify(combatResourceClient).creditGp(eq(1L), eq(10000), anyString());
             verify(userItemRepository, never()).save(any());
@@ -106,7 +123,10 @@ class ItemServiceTest {
         void purchase_notFound() {
             given(itemRepository.findById(9L)).willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> itemService.purchaseItem(1L, new PurchaseItemRequest(9L, 1)))
+            assertThatThrownBy(
+                            () ->
+                                    itemService.purchaseItem(
+                                            1L, new PurchaseItemRequest(9L, 1, null)))
                     .isInstanceOf(CustomException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.ITEM_NOT_FOUND);

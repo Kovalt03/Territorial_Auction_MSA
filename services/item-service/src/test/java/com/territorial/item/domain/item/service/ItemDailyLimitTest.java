@@ -61,7 +61,10 @@ class ItemDailyLimitTest {
         when(itemPurchaseRepository.sumTodayQuantity(eq(USER_ID), eq(1L), any(LocalDateTime.class)))
                 .thenReturn(4);
 
-        assertThatThrownBy(() -> itemService.purchaseItem(USER_ID, new PurchaseItemRequest(1L, 2)))
+        assertThatThrownBy(
+                        () ->
+                                itemService.purchaseItem(
+                                        USER_ID, new PurchaseItemRequest(1L, 2, null)))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.DAILY_LIMIT_EXCEEDED);
