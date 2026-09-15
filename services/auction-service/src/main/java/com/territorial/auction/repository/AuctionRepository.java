@@ -37,8 +37,14 @@ public interface AuctionRepository extends JpaRepository<Auction, Long> {
             @Param("now") LocalDateTime now,
             Pageable pageable);
 
-    @Query("SELECT a FROM Auction a WHERE a.endAt <= :now AND a.settled = false")
-    List<Auction> findAllExpiredUnsettled(@Param("now") LocalDateTime now);
+    // 재시도 대상: 종료됐고 미정산이며 재시도 상한에 아직 도달하지 않은 경매.
+    // settle_attempts >= 상한인 건은 "정산 실패"로 루프에서 제외된다.
+    @Query(
+            "SELECT a FROM Auction a"
+                    + " WHERE a.endAt <= :now AND a.settled = false"
+                    + " AND a.settleAttempts < :maxAttempts")
+    List<Auction> findRetriableExpired(
+            @Param("now") LocalDateTime now, @Param("maxAttempts") int maxAttempts);
 
     @Query("SELECT COUNT(a) FROM Auction a WHERE a.settled = false AND a.endAt > :now")
     long countActiveAuctions(@Param("now") LocalDateTime now);

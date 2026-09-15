@@ -127,4 +127,27 @@ class AuctionSettlementServiceTest {
         verify(territoryClient, never()).occupy(any(), any(), any(), any());
         verify(territoryClient, never()).release(any(), any());
     }
+
+    @Test
+    @DisplayName("정산 실패 기록 — settleAttempts 증가")
+    void recordFailedAttempt_increments() {
+        Auction a = auction();
+        given(auctionRepository.findById(1L)).willReturn(Optional.of(a));
+
+        settlementService.recordFailedAttempt(1L);
+
+        Assertions.assertThat(a.getSettleAttempts()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("정산 실패 기록 — 이미 정산된 경매는 증가시키지 않음")
+    void recordFailedAttempt_settled_noop() {
+        Auction a = auction();
+        a.settle();
+        given(auctionRepository.findById(1L)).willReturn(Optional.of(a));
+
+        settlementService.recordFailedAttempt(1L);
+
+        Assertions.assertThat(a.getSettleAttempts()).isZero();
+    }
 }

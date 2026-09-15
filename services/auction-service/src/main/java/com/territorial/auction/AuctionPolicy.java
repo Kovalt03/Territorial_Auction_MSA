@@ -51,5 +51,13 @@ public final class AuctionPolicy {
     /** 무낙찰 경매 종료 후 재경매 생성 대기 시간 (시간) */
     public static final int IDLE_REAUCTION_DELAY_HOURS = 1;
 
+    // ── 정산 재시도 ────────────────────────────────────────────────────────────
+
+    /**
+     * 정산 최대 재시도 횟수. 이 횟수만큼 실패하면 미정산 재시도 루프에서 제외하고 "정산 실패"로 종료한다(수동 확인 대상). 원격
+     * 호출(occupy·consume·castle)이 전부 멱등이라 일시 실패는 재시도로 자가치유되고, 영구 실패만 이 상한에서 격리된다.
+     */
+    public static final int MAX_SETTLE_ATTEMPTS = 5;
+
     private AuctionPolicy() {}
 }
