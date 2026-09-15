@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.combat.domain.building.entity.CombatUserSnapshot;
@@ -143,6 +144,20 @@ class SiegeCommandServiceTest {
                 .willReturn(
                         Optional.of(new TerritoryCombatContext(20L, 1L, 5, 6, true, "A", null)));
         assertError(request(), ErrorCode.CANNOT_ATTACK_OWN_TERRITORY);
+    }
+
+    @Test
+    @DisplayName("같은 대상·존에 진행 중 공성이 있으면 SIEGE_ALREADY_DECLARED (이중 선언 방어)")
+    void declareSiege_alreadyDeclared() {
+        given(territoryPort.findById(20L)).willReturn(Optional.of(target()));
+        given(
+                        siegeEventRepository
+                                .existsByAttackerIdAndTargetTerritoryIdAndAttackZoneAndStatus(
+                                        1L, 20L, 3, SiegeEvent.SiegeStatus.PENDING))
+                .willReturn(true);
+
+        assertError(request(), ErrorCode.SIEGE_ALREADY_DECLARED);
+        then(siegeEventRepository).should(never()).save(any());
     }
 
     @Test

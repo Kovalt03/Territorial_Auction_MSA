@@ -17,18 +17,27 @@ public class NotificationEventSubscriber {
 
     private final ObjectMapper objectMapper;
     private final NotificationService notificationService;
+    private final CombatEventReceiptService receiptService;
 
     @KafkaListener(topics = "notification-events", groupId = "notification-persist")
     public void handle(@Payload String json) {
         try {
             NotificationRequested e = objectMapper.readValue(json, NotificationRequested.class);
-            notificationService.persist(
-                    e.userId(), NotificationType.valueOf(e.type()), e.message());
+            NotificationType type = NotificationType.valueOf(e.type());
+            // eventId가 있으면 재전달 중복 저장을 막는다. 구버전(eventId 없음)은 기존대로 직접 저장.
+            if (e.eventId() != null && !e.eventId().isBlank()) {
+                receiptService.processOnce(
+                        "NOTIF:" + e.eventId(),
+                        () -> notificationService.persist(e.userId(), type, e.message()));
+            } else {
+                notificationService.persist(e.userId(), type, e.message());
+            }
         } catch (Exception e) {
             log.error("[NotificationEvent] 처리 실패: payload={}", json, e);
             throw new IllegalStateException("notification-events 처리 실패", e);
         }
     }
 
-    private record NotificationRequested(Long userId, String type, String message) {}
+    private record NotificationRequested(
+            String eventId, Long userId, String type, String message) {}
 }

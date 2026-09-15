@@ -65,6 +65,7 @@ public class SiegeCommandService {
     public DeclareSiegeResponse declareSiege(Long userId, DeclareSiegeRequest request) {
         TerritoryCombatContext target = findTerritoryOrThrow(request.targetTerritoryId());
         validateTarget(target, userId);
+        validateNoActiveSiege(userId, target.territoryId(), request.attackZone());
         validateAttackCooldown(target.territoryId(), userId);
         validateZoneCleared(target.territoryId(), userId, request.attackZone());
         validateAttackerForces(userId, request.forces());
@@ -140,6 +141,15 @@ public class SiegeCommandService {
         if (target.protectedUntil() != null
                 && LocalDateTime.now().isBefore(target.protectedUntil())) {
             throw new CustomException(ErrorCode.TERRITORY_PROTECTED);
+        }
+    }
+
+    // 이중 선언 방어(더블클릭·요청 재시도): 같은 대상·존에 이미 진행 중 공성이 있으면 거부.
+    // 공격권 소비의 비관적 락이 동시 요청은 대체로 직렬화하나, 순차 재제출은 이 가드가 막는다.
+    private void validateNoActiveSiege(Long attackerId, Long territoryId, Integer attackZone) {
+        if (siegeEventRepository.existsByAttackerIdAndTargetTerritoryIdAndAttackZoneAndStatus(
+                attackerId, territoryId, attackZone, SiegeEvent.SiegeStatus.PENDING)) {
+            throw new CustomException(ErrorCode.SIEGE_ALREADY_DECLARED);
         }
     }
 
