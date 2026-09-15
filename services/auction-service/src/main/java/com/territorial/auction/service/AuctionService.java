@@ -247,6 +247,16 @@ public class AuctionService {
                 new TransactionSynchronization() {
                     @Override
                     public void afterCompletion(int status) {
+                        if (status == STATUS_UNKNOWN) {
+                            // 커밋 결과 불명 — 커밋됐을 수 있어 자동 보상은 위험(정당 입찰 역전 우려).
+                            // 자동 조치 없이 수동 정합성 확인만 남긴다.
+                            log.error(
+                                    "입찰 트랜잭션 커밋 결과 불명(STATUS_UNKNOWN) — escrow 정합성 수동 확인 필요."
+                                            + " auctionId={}, bidderId={}",
+                                    escrowRequest.auctionId(),
+                                    escrowRequest.bidderId());
+                            return;
+                        }
                         if (status != STATUS_ROLLED_BACK) {
                             return;
                         }

@@ -247,6 +247,19 @@ class AuctionServiceTest {
             verify(walletClient, never()).compensateBidEscrow(any());
         }
 
+        @Test
+        @DisplayName("입찰 커밋 결과 불명(STATUS_UNKNOWN) → 자동 보상 안 함(수동 확인 로그만)")
+        void placeBid_unknown_noCompensation() {
+            Auction a = activeAuction(1000);
+            given(auctionRepository.findById(1L)).willReturn(Optional.of(a));
+            given(walletClient.bidEscrow(any())).willReturn(new BidEscrowResult("입찰왕"));
+
+            auctionService.placeBid(3L, 1L, new PlaceBidRequest(1100));
+            fireCompletion(TransactionSynchronization.STATUS_UNKNOWN);
+
+            verify(walletClient, never()).compensateBidEscrow(any());
+        }
+
         private void fireCompletion(int status) {
             List<TransactionSynchronization> syncs =
                     TransactionSynchronizationManager.getSynchronizations();
