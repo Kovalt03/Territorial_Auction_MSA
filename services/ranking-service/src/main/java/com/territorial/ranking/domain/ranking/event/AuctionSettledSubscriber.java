@@ -23,6 +23,7 @@ public class AuctionSettledSubscriber {
 
     private final ObjectMapper objectMapper;
     private final RankingService rankingService;
+    private final RankingEventReceiptService receiptService;
 
     @KafkaListener(topics = "auction-events", groupId = "ranking-service-relay")
     public void handle(
@@ -37,13 +38,18 @@ public class AuctionSettledSubscriber {
         }
         try {
             SettledEvent e = objectMapper.readValue(json, SettledEvent.class);
-            rankingService.onAuctionSettled(
-                    e.winnerId(), e.territoryId(), e.grade(), e.finalPrice());
+            // auction.settled 처리(XP·영토보유·경매소비)는 비멱등 — auctionId로 중복 처리를 막는다.
+            receiptService.processOnce(
+                    "AUCTION_SETTLED:" + e.auctionId(),
+                    () ->
+                            rankingService.onAuctionSettled(
+                                    e.winnerId(), e.territoryId(), e.grade(), e.finalPrice()));
         } catch (Exception ex) {
             log.error("[AuctionSettledSubscriber] 처리 실패: {}", json, ex);
             throw new IllegalStateException("auction.settled 처리 실패", ex);
         }
     }
 
-    private record SettledEvent(Long winnerId, Long territoryId, String grade, int finalPrice) {}
+    private record SettledEvent(
+            Long auctionId, Long winnerId, Long territoryId, String grade, int finalPrice) {}
 }
