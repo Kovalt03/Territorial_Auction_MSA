@@ -7,7 +7,12 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
-@Table(name = "season_rewards")
+@Table(
+        name = "season_rewards",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uq_season_rewards_season_user",
+                        columnNames = {"season_id", "user_id"}))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EntityListeners(AuditingEntityListener.class)

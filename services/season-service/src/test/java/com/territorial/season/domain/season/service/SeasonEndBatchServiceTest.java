@@ -1,22 +1,19 @@
 package com.territorial.season.domain.season.service;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.territorial.season.client.CombatResourceClient;
 import com.territorial.season.domain.season.entity.Season;
 import com.territorial.season.domain.season.entity.UserTrophy;
 import com.territorial.season.domain.season.entity.UserTrophy.League;
 import com.territorial.season.domain.season.repository.SeasonRepository;
 import com.territorial.season.domain.season.repository.SeasonRewardRepository;
-import com.territorial.season.domain.season.repository.UserSeasonPassRepository;
 import com.territorial.season.domain.season.repository.UserTrophyRepository;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -34,12 +31,11 @@ class SeasonEndBatchServiceTest {
     @Mock private SeasonRepository seasonRepository;
     @Mock private UserTrophyRepository userTrophyRepository;
     @Mock private SeasonRewardRepository seasonRewardRepository;
-    @Mock private CombatResourceClient combatResourceClient;
-    @Mock private UserSeasonPassRepository userSeasonPassRepository;
+    @Mock private SeasonRewardIssueService rewardIssueService;
 
     @InjectMocks private SeasonEndBatchService service;
 
-    @DisplayName("미처리 종료 시즌이 없으면 아무 정산도 하지 않는다")
+    @DisplayName("미처리 종료 시즌이 없으면 아무 작업도 하지 않는다")
     @Test
     void noEndedSeason_doesNothing() {
         when(seasonRepository.findFirstUnprocessedEndedSeason(any(LocalDateTime.class)))
@@ -47,76 +43,53 @@ class SeasonEndBatchServiceTest {
 
         service.runIfSeasonEnded();
 
-        verifyNoInteractions(
-                userTrophyRepository,
-                seasonRewardRepository,
-                combatResourceClient,
-                userSeasonPassRepository);
+        verifyNoInteractions(userTrophyRepository, seasonRewardRepository, rewardIssueService);
     }
 
-    @DisplayName("정산 — GOLD 유저에게 규정 보상(GP 600·공격권 1/1) 지급 + 트로피 리셋 + 패스 종료 + 시즌 처리완료")
+    @DisplayName("오케스트레이션 — 유저마다 지급 위임하고, 전원 지급 확인되면 시즌 종료 확정")
     @Test
-    void settlesGoldUser_issuesRewardsResetsAndMarksProcessed() {
+    void allIssued_delegatesPerUserAndFinalizes() {
         Season season = mock(Season.class);
         when(season.getId()).thenReturn(1L);
-        UserTrophy trophy = mock(UserTrophy.class);
-        when(trophy.getUserId()).thenReturn(10L);
-        when(trophy.getLeague()).thenReturn(League.GOLD);
-
+        UserTrophy gold = trophy(10L, League.GOLD);
+        UserTrophy bronze = trophy(11L, League.BRONZE);
         when(seasonRepository.findFirstUnprocessedEndedSeason(any(LocalDateTime.class)))
                 .thenReturn(Optional.of(season));
-        when(userTrophyRepository.findAllBySeasonId(1L)).thenReturn(List.of(trophy));
-        when(seasonRewardRepository.existsBySeasonIdAndUserId(1L, 10L)).thenReturn(false);
+        when(userTrophyRepository.findAllBySeasonId(1L)).thenReturn(List.of(gold, bronze));
+        when(seasonRewardRepository.countBySeasonId(1L)).thenReturn(2L);
 
         service.runIfSeasonEnded();
 
-        verify(seasonRewardRepository).save(any());
-        verify(combatResourceClient).creditGp(eq(10L), eq(600), anyString());
-        verify(combatResourceClient).creditAttackTokens(eq(10L), eq(1), eq(1), anyString());
-        verify(trophy).applySeasonReset(1L);
-        verify(userSeasonPassRepository).deactivateAllActive();
-        verify(season).markProcessed();
+        verify(rewardIssueService).issueUserReward(1L, 10L, League.GOLD);
+        verify(rewardIssueService).issueUserReward(1L, 11L, League.BRONZE);
+        verify(rewardIssueService).finalizeSeason(1L);
     }
 
-    @DisplayName("정산 멱등성 — 이미 보상 지급된 유저는 보상을 건너뛰되 트로피 리셋은 수행")
+    @DisplayName("오케스트레이션 — 한 유저 실패해도 나머지는 계속, 부분 완료면 종료 확정 안 함(다음 주기 재시도)")
     @Test
-    void alreadyRewarded_skipsRewardButStillResets() {
+    void partialFailure_continuesAndDoesNotFinalize() {
         Season season = mock(Season.class);
         when(season.getId()).thenReturn(1L);
-        UserTrophy trophy = mock(UserTrophy.class);
-        when(trophy.getUserId()).thenReturn(10L);
-
+        UserTrophy gold = trophy(10L, League.GOLD);
+        UserTrophy bronze = trophy(11L, League.BRONZE);
         when(seasonRepository.findFirstUnprocessedEndedSeason(any(LocalDateTime.class)))
                 .thenReturn(Optional.of(season));
-        when(userTrophyRepository.findAllBySeasonId(1L)).thenReturn(List.of(trophy));
-        when(seasonRewardRepository.existsBySeasonIdAndUserId(1L, 10L)).thenReturn(true);
+        when(userTrophyRepository.findAllBySeasonId(1L)).thenReturn(List.of(gold, bronze));
+        doThrow(new RuntimeException("combat 다운"))
+                .when(rewardIssueService)
+                .issueUserReward(1L, 10L, League.GOLD);
+        when(seasonRewardRepository.countBySeasonId(1L)).thenReturn(1L); // bronze만 지급됨
 
         service.runIfSeasonEnded();
 
-        verify(seasonRewardRepository, never()).save(any());
-        verify(combatResourceClient, never()).creditGp(any(), anyInt(), anyString());
-        verify(trophy).applySeasonReset(1L);
-        verify(season).markProcessed();
+        verify(rewardIssueService).issueUserReward(1L, 11L, League.BRONZE); // 다음 유저 계속
+        verify(rewardIssueService, never()).finalizeSeason(anyLong()); // 부분 완료 → 종료 안 함
     }
 
-    @DisplayName("정산 — BRONZE는 GP만 지급하고 공격권은 지급하지 않는다(0/0)")
-    @Test
-    void bronzeUser_getsGpbutNoTokens() {
-        Season season = mock(Season.class);
-        when(season.getId()).thenReturn(1L);
+    private UserTrophy trophy(long userId, League league) {
         UserTrophy trophy = mock(UserTrophy.class);
-        when(trophy.getUserId()).thenReturn(10L);
-        when(trophy.getLeague()).thenReturn(League.BRONZE);
-
-        when(seasonRepository.findFirstUnprocessedEndedSeason(any(LocalDateTime.class)))
-                .thenReturn(Optional.of(season));
-        when(userTrophyRepository.findAllBySeasonId(1L)).thenReturn(List.of(trophy));
-        when(seasonRewardRepository.existsBySeasonIdAndUserId(1L, 10L)).thenReturn(false);
-
-        service.runIfSeasonEnded();
-
-        verify(combatResourceClient).creditGp(eq(10L), eq(100), anyString());
-        verify(combatResourceClient, never())
-                .creditAttackTokens(any(), anyInt(), anyInt(), anyString());
+        when(trophy.getUserId()).thenReturn(userId);
+        when(trophy.getLeague()).thenReturn(league);
+        return trophy;
     }
 }
