@@ -1,0 +1,166 @@
+# 부하 테스트용 오버라이드 — 컨테이너별 자원 상한(cgroup) + JVM 힙 매칭 + 시나리오 서브셋(profile).
+#
+# 왜 이 파일이 필요한가:
+#   이 레포 풀스택(25 컨테이너)은 idle만 ~7-8GB → 16GB 로컬에선 부하 시 절대 안 들어감(Kafka OOM 전력).
+#   따라서 로컬 부하는 (1) 시나리오 경로 서비스만 서브셋 기동하고,
+#   (2) 각 컨테이너에 mem/cpu 상한을 박아 `docker stats`로 "어느 서비스가 얼마 썼나"를 귀속 가능하게 한다.
+#   상한 없는 측정은 서로 자원을 뺏어 "어느 서비스가 병목인지"를 알 수 없다 — 이 파일이 그 분리를 만든다.
+#
+# 전제:
+#   - Docker Desktop 할당 ≥ 10GB / 6 CPU (Settings → Resources). 그 미만이면 Xmx/limit를 비례 축소.
+#   - Gatling은 Docker 밖(native `./gradlew :loadtest:gatlingRun`)에서 돌려 Docker에 준 코어와 분리한다.
+#     Docker에 6코어를 주면 남는 2코어가 부하 생성기·호스트 몫 → 클라이언트가 먼저 포화되는 착시를 줄인다.
+#
+# 서브셋 자원 예산 (auction-path 기준, Docker 10GB/6코어에 들어감):
+#   gateway 700M/0.75 · auction 900M/1.0 · user 900M/1.0 · map 900M/1.0
+#   + auction/user/map-postgres 각 512M/0.5 · kafka 1300M/1.0 · redis 300M/0.5  ≈ 6.9GB / 6.75코어
+#
+# 실행 (base compose와 항상 함께, 원하는 경로 profile만):
+#   # 우선순위 1 — 입찰 경로 (auction → user 에스크로, map 점유)
+#   docker compose -f docker-compose.msa.yml -f docker-compose.loadtest.yml --profile auction-path up -d --build
+#   # 우선순위 2 — 맵 조회 경로 (auction 안 띄움 → 뱃지 read-model 격리 검증)
+#   docker compose -f docker-compose.msa.yml -f docker-compose.loadtest.yml --profile map-path up -d --build
+#   # 우선순위 3 — 자산 쓰기 경로 (combat 금고/생산 차감)
+#   docker compose -f docker-compose.msa.yml -f docker-compose.loadtest.yml --profile combat-path up -d --build
+#
+#   컨테이너별 실사용 관측:  docker stats   (또는 스냅샷: docker stats --no-stream)
+#   회차 간 초기화:          docker compose -f docker-compose.msa.yml -f docker-compose.loadtest.yml down
+#
+# 주의: redis/kafka는 profile 없이 상시 기동(모든 경로가 필요). 나머지는 profile로 게이팅되어
+#       --profile 없이 이 오버라이드만 올리면 redis/kafka만 뜬다.
+
+services:
+  # ── 공유 인프라 (profile 없음 = 어느 경로든 항상 기동) ──────────
+  redis:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 300M
+
+  kafka:
+    environment:
+      # apache/kafka 이미지는 KAFKA_HEAP_OPTS로 힙을 받는다(JAVA_TOOL_OPTIONS 아님).
+      KAFKA_HEAP_OPTS: "-Xmx800m -Xms256m"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1300M
+
+  # ── 게이트웨이 — 전 경로 공통 진입점 ──────────────────────────
+  gateway:
+    profiles: ["auction-path", "map-path", "combat-path"]
+    # base의 depends_on(전 서비스 10개)을 비운다 — 서브셋엔 일부만 뜨므로 그대로 두면 기동 실패.
+    # Spring Cloud Gateway는 라우팅을 요청 시점에 해석하므로 부팅 시 백엔드가 없어도 된다.
+    # (`!override`는 Compose v2.24+ 필요. 미만이면 이 줄을 지우고 CLI에서 서비스 명시 기동.)
+    depends_on: !override []
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx448m -XX:+UseG1GC"
+      SPRING_PROFILES_ACTIVE: loadtest
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 700M
+
+  # ── 우선순위 1: 입찰 경로 (auction-path) ─────────────────────
+  auction-service:
+    profiles: ["auction-path"]
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx512m -XX:+UseG1GC"
+      SPRING_PROFILES_ACTIVE: loadtest
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 900M
+
+  user-service:
+    profiles: ["auction-path"]
+    # base엔 host 포트 매핑이 없다 — 부하 런에서 /actuator/prometheus 스크레이프용으로 노출
+    ports:
+      - "8083:8080"
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx512m -XX:+UseG1GC"
+      SPRING_PROFILES_ACTIVE: loadtest
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 900M
+
+  auction-postgres:
+    profiles: ["auction-path"]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  user-postgres:
+    profiles: ["auction-path"]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  # ── map-service/DB — auction·map·combat 경로 공유 ────────────
+  map-service:
+    profiles: ["auction-path", "map-path", "combat-path"]
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx512m -XX:+UseG1GC"
+      SPRING_PROFILES_ACTIVE: loadtest
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 900M
+
+  map-postgres:
+    profiles: ["auction-path", "map-path", "combat-path"]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  # ── 우선순위 3: 자산 쓰기 경로 (combat-path) ─────────────────
+  combat-service:
+    profiles: ["combat-path"]
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx512m -XX:+UseG1GC"
+      SPRING_PROFILES_ACTIVE: loadtest
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 900M
+
+  combat-postgres:
+    profiles: ["combat-path"]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  # ── 부하 경로 밖 서비스 — "extras" profile로 격리 ─────────────
+  # base compose엔 profile이 없어 무태그 서비스는 "항상 기동"된다. 이 오버라이드를 쓰는 부하 런에서
+  # 아래 서비스들이 딸려 올라오면 풀스택이 되어 16GB를 넘긴다 → 전부 extras로 게이팅해 기본 제외.
+  # (풀스택 dev 구동은 이 오버라이드 없이 base 단독으로 하면 그대로 전부 뜬다.)
+  admin-service:        { profiles: ["extras"] }
+  admin-postgres:       { profiles: ["extras"] }
+  item-service:         { profiles: ["extras"] }
+  item-postgres:        { profiles: ["extras"] }
+  notification-service: { profiles: ["extras"] }
+  notification-postgres: { profiles: ["extras"] }
+  ranking-service:      { profiles: ["extras"] }
+  ranking-postgres:     { profiles: ["extras"] }
+  season-service:       { profiles: ["extras"] }
+  season-postgres:      { profiles: ["extras"] }
+  social-service:       { profiles: ["extras"] }
+  social-postgres:      { profiles: ["extras"] }
+  realtime-service:     { profiles: ["extras"] }
+  frontend:             { profiles: ["extras"] }

@@ -36,6 +36,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    // 부하 테스트 계측 — loadtest 프로파일에서만 /actuator/prometheus 노출(항상 classpath, 노출은 설정으로 게이팅)
+    runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
     implementation 'org.flywaydb:flyway-core'
     implementation 'org.flywaydb:flyway-database-postgresql'
     implementation 'com.territorial:common:0.1.0'

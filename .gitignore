@@ -37,3 +37,6 @@ blog/
 .gradle/
 build/
 !gradle/wrapper/gradle-wrapper.jar
+
+# 부하 테스트 — 로그인 토큰(JWT·비밀, 매 회차 재생성). 절대 커밋 금지
+loadtest/src/gatling/resources/tokens.csv

@@ -42,7 +42,10 @@ public class InternalApiSecurityConfig {
                         authorize ->
                                 authorize
                                         .requestMatchers(
-                                                "/actuator/health",
+                                                // 실제 노출은 management.exposure로 프로파일 게이팅
+                                                // (운영=health만, loadtest=prometheus 포함) — 보안 permit만
+                                                // 넓힘
+                                                "/actuator/**",
                                                 "/internal/**",
                                                 "/oauth2/**",
                                                 "/login/**")
