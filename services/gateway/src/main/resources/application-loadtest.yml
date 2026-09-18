@@ -1,0 +1,22 @@
+# 부하 테스트 프로파일(loadtest) — 계측만 활성. gateway는 WebFlux(JPA 없음)라 hibernate 계측 제외.
+# 활성화: SPRING_PROFILES_ACTIVE=loadtest (docker-compose.loadtest.yml에서 주입)
+# 스크레이프: GET /actuator/prometheus
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+spring:
+  cloud:
+    gateway:
+      metrics:
+        enabled: true          # 라우트별 spring.cloud.gateway.requests 타이머 — 어느 다운스트림이 느린지 홉 분해

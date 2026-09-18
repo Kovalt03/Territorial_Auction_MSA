@@ -1,0 +1,27 @@
+# 부하 테스트 프로파일(loadtest) — 계측만 활성. 기본/운영 프로파일엔 실리지 않는다.
+# 활성화: SPRING_PROFILES_ACTIVE=loadtest (docker-compose.loadtest.yml에서 주입)
+# 스크레이프: GET /actuator/prometheus
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true        # 엔드포인트별 p95/p99 히스토그램
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+spring:
+  jpa:
+    properties:
+      hibernate:
+        generate_statistics: true         # N+1·쿼리 수 가시화(로그의 실행 쿼리 수로 확인)
+        session.events.log.LOG_QUERIES_SLOWER_THAN_MS: 100
+
+logging:
+  level:
+    org.hibernate.stat: DEBUG
