@@ -14,6 +14,7 @@ services:
       context: ./docker/redis
       dockerfile: Dockerfile
     container_name: msa-redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
@@ -28,6 +29,7 @@ services:
   kafka:
     image: apache/kafka:3.9.0
     container_name: msa-kafka
+    restart: unless-stopped
     ports:
       - "9092:9092"
     environment:
@@ -55,6 +57,7 @@ services:
   auction-postgres:
     image: postgres:16-alpine
     container_name: msa-auction-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: auction
       POSTGRES_USER: auction
@@ -73,6 +76,7 @@ services:
   user-postgres:
     image: postgres:16-alpine
     container_name: msa-user-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: user
       POSTGRES_USER: user
@@ -89,6 +93,7 @@ services:
   combat-postgres:
     image: postgres:16-alpine
     container_name: msa-combat-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: combat
       POSTGRES_USER: combat
@@ -107,6 +112,7 @@ services:
   social-postgres:
     image: postgres:16-alpine
     container_name: msa-social-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: social
       POSTGRES_USER: social
@@ -123,6 +129,7 @@ services:
   notification-postgres:
     image: postgres:16-alpine
     container_name: msa-notification-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: notification
       POSTGRES_USER: notification
@@ -139,6 +146,7 @@ services:
   item-postgres:
     image: postgres:16-alpine
     container_name: msa-item-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: item
       POSTGRES_USER: item
@@ -154,6 +162,7 @@ services:
   season-postgres:
     image: postgres:16-alpine
     container_name: msa-season-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: season
       POSTGRES_USER: season
@@ -169,6 +178,7 @@ services:
   ranking-postgres:
     image: postgres:16-alpine
     container_name: msa-ranking-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ranking
       POSTGRES_USER: ranking
@@ -185,6 +195,7 @@ services:
   map-postgres:
     image: postgres:16-alpine
     container_name: msa-map-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: map
       POSTGRES_USER: map
@@ -201,6 +212,7 @@ services:
   admin-postgres:
     image: postgres:16-alpine
     container_name: msa-admin-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: admin
       POSTGRES_USER: admin
@@ -219,6 +231,7 @@ services:
       context: .
       dockerfile: services/auction-service/Dockerfile
     container_name: msa-auction-service
+    restart: unless-stopped
     environment:
       TZ: Asia/Seoul
       DB_HOST: auction-postgres
@@ -249,6 +262,7 @@ services:
       context: .
       dockerfile: services/user-service/Dockerfile
     container_name: msa-user-service
+    restart: unless-stopped
     env_file:
       - ./.env
     environment:
@@ -280,6 +294,7 @@ services:
       context: .
       dockerfile: services/combat-service/Dockerfile
     container_name: msa-combat-service
+    restart: unless-stopped
     environment:
       TZ: Asia/Seoul
       DB_HOST: combat-postgres
@@ -310,6 +325,7 @@ services:
       context: .
       dockerfile: services/social-service/Dockerfile
     container_name: msa-social-service
+    restart: unless-stopped
     environment:
       TZ: Asia/Seoul
       DB_HOST: social-postgres
@@ -338,6 +354,7 @@ services:
       context: .
       dockerfile: services/notification-service/Dockerfile
     container_name: msa-notification-service
+    restart: unless-stopped
     environment:
       TZ: Asia/Seoul
       DB_HOST: notification-postgres
@@ -362,6 +379,7 @@ services:
       context: .
       dockerfile: services/item-service/Dockerfile
     container_name: msa-item-service
+    restart: unless-stopped
     environment:
       TZ: Asia/Seoul
       DB_HOST: item-postgres
@@ -387,6 +405,7 @@ services:
       context: .
       dockerfile: services/season-service/Dockerfile
     container_name: msa-season-service
+    restart: unless-stopped
     environment:
       TZ: Asia/Seoul
       DB_HOST: season-postgres
@@ -415,6 +434,7 @@ services:
       context: .
       dockerfile: services/ranking-service/Dockerfile
     container_name: msa-ranking-service
+    restart: unless-stopped
     environment:
       TZ: Asia/Seoul
       DB_HOST: ranking-postgres
@@ -443,6 +463,7 @@ services:
       context: .
       dockerfile: services/map-service/Dockerfile
     container_name: msa-map-service
+    restart: unless-stopped
     environment:
       TZ: Asia/Seoul
       DB_HOST: map-postgres
@@ -474,6 +495,7 @@ services:
       context: .
       dockerfile: services/admin-service/Dockerfile
     container_name: msa-admin-service
+    restart: unless-stopped
     environment:
       TZ: Asia/Seoul
       DB_HOST: admin-postgres
@@ -512,6 +534,7 @@ services:
       context: .
       dockerfile: services/realtime-service/Dockerfile
     container_name: msa-realtime-service
+    restart: unless-stopped
     env_file:
       - ./.env
     environment:
@@ -533,6 +556,7 @@ services:
       context: ./services/gateway
       dockerfile: Dockerfile
     container_name: msa-gateway
+    restart: unless-stopped
     env_file:
       - ./.env   # JWT_SECRET 공유 — 모놀리식과 동일 서명키로 검증
     environment:
@@ -567,6 +591,7 @@ services:
   frontend:
     image: node:20-alpine
     container_name: msa-frontend
+    restart: unless-stopped
     working_dir: /app
     volumes:
       - ./frontend:/app
