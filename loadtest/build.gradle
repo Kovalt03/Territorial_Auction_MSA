@@ -1,0 +1,30 @@
+// 부하 테스트 전용 Gradle 서브프로젝트 — Gatling(Java DSL)로 게이트웨이(:8090) end-to-end 시나리오.
+// 서비스 빌드와 독립(자체 settings.gradle·wrapper). 부하 생성기는 Docker 밖에서 실행 → Docker에 준 코어와 분리.
+//
+// 실행:
+//   Smoke:  ./gradlew gatlingRun --simulation com.territorial.load.AuctionBidSimulation -Dusers=5  -Dramp=5  -Dhold=20
+//   Load:   ./gradlew gatlingRun --simulation com.territorial.load.AuctionBidSimulation -Dusers=100 -Dramp=30 -Dhold=300
+//   동일경매 경합:  위에 -DauctionMin=4 -DauctionMax=4 추가
+//   리포트: build/reports/gatling/<sim>-<ts>/index.html
+plugins {
+    id 'java'
+    id 'io.gatling.gradle' version '3.11.5'
+}
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+// -D 시스템 프로퍼티를 Gatling JVM으로 전달(users/ramp/hold/auctionMin/auctionMax/baseUrl)
+gatling {
+    jvmArgs = [
+        '-Dusers', '-Dramp', '-Dhold', '-DauctionMin', '-DauctionMax', '-DbaseUrl'
+    ].collect { k -> System.getProperty(k.substring(2)) != null ? "${k}=${System.getProperty(k.substring(2))}" : null }
+     .findAll { it != null }
+}
