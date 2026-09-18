@@ -47,6 +47,25 @@ public class AuctionLifecycleService {
         }
     }
 
+    /**
+     * 재시도 상한 도달 후에도 미정산인 경매를 보상(되돌림). 비트랜잭션 — 각 건은 {@link
+     * AuctionSettlementService#compensateFailedSettlement}이 자기 트랜잭션에서 처리한다. 보상(환불·해제)이 멱등이라 실패해도 다음
+     * 주기에 다시 시도되고, 성공하면 정산 종료되어 루프에서 빠진다.
+     */
+    public void compensateAbandonedAuctions() {
+        LocalDateTime now = LocalDateTime.now();
+        for (Auction auction :
+                auctionRepository.findAbandonedSettlements(
+                        now, AuctionPolicy.MAX_SETTLE_ATTEMPTS)) {
+            try {
+                settlementService.compensateFailedSettlement(auction.getId(), now);
+            } catch (Exception e) {
+                log.error(
+                        "[AuctionLifecycle] 정산 보상 실패, 다음 주기 재시도 auctionId={}", auction.getId(), e);
+            }
+        }
+    }
+
     /** 관리자 강제 낙찰: 현재 최고 입찰자에게 즉시 낙찰(정산 로직 재사용). 입찰자 없으면 거부. */
     @Transactional
     public void forceSettle(Long auctionId) {
