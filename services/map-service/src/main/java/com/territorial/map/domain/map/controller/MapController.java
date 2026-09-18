@@ -2,7 +2,6 @@ package com.territorial.map.domain.map.controller;
 
 import com.territorial.auction.global.common.ApiResponse;
 import com.territorial.map.domain.map.dto.ChangeColorRequest;
-import com.territorial.map.domain.map.dto.GridMapResponse;
 import com.territorial.map.domain.map.dto.TerritoryDetailResponse;
 import com.territorial.map.domain.map.service.MapGridEtagService;
 import com.territorial.map.domain.map.service.MapService;
@@ -10,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.context.request.ServletWebRequest;
@@ -23,7 +23,7 @@ public class MapController {
     private final MapGridEtagService mapGridEtagService;
 
     @GetMapping("/grid")
-    public ResponseEntity<ApiResponse<GridMapResponse>> getGridMap(
+    public ResponseEntity<String> getGridMap(
             @RequestParam(value = "continent", required = false) Long continentId,
             ServletWebRequest request) {
         String eTag = mapGridEtagService.current();
@@ -32,11 +32,12 @@ public class MapController {
                     .cacheControl(CacheControl.noCache().cachePublic())
                     .build();
         }
-        GridMapResponse response = mapService.getGridMap(continentId);
+        // 직렬화된 JSON을 캐시에서 그대로 반환 — 요청당 재직렬화를 하지 않는다(핫패스 CPU 제거).
         return ResponseEntity.ok()
-                .eTag(mapGridEtagService.current())
+                .eTag(eTag)
                 .cacheControl(CacheControl.noCache().cachePublic())
-                .body(ApiResponse.ok(response));
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapService.getGridMapJson(continentId, eTag));
     }
 
     @GetMapping("/territories/{territoryId}")

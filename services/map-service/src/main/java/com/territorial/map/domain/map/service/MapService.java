@@ -1,5 +1,8 @@
 package com.territorial.map.domain.map.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.territorial.auction.global.common.ApiResponse;
 import com.territorial.auction.global.exception.CustomException;
 import com.territorial.map.client.CombatResourceClient;
 import com.territorial.map.client.CombatResourceClient.TerritoryStorageView;
@@ -18,6 +21,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
@@ -38,6 +43,36 @@ public class MapService {
     private final ColorHistoryRepository colorHistoryRepository;
     private final TerritoryIncomeService territoryIncomeService;
     private final NicknameClient nicknameClient;
+    private final ObjectMapper objectMapper;
+
+    // 직렬화된 그리드 JSON 로컬(in-JVM) 캐시 — 요청당 2500영토 재직렬화 + Redis 대용량 blob 왕복을 제거(핫패스).
+    // etag가 바뀌면(맵 변경) 캐시를 통째로 교체, 그 외 변경은 TTL로 반영 → territory-grid(1분)와 신선도 동일.
+    private static final long GRID_JSON_TTL_MILLIS = 60_000;
+    private final AtomicReference<GridJsonSnapshot> gridJsonCache = new AtomicReference<>();
+
+    private record GridJsonSnapshot(
+            String eTag, long expiresAtMillis, ConcurrentHashMap<String, String> byContinent) {}
+
+    public String getGridMapJson(Long continentId, String eTag) {
+        String key = (continentId == null) ? "all" : continentId.toString();
+        GridJsonSnapshot snapshot = gridJsonCache.get();
+        long now = System.currentTimeMillis();
+        if (snapshot == null || !snapshot.eTag().equals(eTag) || now > snapshot.expiresAtMillis()) {
+            snapshot =
+                    new GridJsonSnapshot(
+                            eTag, now + GRID_JSON_TTL_MILLIS, new ConcurrentHashMap<>());
+            gridJsonCache.set(snapshot);
+        }
+        return snapshot.byContinent().computeIfAbsent(key, k -> serializeGrid(continentId));
+    }
+
+    private String serializeGrid(Long continentId) {
+        try {
+            return objectMapper.writeValueAsString(ApiResponse.ok(getGridMap(continentId)));
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("grid map JSON 직렬화 실패", e);
+        }
+    }
 
     @Cacheable(value = "territory-grid", key = "#continentId ?: 'all'", sync = true)
     public GridMapResponse getGridMap(Long continentId) {
