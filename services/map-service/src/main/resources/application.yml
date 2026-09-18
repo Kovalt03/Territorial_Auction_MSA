@@ -1,4 +1,9 @@
 spring:
+  # 인터서비스 동기 호출 타임아웃 — 다운스트림 지연/정지 시 스레드 무한 대기·고갈 방지(전 서비스 공통).
+  http:
+    client:
+      connect-timeout: 2s
+      read-timeout: 3s
   application:
     name: map-service
   datasource:
