@@ -64,7 +64,7 @@
 | ~~**B2**~~ 🔶 부분 수정(#66) | 과부하 시 처리량 붕괴 — 100VU 대비 300VU에서 오히려 처리량↓·p95 SLO 초과 | 1d(300VU 붕괴), gateway·auction CPU 동시 포화 | **인터서비스 타임아웃(connect 2s/read 3s) 적용 → 다운스트림 정지 시 무한대기 대신 상한 실패(검증: user pause 시 3.18s)**. 처리량 절대치는 1코어캡(로컬 아티팩트). 동시성 상한/부하차단(admission control)은 추가 여지 | — |
 | ~~**B3**~~ ✅ 수정(#65) | **`GET /map/grid` 동시성 하 붕괴** — 100VU서 p95 7s·22rps(읽기 SLO 250ms의 28×) | 2a-grid. solo 29ms인데 동시엔 초 단위. 전 2500영토 조립+직렬화가 CPU무거움×1코어캡. 닉네임은 배치라 N+1 아님 | **직렬화 JSON 로컬 캐시(etag 키) 적용 → 317rps·p95 498ms(14×)**. 잔여는 1코어캡 물리한계(페이지네이션은 추가 여지) | — |
 | ~~**B4**~~ ✅ 수정(#65) | **territory-detail이 combat 다운 시 폴백 없이 500** | 2a-detail. `/internal/combat/.../storage` 동기 호출 실패가 그대로 500 | **읽기 getTerritoryStorage만 RestClientException 잡아 빈 저장소로 degrade → 500 대신 200**(검증됨) | — |
-| **B5** | **restart 정책 부재 → OOM 시 서비스가 죽은 채 유지(자가복구 없음)** | R1. base compose restart=no. 정책 부여 후엔 OOM→auto-restart 복구 확인 | 서비스에 `restart: unless-stopped` 부여 | — (확정) |
+| ~~**B5**~~ ✅ 수정 | **restart 정책 부재 → OOM 시 서비스가 죽은 채 유지(자가복구 없음)** | R1. base compose restart=no. 정책 부여 후엔 OOM→auto-restart 복구 확인 | **docker-compose.msa.yml 전 서비스(25)에 `restart: unless-stopped` 추가** | — |
 
 ### 테스트-환경 아티팩트 (로컬 캡 산물 — 코드 이슈 아님, prod는 수평 확장)
 - gateway CPU가 stress에서 0.75코어 캡 포화, auction CPU 1코어 포화. 용량 산정 참고치일 뿐, 코드 수정 대상 아님.
