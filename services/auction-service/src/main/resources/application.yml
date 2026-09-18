@@ -20,6 +20,13 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+  # 인터서비스 동기 호출(WalletClient 에스크로 등) 타임아웃 — 다운스트림 지연/정지 시 스레드 무한 대기·고갈 방지.
+  # 정상 홉은 ~100ms라 read 3s는 넉넉하고, 정지 시 상한 실패로 우아하게 degrade.
+  http:
+    client:
+      connect-timeout: 2s
+      read-timeout: 3s
+
   data:
     redis:
       host: ${REDIS_HOST:localhost}
