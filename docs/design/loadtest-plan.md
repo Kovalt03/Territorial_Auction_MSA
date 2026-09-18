@@ -62,7 +62,7 @@
 |---|------|------|----------|------|
 | **B1** | 성공 입찰 지연을 auction→user 에스크로 동기 홉이 지배 (CPU로 안 줄음) | 1b(CPU 2배에도 p95 불변) + 1e: `http.client.requests` uri=`/internal/wallets/bid-escrow` 홉 평균 28~110ms(부하 의존). 성공 입찰 경로의 주 비용 | 에스크로 비동기화/배치, 또는 홉 자체(user DB 커밋) 단축 | — (계측 확보됨) |
 | **B2** | 과부하 시 처리량 붕괴 — 100VU 대비 300VU에서 오히려 처리량↓·p95 SLO 초과 | 1d(300VU 붕괴), gateway·auction CPU 동시 포화 | 타임아웃·동시성 상한·부하 차단(backpressure) 도입 | 1h로 knee 지점 확정 |
-| **B3** | **`GET /map/grid` 동시성 하 붕괴** — 100VU서 p95 7s·22rps(읽기 SLO 250ms의 28×) | 2a-grid. solo 29ms인데 동시엔 초 단위. 전 2500영토 조립+직렬화가 CPU무거움×1코어캡. 닉네임은 배치라 N+1 아님 | 그리드 응답 캐싱(Redis, ETag 버전 키)·페이지네이션/대륙분할. ETag 304 활용 | — |
+| ~~**B3**~~ ✅ 수정(#65) | **`GET /map/grid` 동시성 하 붕괴** — 100VU서 p95 7s·22rps(읽기 SLO 250ms의 28×) | 2a-grid. solo 29ms인데 동시엔 초 단위. 전 2500영토 조립+직렬화가 CPU무거움×1코어캡. 닉네임은 배치라 N+1 아님 | **직렬화 JSON 로컬 캐시(etag 키) 적용 → 317rps·p95 498ms(14×)**. 잔여는 1코어캡 물리한계(페이지네이션은 추가 여지) | — |
 | **B4** | **territory-detail이 combat 다운 시 폴백 없이 500** (combat 기동 시 200 확인) | 2a-detail. `/internal/combat/.../storage` 동기 호출 실패가 그대로 500 | 다운스트림 실패 시 storage 없이 degraded 응답(부분 실패 격리) | — (확정) |
 | **B5** | **restart 정책 부재 → OOM 시 서비스가 죽은 채 유지(자가복구 없음)** | R1. base compose restart=no. 정책 부여 후엔 OOM→auto-restart 복구 확인 | 서비스에 `restart: unless-stopped` 부여 | — (확정) |
 
