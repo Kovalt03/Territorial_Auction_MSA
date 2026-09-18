@@ -68,6 +68,34 @@ public class AuctionSettlementService {
         }
     }
 
+    /**
+     * 영구 실패 정산 보상. 재시도 상한 도달 후에도 정산이 안 된 경매를 되돌린다: 낙찰자 잠금 AP 환불 + 영토 해제(재경매 예약) + 정산 종료. 정산에서
+     * 돈(consume)이 마지막이라 이 시점 AP는 항상 잠금 상태 → refundLocked가 결정적. 모든 원격 호출이 멱등이라 이 보상은 성공할 때까지 안전하게
+     * 재시도된다.
+     */
+    @Transactional
+    public void compensateFailedSettlement(Long auctionId, LocalDateTime now) {
+        Auction auction = auctionRepository.findById(auctionId).orElse(null);
+        if (auction == null || auction.isSettled()) {
+            return;
+        }
+        if (auction.getCurrentBidderId() != null) {
+            walletClient.refundLocked(
+                    auction.getCurrentBidderId(), auction.getCurrentPrice(), auction.getId());
+        }
+        territoryClient.release(
+                auction.getTerritoryId(), now.plusHours(AuctionPolicy.IDLE_REAUCTION_DELAY_HOURS));
+        auction.settle();
+
+        eventPublisher.publish(
+                "auction.closed",
+                new AuctionClosedEvent(auction.getId(), auction.getTerritoryId()));
+        log.warn(
+                "[AuctionSettlement] 영구 실패 경매 보상 완료(환불+재경매 예약) auctionId={} territoryId={}",
+                auction.getId(),
+                auction.getTerritoryId());
+    }
+
     private void settleAuction(Auction auction, LocalDateTime now) {
         if (auction.getCurrentBidderId() != null) {
             Long winnerId = auction.getCurrentBidderId();
@@ -75,12 +103,13 @@ public class AuctionSettlementService {
             LocalDateTime occupiedUntil = now.plusDays(AuctionPolicy.OCCUPATION_DURATION_DAYS);
             LocalDateTime protectedUntil = now.plusHours(AuctionPolicy.PROTECTION_DURATION_HOURS);
 
-            // 동기: 소유권·돈·성 — 전부 auction 스냅샷 ID로 호출
+            // 동기 사가 — 전부 멱등(occupy: 동일 소유자 skip, castle: 존재 skip, consume: commandKey).
+            // 돈(consume)을 마지막에 둔다: 일시 실패는 재시도로 자가치유되고, 영구 실패(상한 도달) 시엔
+            // consume이 아직 실행 전이라 AP가 잠금 상태 → 보상은 refundLocked로 결정적이다(compensateFailedSettlement).
             territoryClient.occupy(
                     auction.getTerritoryId(), winnerId, occupiedUntil, protectedUntil);
-            walletClient.consumeLocked(winnerId, finalPrice, auction.getId());
             buildingClient.createInitialCastle(auction.getTerritoryId());
-            // TODO(보상): consume/castle 실패 시 occupy 되돌리기(release) — tracking §3
+            walletClient.consumeLocked(winnerId, finalPrice, auction.getId());
 
             auctionHistoryRepository.save(
                     AuctionHistory.builder()

@@ -46,6 +46,15 @@ public interface AuctionRepository extends JpaRepository<Auction, Long> {
     List<Auction> findRetriableExpired(
             @Param("now") LocalDateTime now, @Param("maxAttempts") int maxAttempts);
 
+    // 보상 대상: 재시도 상한 도달했으나 미정산인 경매(전진복구 실패 → 되돌림 필요).
+    // 낙찰자 잠금 AP 환불 + 영토 해제 + 정산 종료로 dangling 상태를 제거한다.
+    @Query(
+            "SELECT a FROM Auction a"
+                    + " WHERE a.endAt <= :now AND a.settled = false"
+                    + " AND a.settleAttempts >= :maxAttempts")
+    List<Auction> findAbandonedSettlements(
+            @Param("now") LocalDateTime now, @Param("maxAttempts") int maxAttempts);
+
     @Query("SELECT COUNT(a) FROM Auction a WHERE a.settled = false AND a.endAt > :now")
     long countActiveAuctions(@Param("now") LocalDateTime now);
 

@@ -13,11 +13,12 @@ public class AuctionScheduler {
 
     private final AuctionLifecycleService auctionLifecycleService;
 
-    /** 1분마다 종료된 경매 정산 */
+    /** 1분마다 종료된 경매 정산(전진복구) + 상한 도달분 보상(되돌림) */
     @Scheduled(fixedDelay = 60_000)
     public void settle() {
         log.debug("[AuctionScheduler] 경매 정산 실행");
         auctionLifecycleService.settlePendingAuctions();
+        auctionLifecycleService.compensateAbandonedAuctions();
     }
 
     // 점유 만료(map 소유)·경매 생성(#3 이벤트 기반 재설계)은 제거함 — tracking §4 참고.
