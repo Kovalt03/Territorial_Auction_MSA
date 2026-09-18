@@ -87,6 +87,10 @@ public class Territory {
     }
 
     public void occupy(Long ownerId, LocalDateTime occupiedUntil, LocalDateTime protectedUntil) {
+        // 멱등: 이미 같은 소유자로 점유 중이면(정산 재시도) 재적용하지 않는다 — occupiedUntil 드리프트 방지.
+        if (this.status == TerritoryStatus.OCCUPIED && ownerId.equals(this.ownerId)) {
+            return;
+        }
         this.ownerId = ownerId;
         this.status = TerritoryStatus.OCCUPIED;
         this.occupiedUntil = occupiedUntil;
