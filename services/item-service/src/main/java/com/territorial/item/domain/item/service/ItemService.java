@@ -84,18 +84,44 @@ public class ItemService {
         String commandKey = "ITEM:" + idempotencyKey;
 
         int totalOwned = 0;
+        WalletClient.WalletSnapshot wallet;
         if (item.getItemType() == ItemType.GP_PURCHASE) {
+            // GP 지급은 combat 원격 커밋이라 로컬 롤백으로 못 되돌린다. 돈(spend)을 먼저 차감하고 지급하며,
+            // 지급 실패 시 환불(credit)로 보상한다 — spend 실패 시엔 지급 자체가 없어 정합(무료 GP 방지).
+            wallet = walletClient.spend(userId, totalCost, commandKey);
             int gpReward = item.getGpReward() != null ? item.getGpReward() : 0;
-            creditVault(userId, gpReward * request.quantity(), commandKey + ":GP");
-        } else {
-            totalOwned = upsertUserItem(userId, item, request.quantity());
+            try {
+                creditVault(userId, gpReward * request.quantity(), commandKey + ":GP");
+            } catch (RuntimeException e) {
+                try {
+                    walletClient.refund(userId, totalCost, commandKey + ":REFUND");
+                } catch (RuntimeException refundEx) {
+                    log.error(
+                            "[ItemService] GP 지급 실패 후 환불도 실패 — 수동 확인 필요."
+                                    + " userId={} cost={} commandKey={}",
+                            userId,
+                            totalCost,
+                            commandKey,
+                            refundEx);
+                }
+                throw e;
+            }
+            saveItemPurchaseLog(userId, item, request.quantity());
+            invalidateItemCache(userId);
+            return new PurchaseItemResponse(
+                    item.getId(),
+                    item.getItemType().name(),
+                    request.quantity(),
+                    totalOwned,
+                    totalCost,
+                    wallet.availableAp());
         }
 
+        // 로컬 지급(일반 아이템) — spend를 마지막에 두어, 실패 시 트랜잭션 롤백으로 지급도 취소(정합)
+        totalOwned = upsertUserItem(userId, item, request.quantity());
         saveItemPurchaseLog(userId, item, request.quantity());
         invalidateItemCache(userId);
-
-        // 로컬 지급 후 마지막에 AP 소비 — 실패 시 트랜잭션 롤백으로 지급도 취소(정합)
-        var wallet = walletClient.spend(userId, totalCost, commandKey);
+        wallet = walletClient.spend(userId, totalCost, commandKey);
 
         return new PurchaseItemResponse(
                 item.getId(),
