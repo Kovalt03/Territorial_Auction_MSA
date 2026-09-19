@@ -40,7 +40,7 @@ server:
 
 # 관리자 자체 인증 토큰 서명키(공개 유저 JWT와 분리 가능 — 기본은 공유 시크릿 폴백).
 admin-jwt:
-  secret: ${ADMIN_JWT_SECRET:${JWT_SECRET:local-admin-jwt-secret-please-override-32b}}
+  secret: ${ADMIN_JWT_SECRET:${JWT_SECRET}}
   access-token-validity-ms: ${ADMIN_ACCESS_TOKEN_TTL:1800000}      # 30분
   refresh-token-validity-ms: ${ADMIN_REFRESH_TOKEN_TTL:1209600000} # 14일
 
@@ -64,4 +64,4 @@ season-service:
 map-service:
   base-url: ${MAP_SERVICE_BASE_URL:http://localhost:8091}
 internal-api:
-  secret: ${INTERNAL_API_SECRET:local-internal-secret}
+  secret: ${INTERNAL_API_SECRET}
