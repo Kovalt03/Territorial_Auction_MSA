@@ -73,6 +73,10 @@ public class ItemService {
                         .findById(request.itemId())
                         .orElseThrow(() -> new CustomException(ErrorCode.ITEM_NOT_FOUND));
 
+        // 한도 있는 아이템은 검사→구매를 유저 단위로 직렬화해 동시 구매의 한도 우회를 막는다.
+        if (item.getDailyLimit() != null) {
+            itemPurchaseRepository.acquireDailyLimitLock(userId);
+        }
         validateDailyLimit(userId, item, request.quantity());
 
         int totalCost = item.getCostAp() * request.quantity();
