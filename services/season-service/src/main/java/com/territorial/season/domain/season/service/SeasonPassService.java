@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -309,8 +310,14 @@ public class SeasonPassService {
         if (seasonPassRewardClaimRepository.existsByUserIdAndReward_Id(userId, rewardId)) {
             throw new CustomException(ErrorCode.REWARD_ALREADY_CLAIMED);
         }
-        seasonPassRewardClaimRepository.save(
-                SeasonPassRewardClaim.builder().userId(userId).reward(reward).build());
+        // 원격 지급 전에 완료 마커를 flush — UNIQUE(user_id, reward_id) 위반이면 지급 없이 실패해
+        // 동시 수령의 이중 지급(grantByType는 멱등키 없음)을 막는다.
+        try {
+            seasonPassRewardClaimRepository.saveAndFlush(
+                    SeasonPassRewardClaim.builder().userId(userId).reward(reward).build());
+        } catch (DataIntegrityViolationException e) {
+            throw new CustomException(ErrorCode.REWARD_ALREADY_CLAIMED);
+        }
 
         grantReward(userId, reward);
         invalidateProgressCache(userId);
