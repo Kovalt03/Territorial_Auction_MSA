@@ -99,8 +99,10 @@ frontend                  ← 게이트웨이로 프록시 (호스트 3000)
 ## 5. 구동·확인 명령
 
 ```bash
-# 전체 기동 (현재 Strangler 단계)
-export INTERNAL_API_SECRET=local-internal-secret
+# 전체 기동 — 보안 시크릿은 리포 루트 .env(gitignore)에 둔다. 약한 예시값 금지.
+#   필수: JWT_SECRET, INTERNAL_API_SECRET (admin은 ADMIN_JWT_SECRET, 없으면 JWT_SECRET 사용)
+#   미설정 시 compose가 기동을 거부한다(fail-fast). 앱 서비스 호스트 포트는 127.0.0.1 전용 —
+#   외부 진입은 게이트웨이(8090)만.
 docker compose -f docker-compose.msa.yml up -d --build
 
 # 경매만 작업 — 필요한 것만

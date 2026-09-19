@@ -41,4 +41,4 @@ combat-service:
 map-service:
   base-url: ${MAP_SERVICE_BASE_URL:http://localhost:8091}
 internal-api:
-  secret: ${INTERNAL_API_SECRET:local-internal-secret}
+  secret: ${INTERNAL_API_SECRET}
