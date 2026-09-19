@@ -247,7 +247,7 @@ services:
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
-      - "8082:8080"
+      - "127.0.0.1:8082:8080"
     depends_on:
       auction-postgres:
         condition: service_healthy
@@ -310,7 +310,7 @@ services:
       MAP_SERVICE_BASE_URL: http://map-service:8080
       USER_SERVICE_BASE_URL: http://user-service:8080
     ports:
-      - "8084:8080"
+      - "127.0.0.1:8084:8080"
     depends_on:
       combat-postgres:
         condition: service_healthy
@@ -480,7 +480,7 @@ services:
       USER_SERVICE_BASE_URL: http://user-service:8080
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
     ports:
-      - "8091:8080"
+      - "127.0.0.1:8091:8080"
     depends_on:
       map-postgres:
         condition: service_healthy
@@ -507,7 +507,7 @@ services:
       REDIS_PORT: 6379
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       # 관리자 토큰 서명키 — 게임 JWT_SECRET과 분리(신원 격리, 설계 결정 B).
-      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:-local-admin-jwt-secret-please-override-32b}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:-${JWT_SECRET:?ADMIN_JWT_SECRET 또는 JWT_SECRET 필수}}
       # 내부망 IP 허용목록 — 로컬은 전체 허용.
       ADMIN_ALLOWED_IPS: ""
       AUCTION_SERVICE_BASE_URL: http://auction-service:8080
@@ -519,7 +519,7 @@ services:
       MAP_SERVICE_BASE_URL: http://map-service:8080
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?INTERNAL_API_SECRET is required}
     ports:
-      - "8092:8080"
+      - "127.0.0.1:8092:8080"
     depends_on:
       admin-postgres:
         condition: service_healthy
@@ -543,7 +543,7 @@ services:
       REDIS_PORT: 6379
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
-      - "8093:8080"
+      - "127.0.0.1:8093:8080"
     depends_on:
       redis:
         condition: service_healthy
