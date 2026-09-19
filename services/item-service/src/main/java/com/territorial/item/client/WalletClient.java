@@ -41,6 +41,21 @@ public class WalletClient {
                 .body(WalletSnapshot.class);
     }
 
+    /** spend 보상(환불). AP를 되돌린다. commandKey로 멱등 — 중복 환불 없음. */
+    public WalletSnapshot refund(Long userId, int amount, String commandKey) {
+        return restClient
+                .post()
+                .uri("/internal/wallets/credit")
+                .body(new SpendRequest(userId, amount, commandKey))
+                .retrieve()
+                .onStatus(
+                        status -> status.value() == 404,
+                        (req, res) -> {
+                            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+                        })
+                .body(WalletSnapshot.class);
+    }
+
     public record WalletSnapshot(int availableAp, int lockedAp) {}
 
     private record SpendRequest(Long userId, int amount, String commandKey) {}
