@@ -121,7 +121,7 @@ class GuildServiceTest {
     void approveApplication_guildFull() {
         Guild g = guild(1L, 10L);
         ReflectionTestUtils.setField(g, "maxMembers", 1);
-        given(guildRepository.findById(1L)).willReturn(Optional.of(g));
+        given(guildRepository.findByIdForUpdate(1L)).willReturn(Optional.of(g));
         GuildMember pending =
                 GuildMember.builder()
                         .guild(g)
