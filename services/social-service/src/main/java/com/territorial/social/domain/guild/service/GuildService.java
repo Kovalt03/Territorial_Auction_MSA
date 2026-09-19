@@ -188,7 +188,11 @@ public class GuildService {
 
     @Transactional
     public void approveApplication(Long masterId, Long guildId, Long targetUserId) {
-        Guild guild = findGuildOrThrow(guildId);
+        // 비관적 락으로 승인을 직렬화 — 동시 승인이 정원(max_members)을 넘기는 경합 방지.
+        Guild guild =
+                guildRepository
+                        .findByIdForUpdate(guildId)
+                        .orElseThrow(() -> new CustomException(ErrorCode.GUILD_NOT_FOUND));
         validateMaster(guild, masterId);
         GuildMember application = findPendingApplicationOrThrow(targetUserId, guildId);
         long activeCount =
